@@ -49,6 +49,12 @@ std::string read_text(const std::filesystem::path& path) {
     return ss.str();
 }
 
+std::vector<unsigned char> read_binary(const std::filesystem::path& path) {
+    std::ifstream in(path, std::ios::binary);
+    assert(in);
+    return {std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
+}
+
 void write_binary(const std::filesystem::path& path, const std::vector<unsigned char>& bytes) {
     std::ofstream out(path, std::ios::binary);
     assert(out);
@@ -107,6 +113,7 @@ int main() {
     const std::filesystem::path analysis_path = output_dir / "analysis.txt";
     const std::filesystem::path audio_rom_path = output_dir / "audio_fixture.sms";
     const std::filesystem::path audio_path = output_dir / "audio_fixture.wav";
+    const std::filesystem::path vgm_path = output_dir / "audio_fixture.vgm";
     const std::filesystem::path object_path = output_dir / "generated_fixture.obj";
 
     const std::vector<unsigned char> rom = {
@@ -220,11 +227,20 @@ int main() {
     write_binary(audio_rom_path, audio_rom);
 
     const std::string audio_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(audio_rom_path)
-        + " --run-smoke --steps 4096 --dump-audio " + quote(audio_path);
+        + " --run-smoke --steps 4096 --dump-audio " + quote(audio_path) + " --dump-vgm " + quote(vgm_path);
     assert(run_command(audio_command) == 0);
     const std::string wav = read_text(audio_path);
     assert(wav.size() > 44);
     assert(wav.substr(0, 4) == "RIFF");
     assert(wav.substr(8, 4) == "WAVE");
     assert(wav.substr(36, 4) == "data");
+
+    const auto vgm = read_binary(vgm_path);
+    assert(vgm.size() > 0x100);
+    assert(vgm[0] == 'V');
+    assert(vgm[1] == 'g');
+    assert(vgm[2] == 'm');
+    assert(vgm[3] == ' ');
+    assert(vgm[0x100] == 0x50);
+    assert(vgm.back() == 0x66);
 }

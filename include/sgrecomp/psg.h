@@ -4,8 +4,14 @@
 #include "sgrecomp/types.h"
 
 #include <array>
+#include <vector>
 
 namespace sgrecomp {
+
+struct PsgWrite {
+    u64 cycle = 0;
+    u8 value = 0;
+};
 
 class Psg {
 public:
@@ -14,6 +20,9 @@ public:
     std::array<float, 2> sample() const;
     void set_enhancements(const EnhancementConfig& config) { enhancements_ = config; }
     const EnhancementConfig& enhancements() const { return enhancements_; }
+    void set_cycle(u64 cycle) { current_cycle_ = cycle; }
+    void set_write_logging_enabled(bool enabled);
+    const std::vector<PsgWrite>& logged_writes() const { return logged_writes_; }
 
 private:
     std::array<u16, 4> tone_{};
@@ -24,6 +33,9 @@ private:
     u8 latched_channel_ = 0;
     bool latched_volume_ = false;
     EnhancementConfig enhancements_{};
+    u64 current_cycle_ = 0;
+    bool write_logging_enabled_ = false;
+    std::vector<PsgWrite> logged_writes_;
 
     int period(u8 channel) const;
     float volume_amplitude(u8 channel) const;

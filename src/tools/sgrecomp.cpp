@@ -30,6 +30,7 @@ struct Options {
     std::filesystem::path bios;
     std::filesystem::path dump_frame;
     std::filesystem::path dump_audio;
+    std::filesystem::path dump_vgm;
     std::filesystem::path dump_vram;
     std::filesystem::path dump_cram;
     std::filesystem::path dump_sram;
@@ -64,7 +65,7 @@ std::vector<u8> normalize_rom_payload(std::vector<u8> rom) {
 void print_usage() {
     std::cout << "usage: sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--model sms|sg3000] [--disasm] [--bios bios.sms]\n"
               << "       sgrecomp <rom.sms|rom.sg> --run-smoke [--steps n] [--trace] [--bios bios.sms]\n"
-              << "                [--dump-frame frame.ppm] [--dump-audio audio.wav]\n"
+              << "                [--dump-frame frame.ppm] [--dump-audio audio.wav] [--dump-vgm audio.vgm]\n"
               << "                [--dump-vram vram.bin] [--dump-cram cram.bin]\n"
               << "                [--load-sram save.sav] [--save-sram save.sav] [--dump-sram sram.bin]\n"
               << "                [--dump-coverage pcs.csv] [--disable-sprite-limit] [--reduce-flicker]\n"
@@ -93,6 +94,10 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--dump-audio" && i + 1 < argc) {
             opts.dump_audio = argv[++i];
+            continue;
+        }
+        if (arg == "--dump-vgm" && i + 1 < argc) {
+            opts.dump_vgm = argv[++i];
             continue;
         }
         if (arg == "--dump-vram" && i + 1 < argc) {
@@ -264,6 +269,75 @@ void write_audio_wav(const std::filesystem::path& path, const std::vector<s16>& 
     out.write("data", 4);
     write_u32_le(out, data_size);
     out.write(reinterpret_cast<const char*>(stereo_samples.data()), static_cast<std::streamsize>(data_size));
+}
+
+void put_u32_le(std::vector<u8>& bytes, std::size_t offset, u32 value) {
+    bytes[offset + 0] = static_cast<u8>(value & 0xFF);
+    bytes[offset + 1] = static_cast<u8>((value >> 8) & 0xFF);
+    bytes[offset + 2] = static_cast<u8>((value >> 16) & 0xFF);
+    bytes[offset + 3] = static_cast<u8>((value >> 24) & 0xFF);
+}
+
+void append_u16_le(std::vector<u8>& bytes, u16 value) {
+    bytes.push_back(static_cast<u8>(value & 0xFF));
+    bytes.push_back(static_cast<u8>((value >> 8) & 0xFF));
+}
+
+void append_vgm_wait(std::vector<u8>& commands, u32 samples) {
+    while (samples > 0) {
+        const u16 chunk = static_cast<u16>(std::min<u32>(samples, 0xFFFF));
+        commands.push_back(0x61);
+        append_u16_le(commands, chunk);
+        samples -= chunk;
+    }
+}
+
+void write_psg_vgm(const std::filesystem::path& path, const std::vector<PsgWrite>& writes, u64 final_cycle) {
+    if (path.has_parent_path()) {
+        std::filesystem::create_directories(path.parent_path());
+    }
+
+    constexpr u32 psg_clock = 3579545;
+    constexpr u32 sample_rate = 44100;
+    std::vector<u8> commands;
+    u64 last_cycle = 0;
+    u64 emitted_samples = 0;
+
+    for (const auto& write : writes) {
+        const u64 target_samples = (write.cycle * sample_rate) / psg_clock;
+        const u32 wait = static_cast<u32>(target_samples > emitted_samples ? target_samples - emitted_samples : 0);
+        append_vgm_wait(commands, wait);
+        emitted_samples += wait;
+        commands.push_back(0x50);
+        commands.push_back(write.value);
+        last_cycle = write.cycle;
+    }
+
+    const u64 end_cycle = std::max(final_cycle, last_cycle);
+    const u64 total_samples = (end_cycle * sample_rate) / psg_clock;
+    if (total_samples > emitted_samples) {
+        append_vgm_wait(commands, static_cast<u32>(std::min<u64>(total_samples - emitted_samples, 0xFFFFFFFFULL)));
+        emitted_samples = total_samples;
+    }
+    commands.push_back(0x66);
+
+    std::vector<u8> file(0x100, 0);
+    file[0] = 'V';
+    file[1] = 'g';
+    file[2] = 'm';
+    file[3] = ' ';
+    put_u32_le(file, 0x08, 0x00000150);
+    put_u32_le(file, 0x0C, psg_clock);
+    put_u32_le(file, 0x18, static_cast<u32>(std::min<u64>(emitted_samples, 0xFFFFFFFFULL)));
+    put_u32_le(file, 0x34, 0x000000CC);
+    file.insert(file.end(), commands.begin(), commands.end());
+    put_u32_le(file, 0x04, static_cast<u32>(file.size() - 4));
+
+    std::ofstream out(path, std::ios::binary);
+    if (!out) {
+        throw std::runtime_error("cannot open VGM output file");
+    }
+    out.write(reinterpret_cast<const char*>(file.data()), static_cast<std::streamsize>(file.size()));
 }
 
 template <typename Container>
@@ -671,6 +745,7 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
     Z80State cpu;
     vdp.set_enhancements(opts.enhancements);
     psg.set_enhancements(opts.enhancements);
+    psg.set_write_logging_enabled(!opts.dump_vgm.empty());
     if (bios != nullptr) {
         bus.load_bios(*bios);
     }
@@ -725,6 +800,11 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
             std::cout << "audio dumped: " << opts.dump_audio.string()
                       << " (" << (audio_samples.size() / 2) << " stereo samples)\n";
         }
+        if (!opts.dump_vgm.empty()) {
+            write_psg_vgm(opts.dump_vgm, psg.logged_writes(), cpu.cycles);
+            std::cout << "vgm dumped: " << opts.dump_vgm.string()
+                      << " (" << psg.logged_writes().size() << " psg writes)\n";
+        }
         if (!opts.dump_vram.empty()) {
             write_binary_dump(opts.dump_vram, vdp.debug_vram());
             std::cout << "vram dumped: " << opts.dump_vram.string() << "\n";
@@ -759,11 +839,13 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
         }
         try {
             const u64 cycles_before = cpu.cycles;
+            psg.set_cycle(cycles_before);
             execute_one(cpu, bus);
             tick_devices(static_cast<int>(cpu.cycles - cycles_before));
             if (vdp.irq_pending()) {
                 const u64 irq_before = cpu.cycles;
                 if (service_maskable_interrupt(cpu, bus)) {
+                    psg.set_cycle(irq_before);
                     tick_devices(static_cast<int>(cpu.cycles - irq_before));
                 }
             }

@@ -13,6 +13,10 @@ constexpr float kVolumeTable[16] = {
 } // namespace
 
 void Psg::write(u8 value) {
+    if (write_logging_enabled_) {
+        logged_writes_.push_back({current_cycle_, value});
+    }
+
     if (value & 0x80) {
         latched_channel_ = static_cast<u8>((value >> 5) & 0x03);
         latched_volume_ = (value & 0x10) != 0;
@@ -25,6 +29,13 @@ void Psg::write(u8 value) {
         volume_[latched_channel_] = static_cast<u8>(value & 0x0F);
     } else {
         tone_[latched_channel_] = static_cast<u16>((tone_[latched_channel_] & 0x00F) | ((value & 0x3F) << 4));
+    }
+}
+
+void Psg::set_write_logging_enabled(bool enabled) {
+    write_logging_enabled_ = enabled;
+    if (!enabled) {
+        logged_writes_.clear();
     }
 }
 
