@@ -110,9 +110,17 @@ void Vdp::render_scanline(int line) {
     const int y = (line + registers_[9]) & 0xFF;
     const int tile_y = (y / 8) & 0x1F;
     const int row = y & 0x07;
+    const bool lock_top_horizontal_scroll = (registers_[0] & 0x40) != 0 && line < 16;
+    const bool blank_left_column = (registers_[0] & 0x20) != 0;
+    const int horizontal_scroll = lock_top_horizontal_scroll ? 0 : registers_[8];
 
     for (int x = 0; x < width; ++x) {
-        const int scrolled_x = (x + registers_[8]) & 0xFF;
+        if (blank_left_column && x < 8) {
+            framebuffer_[line * width + x] = cram_color(16);
+            continue;
+        }
+
+        const int scrolled_x = (x + horizontal_scroll) & 0xFF;
         const int tile_x = scrolled_x / 8;
         const int bit = 7 - (scrolled_x & 0x07);
         const u16 entry_address = static_cast<u16>((name_base + ((tile_y * 32 + tile_x) * 2)) & 0x3FFF);

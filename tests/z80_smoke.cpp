@@ -431,6 +431,42 @@ void test_vdp_mode4_background_pixel() {
     assert(vdp.framebuffer()[1] == 0xFF000000);
 }
 
+void test_vdp_scroll_lock_and_left_blank() {
+    Vdp vdp;
+    vdp.write_control(0x60);
+    vdp.write_control(0x80); // register 0: blank left column, lock top hscroll
+    vdp.write_control(0x40);
+    vdp.write_control(0x81); // register 1: display enabled
+    vdp.write_control(0x0E);
+    vdp.write_control(0x82); // register 2: name table at $3800
+    vdp.write_control(0x04);
+    vdp.write_control(0x88); // register 8: horizontal scroll
+
+    vdp.write_control(0x00);
+    vdp.write_control(0xC0); // backdrop color black
+    vdp.write_data(0x00);
+    vdp.write_control(0x01);
+    vdp.write_control(0xC0); // palette color 1 red
+    vdp.write_data(0x03);
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x40); // tile 0: red first pixel
+    vdp.write_data(0x80);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x78); // name table $3800
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+
+    vdp.tick(228);
+
+    assert(vdp.framebuffer()[0] == 0xFF000000);
+    assert(vdp.framebuffer()[8] == 0xFFFF0000);
+}
+
 void test_vdp_basic_sprite_pixel() {
     Vdp vdp;
     vdp.write_control(0x40);
@@ -955,6 +991,7 @@ int main() {
     test_pause_triggers_nmi();
     test_two_player_joypad_ports();
     test_vdp_mode4_background_pixel();
+    test_vdp_scroll_lock_and_left_blank();
     test_vdp_basic_sprite_pixel();
     test_vdp_sprite_collision_and_overflow_flags();
     test_psg_tone_generates_sample();

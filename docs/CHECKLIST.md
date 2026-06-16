@@ -74,7 +74,8 @@ Use esta lista como guia de implementacao. Marque cada item somente depois de te
 
 - [x] VRAM, CRAM, registradores e portas iniciais.
 - [ ] TMS9918/SG-3000 modes.
-- [ ] SMS Mode 4 tile renderer.
+- [ ] SMS Mode 4 tile renderer completo.
+- [x] Mode 4: hscroll basico, lock das linhas superiores e coluna esquerda em branco.
 - [x] Sprites 8x8 iniciais com transparencia.
 - [x] Sprites: colisao e overflow iniciais.
 - [ ] Sprites: prioridade e limite por scanline exato.
