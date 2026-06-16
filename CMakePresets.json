@@ -1,0 +1,98 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 20,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "debug",
+      "displayName": "Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "SGRECOMP_BUILD_TOOLS": "ON",
+        "SGRECOMP_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "SGRECOMP_BUILD_TOOLS": "ON",
+        "SGRECOMP_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "msvc-debug",
+      "displayName": "MSVC Debug",
+      "generator": "Visual Studio 17 2022",
+      "binaryDir": "${sourceDir}/build/msvc-debug",
+      "architecture": "x64",
+      "cacheVariables": {
+        "SGRECOMP_BUILD_TOOLS": "ON",
+        "SGRECOMP_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "zig-debug",
+      "displayName": "Zig Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/zig-debug",
+      "toolchainFile": "${sourceDir}/cmake/zig-cxx-toolchain.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "SGRECOMP_BUILD_TOOLS": "ON",
+        "SGRECOMP_BUILD_TESTS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "debug"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release"
+    },
+    {
+      "name": "msvc-debug",
+      "configurePreset": "msvc-debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "zig-debug",
+      "configurePreset": "zig-debug"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "msvc-debug",
+      "configurePreset": "msvc-debug",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "zig-debug",
+      "configurePreset": "zig-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

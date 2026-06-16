@@ -1,0 +1,13 @@
+[target]
+name = "Example SMS ROM"
+model = "sms"
+entry = "0x0000"
+
+[recompiler]
+fallback = true
+emit_disassembly_comments = true
+max_static_bytes = "0xC000"
+
+[runtime]
+region = "ntsc"
+audio_sample_rate = 48000

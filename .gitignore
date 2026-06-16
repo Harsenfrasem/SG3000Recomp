@@ -1,0 +1,17 @@
+build/
+out/
+.vs/
+.vscode/
+*.user
+*.suo
+*.obj
+*.pdb
+*.ilk
+*.exe
+*.dll
+*.lib
+*.a
+*.o
+generated_*.cpp
+recompiled_rom.cpp
+local-roms/
