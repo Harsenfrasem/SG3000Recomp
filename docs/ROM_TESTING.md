@@ -22,10 +22,11 @@ $env:PATH="$env:APPDATA\Python\Python314\Scripts;$env:PATH"
 
 `--bios` is intended for local smoke testing and disassembly only. Generated C++ still embeds only the ROM image, never the BIOS file.
 ROM files with a generic 512-byte copier header are normalized before loading.
+The smoke runner also reports visited PCs, lit framebuffer pixels, and the current PSG sample.
 
 Current result from private local smoke testing:
 
 - Multiple SMS ROMs can load and execute hundreds of thousands of Z80 steps.
 - A private BIOS plus ROM smoke test reaches the configured step limit without hitting an unsupported opcode.
-- They still do not render playable output. The next blockers are hardware behavior: VDP timing/rendering, interrupt accuracy, mapper details, input, and audio.
+- They still do not render playable output. The next blockers are richer VDP rendering, exact timing, mapper edge cases, host input, and audio backend plumbing.
 - Recent private tests helped prioritize V counter reads, mapper RAM preservation, RAM mirroring, cartridge SRAM, local BIOS overlay, IX/IY handling, indexed CB operations, `IXH/IXL/IYH/IYL`, `daa`, delayed `ei`, NMI service, and additional ED instructions.

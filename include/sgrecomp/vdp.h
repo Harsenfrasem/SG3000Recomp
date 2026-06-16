@@ -22,6 +22,9 @@ public:
     int scanline() const { return scanline_; }
 
     const std::array<u32, width * height>& framebuffer() const { return framebuffer_; }
+    const std::array<u8, 16 * 1024>& debug_vram() const { return vram_; }
+    const std::array<u8, 32>& debug_cram() const { return cram_; }
+    const std::array<u8, 16>& debug_registers() const { return registers_; }
 
 private:
     std::array<u8, 16 * 1024> vram_{};
@@ -39,6 +42,9 @@ private:
     bool first_line_ = true;
 
     void advance_scanline();
+    void render_scanline(int line);
+    void render_sprites(int line);
+    u32 cram_color(u8 index) const;
 };
 
 } // namespace sgrecomp

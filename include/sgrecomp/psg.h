@@ -14,9 +14,15 @@ public:
 
 private:
     std::array<u16, 4> tone_{};
-    std::array<u8, 4> volume_{};
+    std::array<u8, 4> volume_{{0x0F, 0x0F, 0x0F, 0x0F}};
+    std::array<int, 4> counters_{};
+    std::array<bool, 4> output_{{true, true, true, true}};
+    u16 noise_lfsr_ = 0x4000;
     u8 latched_channel_ = 0;
     bool latched_volume_ = false;
+
+    int period(u8 channel) const;
+    float volume_amplitude(u8 channel) const;
 };
 
 } // namespace sgrecomp

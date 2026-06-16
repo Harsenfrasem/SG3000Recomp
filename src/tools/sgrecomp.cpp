@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <bitset>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -143,8 +144,21 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
     bus.load_rom(rom);
 
     const auto& image = bus.debug_memory();
+    std::bitset<0x10000> visited_pc;
+    const auto print_runtime_summary = [&]() {
+        const auto& framebuffer = vdp.framebuffer();
+        const auto lit_pixels = std::count_if(framebuffer.begin(), framebuffer.end(), [](u32 pixel) {
+            return (pixel & 0x00FFFFFF) != 0;
+        });
+        const auto audio = psg.sample();
+        std::cout << "visited pcs: " << visited_pc.count()
+                  << "\nframebuffer lit pixels: " << lit_pixels
+                  << "\npsg sample: " << std::fixed << std::setprecision(4)
+                  << audio[0] << "," << audio[1] << "\n";
+    };
     for (std::size_t step = 0; step < max_steps; ++step) {
         const u16 pc_before = cpu.pc;
+        visited_pc.set(pc_before);
         const auto insn = decode_z80(image, pc_before);
         if (trace) {
             std::cout << std::dec << std::setw(8) << step << "  ";
@@ -176,6 +190,7 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
             std::cout << "halted after " << (step + 1) << " steps\n";
             dump_z80_state(std::cout, cpu);
             std::cout << "\n";
+            print_runtime_summary();
             return;
         }
     }
@@ -183,6 +198,7 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
     std::cout << "step limit reached: " << max_steps << "\n";
     dump_z80_state(std::cout, cpu);
     std::cout << "\n";
+    print_runtime_summary();
 }
 
 void emit_case(std::ostream& out, const std::array<u8, 0x10000>& image, u16 pc) {

@@ -400,6 +400,85 @@ void test_two_player_joypad_ports() {
     assert((port_b & 0x01) != 0);
 }
 
+void test_vdp_mode4_background_pixel() {
+    Vdp vdp;
+    vdp.write_control(0x00);
+    vdp.write_control(0x80); // register 0
+    vdp.write_control(0x40);
+    vdp.write_control(0x81); // register 1: display enabled
+    vdp.write_control(0x0E);
+    vdp.write_control(0x82); // register 2: name table at $3800
+
+    vdp.write_control(0x01);
+    vdp.write_control(0xC0); // CRAM write at 1
+    vdp.write_data(0x03);    // red
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x40); // VRAM pattern 0
+    vdp.write_data(0x80);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x78); // VRAM name table $3800
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+
+    vdp.tick(228);
+
+    assert(vdp.framebuffer()[0] == 0xFFFF0000);
+    assert(vdp.framebuffer()[1] == 0xFF000000);
+}
+
+void test_vdp_basic_sprite_pixel() {
+    Vdp vdp;
+    vdp.write_control(0x40);
+    vdp.write_control(0x81); // register 1: display enabled
+    vdp.write_control(0x7E);
+    vdp.write_control(0x85); // register 5: sprite table at $3f00
+
+    vdp.write_control(0x11);
+    vdp.write_control(0xC0); // CRAM write at 17
+    vdp.write_data(0x0C);    // green
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x40); // VRAM pattern 0
+    vdp.write_data(0x80);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x7F); // VRAM sprite table $3f00
+    vdp.write_data(0xFF);    // top line after wrap
+    vdp.write_data(0xD0);    // terminator
+
+    vdp.write_control(0x80);
+    vdp.write_control(0x7F); // VRAM sprite attributes $3f80
+    vdp.write_data(0x04);    // x
+    vdp.write_data(0x00);    // tile
+
+    vdp.tick(228);
+
+    assert(vdp.framebuffer()[4] == 0xFF00FF00);
+    assert(vdp.framebuffer()[5] == 0xFF000000);
+}
+
+void test_psg_tone_generates_sample() {
+    Psg psg;
+    psg.write(0x80 | 0x01); // tone channel 0 low bits
+    psg.write(0x00);        // tone channel 0 high bits
+    psg.write(0x90 | 0x00); // channel 0 volume max
+
+    const auto before = psg.sample();
+    psg.tick(32);
+    const auto after = psg.sample();
+
+    assert(before[0] != after[0]);
+    assert(after[0] == after[1]);
+}
+
 void test_misc_jumps_and_flags() {
     std::vector<u8> rom(0x40, 0x00);
     rom[0x00] = 0x3E; // ld a,$55
@@ -816,6 +895,9 @@ int main() {
     test_vdp_line_interrupt_im1();
     test_pause_triggers_nmi();
     test_two_player_joypad_ports();
+    test_vdp_mode4_background_pixel();
+    test_vdp_basic_sprite_pixel();
+    test_psg_tone_generates_sample();
     test_misc_jumps_and_flags();
     test_v_counter_port();
     test_index_register_basics();

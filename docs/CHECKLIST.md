@@ -72,8 +72,9 @@ Use esta lista como guia de implementacao. Marque cada item somente depois de te
 - [x] VRAM, CRAM, registradores e portas iniciais.
 - [ ] TMS9918/SG-3000 modes.
 - [ ] SMS Mode 4 tile renderer.
-- [ ] Sprites, prioridade e limite por scanline.
-- [ ] Paleta CRAM real e framebuffer.
+- [x] Sprites 8x8 iniciais com transparencia.
+- [ ] Sprites: prioridade, colisao, overflow e limite por scanline.
+- [x] Paleta CRAM inicial e framebuffer com background Mode 4 basico.
 - [x] VBlank, line interrupts e status flags iniciais.
 - [ ] Timing NTSC/PAL configuravel.
 - [x] Pause/NMI do SMS conectado ao runtime.
@@ -81,9 +82,9 @@ Use esta lista como guia de implementacao. Marque cada item somente depois de te
 ## PSG / Audio
 
 - [x] Parser inicial do latch SN76489.
-- [ ] Gerar ondas dos 3 canais de tom.
-- [ ] Canal de ruido.
-- [ ] Tabela de volume/log attenuation.
+- [x] Gerar ondas dos 3 canais de tom.
+- [x] Canal de ruido inicial.
+- [x] Tabela de volume/log attenuation inicial.
 - [ ] Mixer estereo e sample rate configuravel.
 - [ ] Buffer de audio para host backend.
 
