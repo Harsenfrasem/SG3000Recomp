@@ -107,10 +107,8 @@ void Vdp::render_scanline(int line) {
 
     const u16 name_base = static_cast<u16>((registers_[2] & 0x0E) << 10);
     const u16 pattern_base = static_cast<u16>((registers_[4] & 0x04) << 11);
-    const int y = (line + registers_[9]) & 0xFF;
-    const int tile_y = (y / 8) & 0x1F;
-    const int row = y & 0x07;
     const bool lock_top_horizontal_scroll = (registers_[0] & 0x40) != 0 && line < 16;
+    const bool lock_right_vertical_scroll = (registers_[0] & 0x80) != 0;
     const bool blank_left_column = (registers_[0] & 0x20) != 0;
     const int horizontal_scroll = lock_top_horizontal_scroll ? 0 : registers_[8];
 
@@ -122,6 +120,10 @@ void Vdp::render_scanline(int line) {
 
         const int scrolled_x = (x + horizontal_scroll) & 0xFF;
         const int tile_x = scrolled_x / 8;
+        const int vertical_scroll = (lock_right_vertical_scroll && tile_x >= 24) ? 0 : registers_[9];
+        const int y = (line + vertical_scroll) & 0xFF;
+        const int tile_y = (y / 8) & 0x1F;
+        const int row = y & 0x07;
         const int bit = 7 - (scrolled_x & 0x07);
         const u16 entry_address = static_cast<u16>((name_base + ((tile_y * 32 + tile_x) * 2)) & 0x3FFF);
         const u16 entry = make_u16(vram_[entry_address], vram_[(entry_address + 1) & 0x3FFF]);
@@ -147,7 +149,10 @@ void Vdp::render_scanline(int line) {
 void Vdp::render_sprites(int line) {
     const u16 sprite_base = static_cast<u16>((registers_[5] & 0x7E) << 7);
     const bool tall_sprites = (registers_[1] & 0x02) != 0;
-    const int sprite_height = tall_sprites ? 16 : 8;
+    const bool zoomed_sprites = (registers_[1] & 0x01) != 0;
+    const bool shift_sprites_left = (registers_[0] & 0x08) != 0;
+    const int base_sprite_height = tall_sprites ? 16 : 8;
+    const int sprite_height = zoomed_sprites ? base_sprite_height * 2 : base_sprite_height;
     std::array<bool, width> sprite_pixels{};
     int visible_sprites = 0;
 
@@ -167,19 +172,15 @@ void Vdp::render_sprites(int line) {
         }
 
         const u16 attribute = static_cast<u16>((sprite_base + 0x80 + sprite * 2) & 0x3FFF);
-        const int sprite_x = vram_[attribute];
+        const int sprite_x = static_cast<int>(vram_[attribute]) - (shift_sprites_left ? 8 : 0);
         u8 tile = vram_[(attribute + 1) & 0x3FFF];
         if (tall_sprites) {
             tile = static_cast<u8>(tile & 0xFE);
         }
 
-        const int row = line - sprite_y;
+        const int row = (line - sprite_y) / (zoomed_sprites ? 2 : 1);
         const u16 pattern = static_cast<u16>((tile * 32 + row * 4) & 0x3FFF);
         for (int px = 0; px < 8; ++px) {
-            const int x = sprite_x + px;
-            if (x < 0 || x >= width) {
-                continue;
-            }
             const int bit = 7 - px;
             const u8 color = static_cast<u8>(
                 (((vram_[pattern] >> bit) & 0x01) << 0) |
@@ -189,11 +190,18 @@ void Vdp::render_sprites(int line) {
             if (color == 0) {
                 continue;
             }
-            if (sprite_pixels[static_cast<std::size_t>(x)]) {
-                status_ |= 0x20;
+            const int pixel_width = zoomed_sprites ? 2 : 1;
+            for (int zx = 0; zx < pixel_width; ++zx) {
+                const int x = sprite_x + px * pixel_width + zx;
+                if (x < 0 || x >= width) {
+                    continue;
+                }
+                if (sprite_pixels[static_cast<std::size_t>(x)]) {
+                    status_ |= 0x20;
+                }
+                sprite_pixels[static_cast<std::size_t>(x)] = true;
+                framebuffer_[line * width + x] = cram_color(static_cast<u8>(16 + color));
             }
-            sprite_pixels[static_cast<std::size_t>(x)] = true;
-            framebuffer_[line * width + x] = cram_color(static_cast<u8>(16 + color));
         }
     }
 }
