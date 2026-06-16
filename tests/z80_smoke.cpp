@@ -623,6 +623,60 @@ void test_vdp_sprite_collision_and_overflow_flags() {
     assert((status & 0x40) != 0);
 }
 
+void setup_nine_visible_sprites(Vdp& vdp) {
+    vdp.write_control(0x40);
+    vdp.write_control(0x81); // register 1: display enabled
+    vdp.write_control(0x7E);
+    vdp.write_control(0x85); // register 5: sprite table at $3f00
+
+    vdp.write_control(0x11);
+    vdp.write_control(0xC0);
+    vdp.write_data(0x0C); // green
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x40); // tile 0, first pixel set
+    vdp.write_data(0x80);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x7F); // sprite y table
+    for (int i = 0; i < 9; ++i) {
+        vdp.write_data(0xFF);
+    }
+    vdp.write_data(0xD0);
+
+    vdp.write_control(0x80);
+    vdp.write_control(0x7F); // sprite attributes
+    for (int i = 0; i < 8; ++i) {
+        vdp.write_data(0x00);
+        vdp.write_data(0x00);
+    }
+    vdp.write_data(0x10);
+    vdp.write_data(0x00);
+}
+
+void test_vdp_sprite_limit_enhancement() {
+    Vdp accurate;
+    setup_nine_visible_sprites(accurate);
+    accurate.tick(228);
+    assert(accurate.framebuffer()[0] == 0xFF00FF00);
+    assert(accurate.framebuffer()[0x10] == 0xFF000000);
+    assert((accurate.read_status() & 0x40) != 0);
+
+    Vdp enhanced;
+    EnhancementConfig config;
+    config.mode = RuntimeMode::Enhanced;
+    config.disable_sprite_limit = true;
+    enhanced.set_enhancements(config);
+    setup_nine_visible_sprites(enhanced);
+    enhanced.tick(228);
+    assert(enhanced.framebuffer()[0] == 0xFF00FF00);
+    assert(enhanced.framebuffer()[0x10] == 0xFF00FF00);
+    assert((enhanced.read_status() & 0x40) != 0);
+}
+
 void test_psg_tone_generates_sample() {
     Psg psg;
     psg.write(0x80 | 0x01); // tone channel 0 low bits
@@ -1079,6 +1133,7 @@ int main() {
     test_vdp_basic_sprite_pixel();
     test_vdp_sprite_shift_and_zoom();
     test_vdp_sprite_collision_and_overflow_flags();
+    test_vdp_sprite_limit_enhancement();
     test_psg_tone_generates_sample();
     test_misc_jumps_and_flags();
     test_v_counter_port();

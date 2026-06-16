@@ -1,5 +1,6 @@
 #pragma once
 
+#include "sgrecomp/enhancements.h"
 #include "sgrecomp/types.h"
 
 #include <array>
@@ -20,6 +21,8 @@ public:
     void tick(int cpu_cycles);
     bool irq_pending() const;
     int scanline() const { return scanline_; }
+    void set_enhancements(const EnhancementConfig& config) { enhancements_ = config; }
+    const EnhancementConfig& enhancements() const { return enhancements_; }
 
     const std::array<u32, width * height>& framebuffer() const { return framebuffer_; }
     const std::array<u8, 16 * 1024>& debug_vram() const { return vram_; }
@@ -40,6 +43,7 @@ private:
     int scanline_ = 0;
     int line_counter_ = 0;
     bool first_line_ = true;
+    EnhancementConfig enhancements_{};
 
     void advance_scanline();
     void render_scanline(int line);

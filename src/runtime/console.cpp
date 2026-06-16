@@ -5,6 +5,11 @@ namespace sgrecomp {
 Console::Console(ConsoleModel model)
     : bus_(model, vdp_, psg_, joypad_), model_(model) {}
 
+Console::Console(ConsoleModel model, const EnhancementConfig& enhancements)
+    : bus_(model, vdp_, psg_, joypad_), model_(model), enhancements_(enhancements) {
+    vdp_.set_enhancements(enhancements_);
+}
+
 void Console::load_rom(std::span<const u8> rom) {
     bus_.load_rom(rom);
 }
@@ -15,6 +20,11 @@ void Console::load_bios(std::span<const u8> bios) {
 
 void Console::reset() {
     cpu_ = {};
+}
+
+void Console::set_enhancements(const EnhancementConfig& enhancements) {
+    enhancements_ = enhancements;
+    vdp_.set_enhancements(enhancements_);
 }
 
 void Console::press_pause() {

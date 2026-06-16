@@ -56,9 +56,12 @@ Runtime smoke execution is useful before full video/audio support exists:
 ```powershell
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --steps 50000
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --steps 200 --trace
+.\build\zig-debug\sgrecomp.exe game.sms --run-smoke --disable-sprite-limit
 ```
 
 If execution reaches an unsupported opcode, the tool prints the instruction, PC, registers, interrupt state, and cycle count.
+
+Enhancements are off by default. Smoke summaries print the active mode and enhancement flags so compatibility tests can confirm whether they are running in accurate or enhanced mode.
 
 Generated code exposes:
 

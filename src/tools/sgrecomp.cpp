@@ -38,6 +38,7 @@ struct Options {
     std::filesystem::path save_sram;
     std::filesystem::path output = "recompiled_rom.cpp";
     ConsoleModel model = ConsoleModel::SMS;
+    EnhancementConfig enhancements;
     bool disassemble_only = false;
     bool run_smoke = false;
     bool trace = false;
@@ -64,7 +65,7 @@ void print_usage() {
               << "       sgrecomp <rom.sms|rom.sg> --run-smoke [--steps n] [--trace] [--bios bios.sms]\n"
               << "                [--dump-frame frame.ppm] [--dump-vram vram.bin] [--dump-cram cram.bin]\n"
               << "                [--load-sram save.sav] [--save-sram save.sav] [--dump-sram sram.bin]\n"
-              << "                [--dump-coverage pcs.csv]\n"
+              << "                [--dump-coverage pcs.csv] [--disable-sprite-limit] [--reduce-flicker]\n"
               << "       sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--dump-analysis analysis.txt]\n";
 }
 
@@ -137,6 +138,16 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--trace") {
             opts.trace = true;
+            continue;
+        }
+        if (arg == "--disable-sprite-limit") {
+            opts.enhancements.mode = RuntimeMode::Enhanced;
+            opts.enhancements.disable_sprite_limit = true;
+            continue;
+        }
+        if (arg == "--reduce-flicker") {
+            opts.enhancements.mode = RuntimeMode::Enhanced;
+            opts.enhancements.reduce_flicker = true;
             continue;
         }
         if (arg == "--steps" && i + 1 < argc) {
@@ -602,6 +613,7 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
     Joypad joypad;
     Bus bus(model, vdp, psg, joypad);
     Z80State cpu;
+    vdp.set_enhancements(opts.enhancements);
     if (bios != nullptr) {
         bus.load_bios(*bios);
     }
@@ -622,7 +634,12 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
         std::cout << "visited pcs: " << visited_pc.count()
                   << "\nframebuffer lit pixels: " << lit_pixels
                   << "\npsg sample: " << std::fixed << std::setprecision(4)
-                  << audio[0] << "," << audio[1] << "\n";
+                  << audio[0] << "," << audio[1]
+                  << "\nenhancements: mode="
+                  << (opts.enhancements.mode == RuntimeMode::Enhanced ? "enhanced"
+                      : opts.enhancements.mode == RuntimeMode::Hybrid ? "hybrid" : "accurate")
+                  << ", disable_sprite_limit=" << (opts.enhancements.disable_sprite_limit ? "on" : "off")
+                  << ", reduce_flicker=" << (opts.enhancements.reduce_flicker ? "on" : "off") << "\n";
         if (!opts.dump_frame.empty()) {
             write_frame_ppm(opts.dump_frame, framebuffer);
             std::cout << "frame dumped: " << opts.dump_frame.string() << "\n";

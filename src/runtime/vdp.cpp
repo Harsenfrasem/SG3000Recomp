@@ -153,6 +153,8 @@ void Vdp::render_sprites(int line) {
     const bool shift_sprites_left = (registers_[0] & 0x08) != 0;
     const int base_sprite_height = tall_sprites ? 16 : 8;
     const int sprite_height = zoomed_sprites ? base_sprite_height * 2 : base_sprite_height;
+    const bool expanded_sprite_limit = enhancements_.disable_sprite_limit || enhancements_.reduce_flicker;
+    const int sprite_render_limit = expanded_sprite_limit ? 64 : 8;
     std::array<bool, width> sprite_pixels{};
     int visible_sprites = 0;
 
@@ -169,6 +171,9 @@ void Vdp::render_sprites(int line) {
         ++visible_sprites;
         if (visible_sprites > 8) {
             status_ |= 0x40;
+            if (visible_sprites > sprite_render_limit) {
+                continue;
+            }
         }
 
         const u16 attribute = static_cast<u16>((sprite_base + 0x80 + sprite * 2) & 0x3FFF);
