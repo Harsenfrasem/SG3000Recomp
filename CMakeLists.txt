@@ -90,6 +90,37 @@ if(SGRECOMP_BUILD_TESTS)
     endif()
 
     add_test(NAME z80_smoke COMMAND sgrecomp_tests)
+
+    if(TARGET sgrecomp)
+        add_executable(recompiler_tool_smoke
+            tests/recompiler_tool_smoke.cpp
+        )
+
+        target_compile_definitions(recompiler_tool_smoke PRIVATE
+            SGRECOMP_TOOL_PATH="$<TARGET_FILE:sgrecomp>"
+            SGRECOMP_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/recompiler_tool_smoke"
+            SGRECOMP_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+            SGRECOMP_CXX_COMPILER="${CMAKE_CXX_COMPILER}"
+            SGRECOMP_CXX_COMPILER_ARG1="${CMAKE_CXX_COMPILER_ARG1}"
+            SGRECOMP_CXX_COMPILER_ID="${CMAKE_CXX_COMPILER_ID}"
+        )
+
+        if(MSVC)
+            target_compile_options(recompiler_tool_smoke PRIVATE /W4 /permissive-)
+        else()
+            target_compile_options(recompiler_tool_smoke PRIVATE -Wall -Wextra -Wpedantic)
+        endif()
+
+        if(SGRECOMP_WARNINGS_AS_ERRORS)
+            if(MSVC)
+                target_compile_options(recompiler_tool_smoke PRIVATE /WX)
+            else()
+                target_compile_options(recompiler_tool_smoke PRIVATE -Werror)
+            endif()
+        endif()
+
+        add_test(NAME recompiler_tool_smoke COMMAND recompiler_tool_smoke)
+    endif()
 endif()
 
 install(TARGETS sgrecomp_runtime

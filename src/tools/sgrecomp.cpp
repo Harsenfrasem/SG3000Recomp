@@ -329,12 +329,77 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
     print_runtime_summary();
 }
 
+const char* reg_lvalue(u8 index) {
+    static constexpr const char* names[] = {"cpu.b", "cpu.c", "cpu.d", "cpu.e", "cpu.h", "cpu.l", "", "cpu.a"};
+    return names[index & 0x07];
+}
+
+void emit_ld_reg_from_value(std::ostream& out, u8 reg, const std::string& value) {
+    if (reg == 6) {
+        out << "bus.write(cpu.hl(), " << value << "); ";
+    } else {
+        out << reg_lvalue(reg) << " = " << value << "; ";
+    }
+}
+
+std::string read_reg_expr(u8 reg) {
+    if (reg == 6) {
+        return "bus.read(cpu.hl())";
+    }
+    return reg_lvalue(reg);
+}
+
+const char* qq_read_expr(u8 index) {
+    static constexpr const char* names[] = {"cpu.bc()", "cpu.de()", "cpu.hl()", "cpu.af()"};
+    return names[index & 0x03];
+}
+
+const char* qq_write_call(u8 index) {
+    static constexpr const char* names[] = {"cpu.set_bc", "cpu.set_de", "cpu.set_hl", "cpu.set_af"};
+    return names[index & 0x03];
+}
+
+const char* condition_expr(u8 index) {
+    static constexpr const char* names[] = {
+        "(cpu.f & 0x40) == 0",
+        "(cpu.f & 0x40) != 0",
+        "(cpu.f & 0x01) == 0",
+        "(cpu.f & 0x01) != 0",
+        "(cpu.f & 0x04) == 0",
+        "(cpu.f & 0x04) != 0",
+        "(cpu.f & 0x80) == 0",
+        "(cpu.f & 0x80) != 0",
+    };
+    return names[index & 0x07];
+}
+
+void emit_push16(std::ostream& out, const std::string& value) {
+    out << "cpu.sp = static_cast<sgrecomp::u16>(cpu.sp - 1); "
+        << "bus.write(cpu.sp, static_cast<sgrecomp::u8>((" << value << " >> 8) & 0xff)); "
+        << "cpu.sp = static_cast<sgrecomp::u16>(cpu.sp - 1); "
+        << "bus.write(cpu.sp, static_cast<sgrecomp::u8>(" << value << " & 0xff)); ";
+}
+
+void emit_pop16_to(std::ostream& out, const std::string& target_call) {
+    out << "{ const auto lo = bus.read(cpu.sp); cpu.sp = static_cast<sgrecomp::u16>(cpu.sp + 1); "
+        << "const auto hi = bus.read(cpu.sp); cpu.sp = static_cast<sgrecomp::u16>(cpu.sp + 1); "
+        << target_call << "(sgrecomp::make_u16(lo, hi)); ";
+}
+
 void emit_case(std::ostream& out, const std::array<u8, 0x10000>& image, u16 pc) {
     const u8 opcode = image[pc];
     out << "    case 0x" << std::hex << std::setw(4) << std::setfill('0') << pc << ": ";
     switch (opcode) {
     case 0x00:
         out << "cpu.pc = 0x" << std::setw(4) << (pc + 1) << "; cpu.cycles += 4; return;\n";
+        break;
+    case 0x01:
+        out << "cpu.set_bc(0x" << std::setw(4) << make_u16(image[pc + 1], image[pc + 2])
+            << "); cpu.pc = 0x" << std::setw(4) << (pc + 3) << "; cpu.cycles += 10; return;\n";
+        break;
+    case 0x02:
+        out << "bus.write(cpu.bc(), cpu.a); cpu.pc = 0x" << std::setw(4) << (pc + 1)
+            << "; cpu.cycles += 7; return;\n";
         break;
     case 0x3E:
         out << "cpu.a = 0x" << std::setw(2) << static_cast<int>(image[pc + 1])
@@ -344,8 +409,24 @@ void emit_case(std::ostream& out, const std::array<u8, 0x10000>& image, u16 pc) 
         out << "cpu.b = 0x" << std::setw(2) << static_cast<int>(image[pc + 1])
             << "; cpu.pc = 0x" << std::setw(4) << (pc + 2) << "; cpu.cycles += 7; return;\n";
         break;
+    case 0x0A:
+        out << "cpu.a = bus.read(cpu.bc()); cpu.pc = 0x" << std::setw(4) << (pc + 1)
+            << "; cpu.cycles += 7; return;\n";
+        break;
     case 0x0E:
         out << "cpu.c = 0x" << std::setw(2) << static_cast<int>(image[pc + 1])
+            << "; cpu.pc = 0x" << std::setw(4) << (pc + 2) << "; cpu.cycles += 7; return;\n";
+        break;
+    case 0x11:
+        out << "cpu.set_de(0x" << std::setw(4) << make_u16(image[pc + 1], image[pc + 2])
+            << "); cpu.pc = 0x" << std::setw(4) << (pc + 3) << "; cpu.cycles += 10; return;\n";
+        break;
+    case 0x12:
+        out << "bus.write(cpu.de(), cpu.a); cpu.pc = 0x" << std::setw(4) << (pc + 1)
+            << "; cpu.cycles += 7; return;\n";
+        break;
+    case 0x16:
+        out << "cpu.d = 0x" << std::setw(2) << static_cast<int>(image[pc + 1])
             << "; cpu.pc = 0x" << std::setw(4) << (pc + 2) << "; cpu.cycles += 7; return;\n";
         break;
     case 0x18: {
@@ -354,17 +435,142 @@ void emit_case(std::ostream& out, const std::array<u8, 0x10000>& image, u16 pc) 
         out << "cpu.pc = 0x" << std::setw(4) << target << "; cpu.cycles += 12; return;\n";
         break;
     }
+    case 0x20:
+    case 0x28:
+    case 0x30:
+    case 0x38: {
+        const auto displacement = static_cast<s8>(image[pc + 1]);
+        const u16 target = static_cast<u16>(pc + 2 + displacement);
+        const u8 condition = static_cast<u8>((opcode >> 3) & 0x03);
+        out << "if (" << condition_expr(condition) << ") { cpu.pc = 0x" << std::setw(4) << target
+            << "; cpu.cycles += 12; } else { cpu.pc = 0x" << std::setw(4) << (pc + 2)
+            << "; cpu.cycles += 7; } return;\n";
+        break;
+    }
+    case 0x1A:
+        out << "cpu.a = bus.read(cpu.de()); cpu.pc = 0x" << std::setw(4) << (pc + 1)
+            << "; cpu.cycles += 7; return;\n";
+        break;
+    case 0x1E:
+        out << "cpu.e = 0x" << std::setw(2) << static_cast<int>(image[pc + 1])
+            << "; cpu.pc = 0x" << std::setw(4) << (pc + 2) << "; cpu.cycles += 7; return;\n";
+        break;
+    case 0x21:
+        out << "cpu.set_hl(0x" << std::setw(4) << make_u16(image[pc + 1], image[pc + 2])
+            << "); cpu.pc = 0x" << std::setw(4) << (pc + 3) << "; cpu.cycles += 10; return;\n";
+        break;
+    case 0x22: {
+        const u16 address = make_u16(image[pc + 1], image[pc + 2]);
+        out << "bus.write(0x" << std::setw(4) << address << ", cpu.l); bus.write(0x"
+            << std::setw(4) << static_cast<u16>(address + 1)
+            << ", cpu.h); cpu.pc = 0x" << std::setw(4) << (pc + 3) << "; cpu.cycles += 16; return;\n";
+        break;
+    }
+    case 0x26:
+        out << "cpu.h = 0x" << std::setw(2) << static_cast<int>(image[pc + 1])
+            << "; cpu.pc = 0x" << std::setw(4) << (pc + 2) << "; cpu.cycles += 7; return;\n";
+        break;
+    case 0x2E:
+        out << "cpu.l = 0x" << std::setw(2) << static_cast<int>(image[pc + 1])
+            << "; cpu.pc = 0x" << std::setw(4) << (pc + 2) << "; cpu.cycles += 7; return;\n";
+        break;
+    case 0x2A: {
+        const u16 address = make_u16(image[pc + 1], image[pc + 2]);
+        out << "cpu.l = bus.read(0x" << std::setw(4) << address << "); cpu.h = bus.read(0x"
+            << std::setw(4) << static_cast<u16>(address + 1)
+            << "); cpu.pc = 0x" << std::setw(4) << (pc + 3) << "; cpu.cycles += 16; return;\n";
+        break;
+    }
+    case 0x31:
+        out << "cpu.sp = 0x" << std::setw(4) << make_u16(image[pc + 1], image[pc + 2])
+            << "; cpu.pc = 0x" << std::setw(4) << (pc + 3) << "; cpu.cycles += 10; return;\n";
+        break;
+    case 0x32: {
+        const u16 address = make_u16(image[pc + 1], image[pc + 2]);
+        out << "bus.write(0x" << std::setw(4) << address << ", cpu.a); cpu.pc = 0x"
+            << std::setw(4) << (pc + 3) << "; cpu.cycles += 13; return;\n";
+        break;
+    }
+    case 0x36:
+        out << "bus.write(cpu.hl(), 0x" << std::setw(2) << static_cast<int>(image[pc + 1])
+            << "); cpu.pc = 0x" << std::setw(4) << (pc + 2) << "; cpu.cycles += 10; return;\n";
+        break;
+    case 0x3A: {
+        const u16 address = make_u16(image[pc + 1], image[pc + 2]);
+        out << "cpu.a = bus.read(0x" << std::setw(4) << address << "); cpu.pc = 0x"
+            << std::setw(4) << (pc + 3) << "; cpu.cycles += 13; return;\n";
+        break;
+    }
     case 0xC3: {
         const u16 target = make_u16(image[pc + 1], image[pc + 2]);
         out << "cpu.pc = 0x" << std::setw(4) << target << "; cpu.cycles += 10; return;\n";
         break;
     }
+    case 0xC9:
+        out << "{ const auto lo = bus.read(cpu.sp); cpu.sp = static_cast<sgrecomp::u16>(cpu.sp + 1); "
+            << "const auto hi = bus.read(cpu.sp); cpu.sp = static_cast<sgrecomp::u16>(cpu.sp + 1); "
+            << "cpu.pc = sgrecomp::make_u16(lo, hi); cpu.cycles += 10; return; }\n";
+        break;
+    case 0xCD: {
+        const u16 target = make_u16(image[pc + 1], image[pc + 2]);
+        emit_push16(out, "0x" + [&] {
+            std::ostringstream ss;
+            ss << std::hex << std::setw(4) << std::setfill('0') << static_cast<u16>(pc + 3);
+            return ss.str();
+        }());
+        out << "cpu.pc = 0x" << std::setw(4) << target << "; cpu.cycles += 17; return;\n";
+        break;
+    }
+    case 0xE9:
+        out << "cpu.pc = cpu.hl(); cpu.cycles += 4; return;\n";
+        break;
     case 0x76:
         out << "cpu.halted = true; cpu.pc = 0x" << std::setw(4) << (pc + 1)
             << "; cpu.cycles += 4; return;\n";
         break;
     default:
-        out << "sgrecomp::execute_one(cpu, bus); return;\n";
+        if ((opcode & 0xC0) == 0x40 && opcode != 0x76) {
+            const u8 dst = static_cast<u8>((opcode >> 3) & 0x07);
+            const u8 src = static_cast<u8>(opcode & 0x07);
+            emit_ld_reg_from_value(out, dst, read_reg_expr(src));
+            out << "cpu.pc = 0x" << std::setw(4) << (pc + 1)
+                << "; cpu.cycles += " << (((dst == 6) || (src == 6)) ? 7 : 4) << "; return;\n";
+        } else if ((opcode & 0xC7) == 0xC0) {
+            const u8 condition = static_cast<u8>((opcode >> 3) & 0x07);
+            out << "if (" << condition_expr(condition) << ") { const auto lo = bus.read(cpu.sp); "
+                << "cpu.sp = static_cast<sgrecomp::u16>(cpu.sp + 1); const auto hi = bus.read(cpu.sp); "
+                << "cpu.sp = static_cast<sgrecomp::u16>(cpu.sp + 1); cpu.pc = sgrecomp::make_u16(lo, hi); "
+                << "cpu.cycles += 11; } else { cpu.pc = 0x" << std::setw(4) << (pc + 1)
+                << "; cpu.cycles += 5; } return;\n";
+        } else if ((opcode & 0xC7) == 0xC2) {
+            const u8 condition = static_cast<u8>((opcode >> 3) & 0x07);
+            const u16 target = make_u16(image[pc + 1], image[pc + 2]);
+            out << "if (" << condition_expr(condition) << ") { cpu.pc = 0x" << std::setw(4) << target
+                << "; } else { cpu.pc = 0x" << std::setw(4) << (pc + 3)
+                << "; } cpu.cycles += 10; return;\n";
+        } else if ((opcode & 0xC7) == 0xC4) {
+            const u8 condition = static_cast<u8>((opcode >> 3) & 0x07);
+            const u16 target = make_u16(image[pc + 1], image[pc + 2]);
+            out << "if (" << condition_expr(condition) << ") { ";
+            emit_push16(out, "0x" + [&] {
+                std::ostringstream ss;
+                ss << std::hex << std::setw(4) << std::setfill('0') << static_cast<u16>(pc + 3);
+                return ss.str();
+            }());
+            out << "cpu.pc = 0x" << std::setw(4) << target
+                << "; cpu.cycles += 17; } else { cpu.pc = 0x" << std::setw(4) << (pc + 3)
+                << "; cpu.cycles += 10; } return;\n";
+        } else if ((opcode & 0xCF) == 0xC1) {
+            const u8 pair = static_cast<u8>((opcode >> 4) & 0x03);
+            emit_pop16_to(out, qq_write_call(pair));
+            out << "cpu.pc = 0x" << std::setw(4) << (pc + 1) << "; cpu.cycles += 10; return; }\n";
+        } else if ((opcode & 0xCF) == 0xC5) {
+            const u8 pair = static_cast<u8>((opcode >> 4) & 0x03);
+            emit_push16(out, qq_read_expr(pair));
+            out << "cpu.pc = 0x" << std::setw(4) << (pc + 1) << "; cpu.cycles += 11; return;\n";
+        } else {
+            out << "sgrecomp::execute_one(cpu, bus); return;\n";
+        }
         break;
     }
 }
