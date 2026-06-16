@@ -13,7 +13,7 @@ class Psg;
 class Joypad;
 
 enum class ConsoleModel {
-    MasterSystem,
+    SMS,
     SG3000,
 };
 
@@ -23,6 +23,7 @@ public:
 
     void load_rom(std::span<const u8> rom);
     void load_bios(std::span<const u8> bios);
+    bool rom_header_removed() const { return rom_header_removed_; }
     void set_bios_enabled(bool enabled);
     bool bios_enabled() const { return bios_enabled_; }
     bool cartridge_ram_enabled() const;
@@ -43,13 +44,15 @@ private:
     std::array<u8, 0x8000> cartridge_ram_{};
     std::vector<u8> rom_;
     std::vector<u8> bios_;
+    bool rom_header_removed_ = false;
     bool bios_enabled_ = false;
     u8 memory_control_ = 0;
-    u8 mapper_control_ = 0;
-    u8 mapper_slots_[3] = {0, 1, 2};
+    u8 smapper_control_ = 0;
+    u8 smapper_slots_[3] = {0, 1, 2};
 
-    void refresh_mapper();
+    void refresh_smapper();
     bool slot2_cartridge_ram_enabled() const;
+    static bool has_copier_header(std::span<const u8> rom);
     static u16 mirrored_ram_address(u16 address);
 };
 

@@ -26,7 +26,7 @@ struct Options {
     std::filesystem::path input;
     std::filesystem::path bios;
     std::filesystem::path output = "recompiled_rom.cpp";
-    ConsoleModel model = ConsoleModel::MasterSystem;
+    ConsoleModel model = ConsoleModel::SMS;
     bool disassemble_only = false;
     bool run_smoke = false;
     bool trace = false;
@@ -39,6 +39,13 @@ std::vector<u8> read_file(const std::filesystem::path& path) {
         throw std::runtime_error("cannot open input file");
     }
     return {std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+}
+
+std::vector<u8> normalize_rom_payload(std::vector<u8> rom) {
+    if (rom.size() > 512 && (rom.size() % 0x4000) == 512) {
+        rom.erase(rom.begin(), rom.begin() + 512);
+    }
+    return rom;
 }
 
 void print_usage() {
@@ -64,8 +71,8 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--model" && i + 1 < argc) {
             const std::string model = argv[++i];
-            if (model == "sms" || model == "mastersystem") {
-                opts.model = ConsoleModel::MasterSystem;
+            if (model == "sms") {
+                opts.model = ConsoleModel::SMS;
             } else if (model == "sg3000" || model == "sg-3000") {
                 opts.model = ConsoleModel::SG3000;
             } else {
@@ -264,7 +271,7 @@ void generate_cpp(const std::filesystem::path& output, const std::array<u8, 0x10
 int main(int argc, char** argv) {
     try {
         const Options opts = parse_args(argc, argv);
-        const auto rom = read_file(opts.input);
+        const auto rom = normalize_rom_payload(read_file(opts.input));
         const std::optional<std::vector<u8>> bios = opts.bios.empty()
             ? std::optional<std::vector<u8>>{}
             : std::optional<std::vector<u8>>{read_file(opts.bios)};

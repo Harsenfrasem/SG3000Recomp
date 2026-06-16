@@ -1,10 +1,10 @@
 # Architecture
 
-SG3000Recomp is an ahead-of-time recompilation toolkit for Z80-based Sega 8-bit systems.
+SG3000Recomp is an ahead-of-time recompilation toolkit for Z80-based 8-bit systems.
 
 ## Target Machines
 
-Master System and SG-3000 share a Z80 CPU family and a similar I/O style, but they differ in cartridge expectations and video behavior. The runtime therefore keeps the model explicit instead of hiding it behind one generic console.
+SMS and SG-3000 share a Z80 CPU family and a similar I/O style, but they differ in cartridge expectations and video behavior. The runtime therefore keeps the model explicit instead of hiding it behind one generic console.
 
 ## Pipeline
 
@@ -43,5 +43,5 @@ This keeps ROMs debuggable from the first milestone while allowing the static co
 3. Add ED block I/O, interrupt mode, and 16-bit arithmetic details.
 4. Add IX/IY prefixed addressing.
 5. Implement SMS VDP modes, line timing, VBlank, and pause/NMI behavior.
-6. Implement common Sega mapper variants and SG-3000 cartridge layouts.
+6. Implement common SMapper variants and SG-3000 cartridge layouts.
 7. Produce per-ROM generated project templates with assets and host loop.

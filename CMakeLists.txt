@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 project(SG3000Recomp
     VERSION 0.1.0
     LANGUAGES CXX
-    DESCRIPTION "Static recompilation toolkit for Sega Master System and SG-3000 ROMs"
+    DESCRIPTION "Static recompilation toolkit for SMS and SG-3000 ROMs"
 )
 
 include(GNUInstallDirs)

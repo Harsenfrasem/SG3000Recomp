@@ -54,13 +54,14 @@ Use esta lista como guia de implementacao. Marque cada item somente depois de te
 ## Memoria e Cartucho
 
 - [x] Mapa Z80 de 64 KiB.
-- [x] Slots de ROM de 16 KiB para Master System.
+- [x] Slots de ROM de 16 KiB para SMS.
 - [x] Escrita RAM em `0xC000-0xFFFF`.
 - [x] Espelhamento correto de RAM de 8 KiB.
 - [x] BIOS opcional local, carregada por `--bios` e ignorada pelo Git.
-- [x] Sega mapper parcial: slots de ROM e SRAM de cartucho em dois bancos.
-- [ ] Deteccao de header e regioes de ROM/BIOS.
-- [ ] Sega mapper completo: control, slots, SRAM, enable bits.
+- [x] SMapper parcial: slots de ROM e SRAM de cartucho em dois bancos.
+- [x] Remocao automatica de header genérico de 512 bytes.
+- [ ] Deteccao completa de header e regioes de ROM/BIOS.
+- [ ] SMapper completo: control, slots, SRAM, enable bits.
 - [ ] Codemasters mapper.
 - [ ] Korean mappers usados por ROMs especificas.
 - [ ] SG-3000 cartridge layouts.
@@ -75,7 +76,7 @@ Use esta lista como guia de implementacao. Marque cada item somente depois de te
 - [ ] Paleta CRAM real e framebuffer.
 - [ ] VBlank, line interrupts e status flags.
 - [ ] Timing NTSC/PAL configuravel.
-- [ ] Pause/NMI do Master System.
+- [ ] Pause/NMI do SMS.
 
 ## PSG / Audio
 

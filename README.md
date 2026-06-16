@@ -1,6 +1,6 @@
 # SG3000Recomp
 
-Static recompilation toolkit for Sega Master System and SG-3000 ROMs.
+Static recompilation toolkit for SMS and SG-3000 ROMs.
 
 The project follows a documented pipeline style:
 
@@ -15,11 +15,11 @@ This repository is intentionally not a clone of any existing recompilation proje
 ## Current Status
 
 - Z80 CPU state, decoder, and fallback interpreter for the first instruction subset.
-- Master System and SG-3000 runtime shell: bus, ROM mapping, RAM writes, VDP ports, PSG latch, joypad reads.
+- SMS and SG-3000 runtime shell: bus, ROM mapping, RAM writes, VDP ports, PSG latch, joypad reads.
 - `sgrecomp` CLI that can disassemble or generate a C++ instruction dispatcher.
 - Smoke test for a tiny Z80 program.
 
-Full compatibility requires completing the Z80/CB/DD/FD/ED opcode tables, exact cycle accounting, Sega mapper variants, VDP rendering modes, PSG synthesis, pause/NMI behavior, and ROM database heuristics.
+Full compatibility requires completing the Z80/CB/DD/FD/ED opcode tables, exact cycle accounting, SMapper variants, VDP rendering modes, PSG synthesis, pause/NMI behavior, and ROM database heuristics.
 
 ## Build
 

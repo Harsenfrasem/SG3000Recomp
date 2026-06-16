@@ -23,7 +23,7 @@ void test_basic_program() {
         0x76,             // halt
     };
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console);
 
@@ -40,7 +40,7 @@ void test_djnz_loop() {
         0x76,       // halt
     };
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console);
 
@@ -65,7 +65,7 @@ void test_stack_and_conditional_call() {
         0xC9,             // ret
     };
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console);
 
@@ -85,7 +85,7 @@ void test_immediate_alu() {
         0x76,       // halt
     };
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console);
 
@@ -106,7 +106,7 @@ void test_exchange_and_rst() {
     rom[0x08] = 0x76; // halt
     rom[0x10] = 0xC9; // ret
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console);
 
@@ -130,7 +130,7 @@ void test_alternate_registers_and_interrupt_flipflops() {
         0x76,       // halt
     };
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console);
 
@@ -153,7 +153,7 @@ void test_cb_register_operations() {
         0x76,       // halt
     };
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console);
 
@@ -172,7 +172,7 @@ void test_cb_memory_operations() {
         0x76,             // halt
     };
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console);
 
@@ -192,7 +192,7 @@ void test_ed_interrupt_and_special_registers() {
         0x76,       // halt
     };
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console);
 
@@ -210,7 +210,7 @@ void test_ed_16bit_memory_load_store() {
         0x76, // halt
     };
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console);
 
@@ -233,7 +233,7 @@ void test_ed_block_transfer_and_search() {
     };
     rom.resize(0x40, 0x00);
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     console.bus().write(0xC000, 0x11);
     console.bus().write(0xC001, 0x22);
@@ -258,7 +258,7 @@ void test_ed_nibble_rotates() {
         0x76,             // halt
     };
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console);
 
@@ -277,7 +277,7 @@ void test_ed_block_io() {
         0x76,             // halt
     };
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     console.bus().write(0xC000, 0x90);
     console.bus().write(0xC001, 0x91);
@@ -298,7 +298,7 @@ void test_ed_port_register_io() {
         0x76,       // halt
     };
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console);
 
@@ -323,7 +323,7 @@ void test_vblank_interrupt_im1() {
     rom[0x39] = 0x77;
     rom[0x3A] = 0x76; // halt
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     console.run_cycles(70000);
 
@@ -344,7 +344,7 @@ void test_misc_jumps_and_flags() {
     rom[0x08] = 0xE9; // jp (hl)
     rom[0x10] = 0x76; // halt
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console);
 
@@ -361,7 +361,7 @@ void test_v_counter_port() {
         0x76,       // halt
     };
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console, 100000);
 
@@ -395,7 +395,7 @@ void test_index_register_basics() {
     rom[0x16] = 0xE9;
     rom[0x40] = 0x76; // halt
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console);
 
@@ -415,7 +415,7 @@ void test_accumulator_rotates() {
         0x76,       // halt
     };
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console);
 
@@ -440,7 +440,7 @@ void test_index_cb_operations() {
         0x76,                   // halt
     };
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console);
 
@@ -462,7 +462,7 @@ void test_index_displacement_loads_and_alu() {
         0x76,                   // halt
     };
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console);
 
@@ -488,7 +488,7 @@ void test_index_high_low_register_operations() {
         0x76,                   // halt
     };
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console);
 
@@ -508,7 +508,7 @@ void test_ed_adc_sbc_hl() {
         0x76,             // halt
     };
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console);
 
@@ -525,7 +525,7 @@ void test_daa_after_add_and_subtract() {
         0x76,       // halt
     };
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console);
 
@@ -549,7 +549,7 @@ void test_mapper_keeps_ram() {
     rom[0x0C] = 0xC0;
     rom[0x0D] = 0x76; // halt
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console);
 
@@ -566,7 +566,7 @@ void test_ram_mirroring() {
         0x76,             // halt
     };
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console);
 
@@ -587,7 +587,7 @@ void test_bios_overlay_boots_before_rom() {
         0x76,       // halt
     };
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_bios(bios);
     console.load_rom(rom);
     run_until_halt(console);
@@ -611,7 +611,7 @@ void test_bios_can_disable_itself_with_memory_control_port() {
     rom[5] = 0x00;
     rom[6] = 0x00;
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_bios(bios);
     console.load_rom(rom);
     run_until_halt(console);
@@ -620,11 +620,11 @@ void test_bios_can_disable_itself_with_memory_control_port() {
     assert(!console.bus().bios_enabled());
 }
 
-void test_sega_mapper_cartridge_ram_banks() {
+void test_smapper_cartridge_ram_banks() {
     std::vector<u8> rom(0x10000, 0x00);
     rom[0x8000] = 0x22;
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
 
     assert(console.bus().read(0x8000) == 0x22);
@@ -646,6 +646,20 @@ void test_sega_mapper_cartridge_ram_banks() {
     assert(console.bus().read(0x8000) == 0x22);
 }
 
+void test_copier_header_is_removed() {
+    std::vector<u8> rom(512 + 0x4000, 0xEE);
+    rom[512] = 0x3E; // ld a,$42
+    rom[513] = 0x42;
+    rom[514] = 0x76; // halt
+
+    Console console(ConsoleModel::SMS);
+    console.load_rom(rom);
+    run_until_halt(console);
+
+    assert(console.bus().rom_header_removed());
+    assert(console.cpu().a == 0x42);
+}
+
 void test_ei_delay_and_nmi_service() {
     std::vector<u8> rom(0x80, 0x00);
     rom[0x00] = 0xFB; // ei
@@ -655,7 +669,7 @@ void test_ei_delay_and_nmi_service() {
     rom[0x67] = 0x66;
     rom[0x68] = 0x76; // halt
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
 
     execute_one(console.cpu(), console.bus());
@@ -687,7 +701,7 @@ void test_bc_de_indirect_loads() {
         0x76,             // halt
     };
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console);
 
@@ -705,7 +719,7 @@ void test_hl_absolute_load_store() {
         0x76,             // halt
     };
 
-    Console console(ConsoleModel::MasterSystem);
+    Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     run_until_halt(console);
 
@@ -743,7 +757,8 @@ int main() {
     test_ram_mirroring();
     test_bios_overlay_boots_before_rom();
     test_bios_can_disable_itself_with_memory_control_port();
-    test_sega_mapper_cartridge_ram_banks();
+    test_smapper_cartridge_ram_banks();
+    test_copier_header_is_removed();
     test_ei_delay_and_nmi_service();
     test_bc_de_indirect_loads();
     test_hl_absolute_load_store();

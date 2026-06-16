@@ -7,7 +7,7 @@ extern "C" void sgrecomp_run_instruction(sgrecomp::Z80State& cpu, sgrecomp::Bus&
 extern "C" void sgrecomp_load_rom(sgrecomp::Bus& bus);
 
 int main() {
-    sgrecomp::Console console(sgrecomp::ConsoleModel::MasterSystem);
+    sgrecomp::Console console(sgrecomp::ConsoleModel::SMS);
     sgrecomp_load_rom(console.bus());
 
     for (std::size_t i = 0; i < 1000000; ++i) {
