@@ -18,6 +18,7 @@ Use esta lista como guia de implementacao. Marque cada item somente depois de te
 - [x] Fallback para interpretador quando opcode ainda nao e levantado.
 - [x] ROM embutida no arquivo gerado com funcao `sgrecomp_load_rom`.
 - [x] Smoke runner de ROM com estado de registradores e trace opcional.
+- [x] Smoke runner com resumo de PCs, audio, framebuffer e dumps locais de frame/VRAM/CRAM.
 - [ ] Descoberta de basic blocks e fluxo de controle real.
 - [ ] Emissao de funcoes por bloco em vez de um `switch` monolitico.
 - [ ] Comentarios opcionais de disassembly no C++ gerado.

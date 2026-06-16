@@ -26,6 +26,9 @@ using namespace sgrecomp;
 struct Options {
     std::filesystem::path input;
     std::filesystem::path bios;
+    std::filesystem::path dump_frame;
+    std::filesystem::path dump_vram;
+    std::filesystem::path dump_cram;
     std::filesystem::path output = "recompiled_rom.cpp";
     ConsoleModel model = ConsoleModel::SMS;
     bool disassemble_only = false;
@@ -51,7 +54,8 @@ std::vector<u8> normalize_rom_payload(std::vector<u8> rom) {
 
 void print_usage() {
     std::cout << "usage: sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--model sms|sg3000] [--disasm] [--bios bios.sms]\n"
-              << "       sgrecomp <rom.sms|rom.sg> --run-smoke [--steps n] [--trace] [--bios bios.sms]\n";
+              << "       sgrecomp <rom.sms|rom.sg> --run-smoke [--steps n] [--trace] [--bios bios.sms]\n"
+              << "                [--dump-frame frame.ppm] [--dump-vram vram.bin] [--dump-cram cram.bin]\n";
 }
 
 Options parse_args(int argc, char** argv) {
@@ -68,6 +72,18 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--bios" && i + 1 < argc) {
             opts.bios = argv[++i];
+            continue;
+        }
+        if (arg == "--dump-frame" && i + 1 < argc) {
+            opts.dump_frame = argv[++i];
+            continue;
+        }
+        if (arg == "--dump-vram" && i + 1 < argc) {
+            opts.dump_vram = argv[++i];
+            continue;
+        }
+        if (arg == "--dump-cram" && i + 1 < argc) {
+            opts.dump_cram = argv[++i];
             continue;
         }
         if (arg == "--model" && i + 1 < argc) {
@@ -132,7 +148,41 @@ void disassemble(const std::array<u8, 0x10000>& image, std::size_t limit) {
     }
 }
 
-void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector<u8>* bios, std::size_t max_steps, bool trace) {
+void write_frame_ppm(const std::filesystem::path& path, const std::array<u32, Vdp::width * Vdp::height>& framebuffer) {
+    if (path.has_parent_path()) {
+        std::filesystem::create_directories(path.parent_path());
+    }
+
+    std::ofstream out(path, std::ios::binary);
+    if (!out) {
+        throw std::runtime_error("cannot open frame output file");
+    }
+
+    out << "P6\n" << Vdp::width << " " << Vdp::height << "\n255\n";
+    for (const u32 pixel : framebuffer) {
+        const char rgb[3] = {
+            static_cast<char>((pixel >> 16) & 0xFF),
+            static_cast<char>((pixel >> 8) & 0xFF),
+            static_cast<char>(pixel & 0xFF),
+        };
+        out.write(rgb, sizeof(rgb));
+    }
+}
+
+template <typename Container>
+void write_binary_dump(const std::filesystem::path& path, const Container& bytes) {
+    if (path.has_parent_path()) {
+        std::filesystem::create_directories(path.parent_path());
+    }
+
+    std::ofstream out(path, std::ios::binary);
+    if (!out) {
+        throw std::runtime_error("cannot open dump output file");
+    }
+    out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+}
+
+void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector<u8>* bios, std::size_t max_steps, bool trace, const Options& opts) {
     Vdp vdp;
     Psg psg;
     Joypad joypad;
@@ -155,6 +205,18 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
                   << "\nframebuffer lit pixels: " << lit_pixels
                   << "\npsg sample: " << std::fixed << std::setprecision(4)
                   << audio[0] << "," << audio[1] << "\n";
+        if (!opts.dump_frame.empty()) {
+            write_frame_ppm(opts.dump_frame, framebuffer);
+            std::cout << "frame dumped: " << opts.dump_frame.string() << "\n";
+        }
+        if (!opts.dump_vram.empty()) {
+            write_binary_dump(opts.dump_vram, vdp.debug_vram());
+            std::cout << "vram dumped: " << opts.dump_vram.string() << "\n";
+        }
+        if (!opts.dump_cram.empty()) {
+            write_binary_dump(opts.dump_cram, vdp.debug_cram());
+            std::cout << "cram dumped: " << opts.dump_cram.string() << "\n";
+        }
     };
     for (std::size_t step = 0; step < max_steps; ++step) {
         const u16 pc_before = cpu.pc;
@@ -297,7 +359,7 @@ int main(int argc, char** argv) {
         if (opts.disassemble_only) {
             disassemble(image, limit);
         } else if (opts.run_smoke) {
-            run_smoke(opts.model, rom, bios ? &*bios : nullptr, opts.max_steps, opts.trace);
+            run_smoke(opts.model, rom, bios ? &*bios : nullptr, opts.max_steps, opts.trace, opts);
         } else {
             generate_cpp(opts.output, image, limit);
             std::cout << "generated " << opts.output.string() << "\n";

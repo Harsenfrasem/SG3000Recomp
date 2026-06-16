@@ -17,12 +17,14 @@ Useful commands:
 $env:PATH="$env:APPDATA\Python\Python314\Scripts;$env:PATH"
 .\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --run-smoke --steps 300000
 .\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --run-smoke --steps 300000 --bios ".\local-bios\your-test-bios.sms"
+.\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --run-smoke --steps 300000 --bios ".\local-bios\your-test-bios.sms" --dump-frame ".\out\frame.ppm"
+.\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --run-smoke --steps 300000 --bios ".\local-bios\your-test-bios.sms" --dump-vram ".\out\vram.bin" --dump-cram ".\out\cram.bin"
 .\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --run-smoke --steps 200 --trace
 ```
 
 `--bios` is intended for local smoke testing and disassembly only. Generated C++ still embeds only the ROM image, never the BIOS file.
 ROM files with a generic 512-byte copier header are normalized before loading.
-The smoke runner also reports visited PCs, lit framebuffer pixels, and the current PSG sample.
+The smoke runner also reports visited PCs, lit framebuffer pixels, the current PSG sample, and can dump the current framebuffer, VRAM, and CRAM.
 
 Current result from private local smoke testing:
 
