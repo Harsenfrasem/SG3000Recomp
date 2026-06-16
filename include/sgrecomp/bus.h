@@ -28,12 +28,15 @@ public:
     bool bios_enabled() const { return bios_enabled_; }
     bool cartridge_ram_enabled() const;
     u8 cartridge_ram_bank() const;
+    void load_cartridge_ram(std::span<const u8> ram);
+    bool cartridge_ram_dirty() const { return cartridge_ram_dirty_; }
     u8 read(u16 address) const;
     void write(u16 address, u8 value);
     u8 input(u8 port);
     void output(u8 port, u8 value);
 
     const std::array<u8, 0x10000>& debug_memory() const { return memory_; }
+    const std::array<u8, 0x8000>& debug_cartridge_ram() const { return cartridge_ram_; }
 
 private:
     ConsoleModel model_;
@@ -46,6 +49,7 @@ private:
     std::vector<u8> bios_;
     bool rom_header_removed_ = false;
     bool bios_enabled_ = false;
+    bool cartridge_ram_dirty_ = false;
     u8 memory_control_ = 0;
     u8 smapper_control_ = 0;
     u8 smapper_slots_[3] = {0, 1, 2};

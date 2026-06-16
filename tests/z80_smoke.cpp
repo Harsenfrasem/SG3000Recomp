@@ -465,6 +465,45 @@ void test_vdp_basic_sprite_pixel() {
     assert(vdp.framebuffer()[5] == 0xFF000000);
 }
 
+void test_vdp_sprite_collision_and_overflow_flags() {
+    Vdp vdp;
+    vdp.write_control(0x40);
+    vdp.write_control(0x81); // register 1: display enabled
+    vdp.write_control(0x7E);
+    vdp.write_control(0x85); // register 5: sprite table at $3f00
+
+    vdp.write_control(0x11);
+    vdp.write_control(0xC0);
+    vdp.write_data(0x0C);
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x40);
+    vdp.write_data(0x80);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x7F);
+    for (int i = 0; i < 9; ++i) {
+        vdp.write_data(0xFF);
+    }
+    vdp.write_data(0xD0);
+
+    vdp.write_control(0x80);
+    vdp.write_control(0x7F);
+    for (int i = 0; i < 9; ++i) {
+        vdp.write_data(0x04);
+        vdp.write_data(0x00);
+    }
+
+    vdp.tick(228);
+    const u8 status = vdp.read_status();
+
+    assert((status & 0x20) != 0);
+    assert((status & 0x40) != 0);
+}
+
 void test_psg_tone_generates_sample() {
     Psg psg;
     psg.write(0x80 | 0x01); // tone channel 0 low bits
@@ -794,6 +833,26 @@ void test_smapper_cartridge_ram_banks() {
     assert(console.bus().read(0x8000) == 0x22);
 }
 
+void test_smapper_loads_cartridge_ram() {
+    std::vector<u8> rom(0x10000, 0x00);
+    std::vector<u8> save(0x8000, 0x00);
+    save[0x0000] = 0x11;
+    save[0x4000] = 0x22;
+
+    Console console(ConsoleModel::SMS);
+    console.load_rom(rom);
+    console.bus().load_cartridge_ram(save);
+    assert(!console.bus().cartridge_ram_dirty());
+
+    console.bus().write(0xFFFC, 0x08);
+    assert(console.bus().read(0x8000) == 0x11);
+    console.bus().write(0xFFFC, 0x0C);
+    assert(console.bus().read(0x8000) == 0x22);
+    console.bus().write(0x8000, 0x33);
+    assert(console.bus().cartridge_ram_dirty());
+    assert(console.bus().debug_cartridge_ram()[0x4000] == 0x33);
+}
+
 void test_copier_header_is_removed() {
     std::vector<u8> rom(512 + 0x4000, 0xEE);
     rom[512] = 0x3E; // ld a,$42
@@ -897,6 +956,7 @@ int main() {
     test_two_player_joypad_ports();
     test_vdp_mode4_background_pixel();
     test_vdp_basic_sprite_pixel();
+    test_vdp_sprite_collision_and_overflow_flags();
     test_psg_tone_generates_sample();
     test_misc_jumps_and_flags();
     test_v_counter_port();
@@ -912,6 +972,7 @@ int main() {
     test_bios_overlay_boots_before_rom();
     test_bios_can_disable_itself_with_memory_control_port();
     test_smapper_cartridge_ram_banks();
+    test_smapper_loads_cartridge_ram();
     test_copier_header_is_removed();
     test_ei_delay_and_nmi_service();
     test_bc_de_indirect_loads();

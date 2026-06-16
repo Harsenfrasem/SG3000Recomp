@@ -29,6 +29,10 @@ struct Options {
     std::filesystem::path dump_frame;
     std::filesystem::path dump_vram;
     std::filesystem::path dump_cram;
+    std::filesystem::path dump_sram;
+    std::filesystem::path dump_coverage;
+    std::filesystem::path load_sram;
+    std::filesystem::path save_sram;
     std::filesystem::path output = "recompiled_rom.cpp";
     ConsoleModel model = ConsoleModel::SMS;
     bool disassemble_only = false;
@@ -55,7 +59,9 @@ std::vector<u8> normalize_rom_payload(std::vector<u8> rom) {
 void print_usage() {
     std::cout << "usage: sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--model sms|sg3000] [--disasm] [--bios bios.sms]\n"
               << "       sgrecomp <rom.sms|rom.sg> --run-smoke [--steps n] [--trace] [--bios bios.sms]\n"
-              << "                [--dump-frame frame.ppm] [--dump-vram vram.bin] [--dump-cram cram.bin]\n";
+              << "                [--dump-frame frame.ppm] [--dump-vram vram.bin] [--dump-cram cram.bin]\n"
+              << "                [--load-sram save.sav] [--save-sram save.sav] [--dump-sram sram.bin]\n"
+              << "                [--dump-coverage pcs.csv]\n";
 }
 
 Options parse_args(int argc, char** argv) {
@@ -84,6 +90,22 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--dump-cram" && i + 1 < argc) {
             opts.dump_cram = argv[++i];
+            continue;
+        }
+        if (arg == "--dump-sram" && i + 1 < argc) {
+            opts.dump_sram = argv[++i];
+            continue;
+        }
+        if (arg == "--dump-coverage" && i + 1 < argc) {
+            opts.dump_coverage = argv[++i];
+            continue;
+        }
+        if (arg == "--load-sram" && i + 1 < argc) {
+            opts.load_sram = argv[++i];
+            continue;
+        }
+        if (arg == "--save-sram" && i + 1 < argc) {
+            opts.save_sram = argv[++i];
             continue;
         }
         if (arg == "--model" && i + 1 < argc) {
@@ -182,6 +204,32 @@ void write_binary_dump(const std::filesystem::path& path, const Container& bytes
     out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
 }
 
+void write_coverage_csv(
+    const std::filesystem::path& path,
+    const std::array<u32, 0x10000>& pc_counts,
+    const std::array<u8, 0x10000>& image) {
+    if (path.has_parent_path()) {
+        std::filesystem::create_directories(path.parent_path());
+    }
+
+    std::ofstream out(path);
+    if (!out) {
+        throw std::runtime_error("cannot open coverage output file");
+    }
+
+    out << "pc,count,opcode,mnemonic\n";
+    for (std::size_t pc = 0; pc < pc_counts.size(); ++pc) {
+        if (pc_counts[pc] == 0) {
+            continue;
+        }
+        const auto decoded = decode_z80(image, static_cast<u16>(pc));
+        out << "0x" << std::hex << std::setw(4) << std::setfill('0') << pc
+            << std::dec << "," << pc_counts[pc]
+            << ",0x" << std::hex << std::setw(2) << static_cast<int>(decoded.opcode)
+            << std::dec << "," << decoded.mnemonic << "\n";
+    }
+}
+
 void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector<u8>* bios, std::size_t max_steps, bool trace, const Options& opts) {
     Vdp vdp;
     Psg psg;
@@ -192,9 +240,13 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
         bus.load_bios(*bios);
     }
     bus.load_rom(rom);
+    if (!opts.load_sram.empty()) {
+        bus.load_cartridge_ram(read_file(opts.load_sram));
+    }
 
     const auto& image = bus.debug_memory();
     std::bitset<0x10000> visited_pc;
+    std::array<u32, 0x10000> pc_counts{};
     const auto print_runtime_summary = [&]() {
         const auto& framebuffer = vdp.framebuffer();
         const auto lit_pixels = std::count_if(framebuffer.begin(), framebuffer.end(), [](u32 pixel) {
@@ -217,10 +269,24 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
             write_binary_dump(opts.dump_cram, vdp.debug_cram());
             std::cout << "cram dumped: " << opts.dump_cram.string() << "\n";
         }
+        if (!opts.dump_sram.empty()) {
+            write_binary_dump(opts.dump_sram, bus.debug_cartridge_ram());
+            std::cout << "sram dumped: " << opts.dump_sram.string() << "\n";
+        }
+        if (!opts.save_sram.empty()) {
+            write_binary_dump(opts.save_sram, bus.debug_cartridge_ram());
+            std::cout << "sram saved: " << opts.save_sram.string()
+                      << (bus.cartridge_ram_dirty() ? " (dirty)" : " (unchanged)") << "\n";
+        }
+        if (!opts.dump_coverage.empty()) {
+            write_coverage_csv(opts.dump_coverage, pc_counts, image);
+            std::cout << "coverage dumped: " << opts.dump_coverage.string() << "\n";
+        }
     };
     for (std::size_t step = 0; step < max_steps; ++step) {
         const u16 pc_before = cpu.pc;
         visited_pc.set(pc_before);
+        ++pc_counts[pc_before];
         const auto insn = decode_z80(image, pc_before);
         if (trace) {
             std::cout << std::dec << std::setw(8) << step << "  ";

@@ -140,6 +140,8 @@ void Vdp::render_sprites(int line) {
     const u16 sprite_base = static_cast<u16>((registers_[5] & 0x7E) << 7);
     const bool tall_sprites = (registers_[1] & 0x02) != 0;
     const int sprite_height = tall_sprites ? 16 : 8;
+    std::array<bool, width> sprite_pixels{};
+    int visible_sprites = 0;
 
     for (int sprite = 0; sprite < 64; ++sprite) {
         const u8 raw_y = vram_[(sprite_base + sprite) & 0x3FFF];
@@ -150,6 +152,10 @@ void Vdp::render_sprites(int line) {
         const int sprite_y = static_cast<u8>(raw_y + 1);
         if (line < sprite_y || line >= sprite_y + sprite_height) {
             continue;
+        }
+        ++visible_sprites;
+        if (visible_sprites > 8) {
+            status_ |= 0x40;
         }
 
         const u16 attribute = static_cast<u16>((sprite_base + 0x80 + sprite * 2) & 0x3FFF);
@@ -175,6 +181,10 @@ void Vdp::render_sprites(int line) {
             if (color == 0) {
                 continue;
             }
+            if (sprite_pixels[static_cast<std::size_t>(x)]) {
+                status_ |= 0x20;
+            }
+            sprite_pixels[static_cast<std::size_t>(x)] = true;
             framebuffer_[line * width + x] = cram_color(static_cast<u8>(16 + color));
         }
     }

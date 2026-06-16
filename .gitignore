@@ -16,10 +16,12 @@ generated_*.cpp
 recompiled_rom.cpp
 local-roms/
 local-bios/
+local-saves/
 *.sms
 *.sg
 *.gg
 *.rom
 *.bin
+*.sav
 *.zip
 *.7z

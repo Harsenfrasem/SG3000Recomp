@@ -19,6 +19,7 @@ Use esta lista como guia de implementacao. Marque cada item somente depois de te
 - [x] ROM embutida no arquivo gerado com funcao `sgrecomp_load_rom`.
 - [x] Smoke runner de ROM com estado de registradores e trace opcional.
 - [x] Smoke runner com resumo de PCs, audio, framebuffer e dumps locais de frame/VRAM/CRAM.
+- [x] Smoke runner com dump CSV de cobertura de PCs.
 - [ ] Descoberta de basic blocks e fluxo de controle real.
 - [ ] Emissao de funcoes por bloco em vez de um `switch` monolitico.
 - [ ] Comentarios opcionais de disassembly no C++ gerado.
@@ -60,6 +61,7 @@ Use esta lista como guia de implementacao. Marque cada item somente depois de te
 - [x] Espelhamento correto de RAM de 8 KiB.
 - [x] BIOS opcional local, carregada por `--bios` e ignorada pelo Git.
 - [x] SMapper parcial: slots de ROM e SRAM de cartucho em dois bancos.
+- [x] Load/save/dump local de SRAM de cartucho.
 - [x] Remocao automatica de header generico de 512 bytes.
 - [ ] Deteccao completa de header e regioes de ROM/BIOS.
 - [ ] SMapper completo: control, slots, SRAM, enable bits.
@@ -74,7 +76,8 @@ Use esta lista como guia de implementacao. Marque cada item somente depois de te
 - [ ] TMS9918/SG-3000 modes.
 - [ ] SMS Mode 4 tile renderer.
 - [x] Sprites 8x8 iniciais com transparencia.
-- [ ] Sprites: prioridade, colisao, overflow e limite por scanline.
+- [x] Sprites: colisao e overflow iniciais.
+- [ ] Sprites: prioridade e limite por scanline exato.
 - [x] Paleta CRAM inicial e framebuffer com background Mode 4 basico.
 - [x] VBlank, line interrupts e status flags iniciais.
 - [ ] Timing NTSC/PAL configuravel.
@@ -101,7 +104,7 @@ Use esta lista como guia de implementacao. Marque cada item somente depois de te
 
 - [ ] Loop host de janela, video e audio.
 - [ ] Backend SDL2 opcional.
-- [ ] Save RAM em arquivo.
+- [x] Save RAM em arquivo local pelo smoke runner.
 - [ ] Estado serializavel para save states.
 - [ ] Debug overlay de PC, registradores, FPS e fallback count.
 

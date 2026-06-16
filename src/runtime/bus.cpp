@@ -23,6 +23,7 @@ void Bus::load_rom(std::span<const u8> rom) {
     smapper_slots_[0] = 0;
     smapper_slots_[1] = 1;
     smapper_slots_[2] = 2;
+    cartridge_ram_dirty_ = false;
     bios_enabled_ = !bios_.empty();
     refresh_smapper();
 }
@@ -46,6 +47,14 @@ u8 Bus::cartridge_ram_bank() const {
     return static_cast<u8>((smapper_control_ & 0x04) != 0 ? 1 : 0);
 }
 
+void Bus::load_cartridge_ram(std::span<const u8> ram) {
+    cartridge_ram_.fill(0);
+    const std::size_t len = std::min<std::size_t>(ram.size(), cartridge_ram_.size());
+    std::copy_n(ram.begin(), static_cast<std::ptrdiff_t>(len), cartridge_ram_.begin());
+    cartridge_ram_dirty_ = false;
+    refresh_smapper();
+}
+
 u8 Bus::read(u16 address) const {
     if (address >= 0xC000) {
         return memory_[mirrored_ram_address(address)];
@@ -57,6 +66,7 @@ void Bus::write(u16 address, u8 value) {
     if (model_ == ConsoleModel::SMS && slot2_cartridge_ram_enabled() && address >= 0x8000 && address < 0xC000) {
         const std::size_t offset = static_cast<std::size_t>(cartridge_ram_bank()) * 0x4000 + (address - 0x8000);
         cartridge_ram_[offset] = value;
+        cartridge_ram_dirty_ = true;
         memory_[address] = value;
         return;
     }
