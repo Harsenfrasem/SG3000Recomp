@@ -331,6 +331,75 @@ void test_vblank_interrupt_im1() {
     assert(console.cpu().a == 0x77);
 }
 
+void test_vdp_line_interrupt_im1() {
+    std::vector<u8> rom(0x80, 0x00);
+    rom[0x00] = 0x3E; // ld a,$01
+    rom[0x01] = 0x01;
+    rom[0x02] = 0xD3; // out ($bf),a ; line counter value
+    rom[0x03] = 0xBF;
+    rom[0x04] = 0x3E; // ld a,$8a ; VDP register 10 command
+    rom[0x05] = 0x8A;
+    rom[0x06] = 0xD3; // out ($bf),a
+    rom[0x07] = 0xBF;
+    rom[0x08] = 0x3E; // ld a,$10
+    rom[0x09] = 0x10;
+    rom[0x0A] = 0xD3; // out ($bf),a ; line irq enable
+    rom[0x0B] = 0xBF;
+    rom[0x0C] = 0x3E; // ld a,$80 ; VDP register 0 command
+    rom[0x0D] = 0x80;
+    rom[0x0E] = 0xD3; // out ($bf),a
+    rom[0x0F] = 0xBF;
+    rom[0x10] = 0xFB; // ei
+    rom[0x11] = 0x00; // nop loop
+    rom[0x12] = 0x18; // jr -3
+    rom[0x13] = 0xFD;
+    rom[0x38] = 0x3E; // interrupt: ld a,$44
+    rom[0x39] = 0x44;
+    rom[0x3A] = 0x76; // halt
+
+    Console console(ConsoleModel::SMS);
+    console.load_rom(rom);
+    console.run_cycles(4000);
+
+    assert(console.cpu().halted);
+    assert(console.cpu().a == 0x44);
+}
+
+void test_pause_triggers_nmi() {
+    std::vector<u8> rom(0x80, 0x00);
+    rom[0x00] = 0x00; // nop
+    rom[0x01] = 0x18; // jr -3
+    rom[0x02] = 0xFD;
+    rom[0x66] = 0x3E; // nmi: ld a,$66
+    rom[0x67] = 0x66;
+    rom[0x68] = 0x76; // halt
+
+    Console console(ConsoleModel::SMS);
+    console.load_rom(rom);
+    console.run_cycles(16);
+    console.press_pause();
+    run_until_halt(console);
+
+    assert(console.cpu().a == 0x66);
+}
+
+void test_two_player_joypad_ports() {
+    Console console(ConsoleModel::SMS);
+    console.joypad().set_player1(static_cast<u8>(Joypad::Up | Joypad::Button1));
+    console.joypad().set_player2(static_cast<u8>(Joypad::Down | Joypad::Button2));
+
+    const u8 port_a = console.bus().input(0xDC);
+    const u8 port_b = console.bus().input(0xDD);
+
+    assert((port_a & 0x01) == 0);
+    assert((port_a & 0x10) == 0);
+    assert((port_a & 0x02) != 0);
+    assert((port_a & 0x40) != 0);
+    assert((port_a & 0x80) == 0);
+    assert((port_b & 0x08) == 0);
+    assert((port_b & 0x01) != 0);
+}
+
 void test_misc_jumps_and_flags() {
     std::vector<u8> rom(0x40, 0x00);
     rom[0x00] = 0x3E; // ld a,$55
@@ -744,6 +813,9 @@ int main() {
     test_ed_block_io();
     test_ed_port_register_io();
     test_vblank_interrupt_im1();
+    test_vdp_line_interrupt_im1();
+    test_pause_triggers_nmi();
+    test_two_player_joypad_ports();
     test_misc_jumps_and_flags();
     test_v_counter_port();
     test_index_register_basics();

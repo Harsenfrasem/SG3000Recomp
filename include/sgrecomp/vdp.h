@@ -19,6 +19,7 @@ public:
     void write_control(u8 value);
     void tick(int cpu_cycles);
     bool irq_pending() const;
+    int scanline() const { return scanline_; }
 
     const std::array<u32, width * height>& framebuffer() const { return framebuffer_; }
 
@@ -34,6 +35,10 @@ private:
     u8 status_ = 0;
     int scanline_cycles_ = 0;
     int scanline_ = 0;
+    int line_counter_ = 0;
+    bool first_line_ = true;
+
+    void advance_scanline();
 };
 
 } // namespace sgrecomp

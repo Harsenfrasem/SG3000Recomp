@@ -17,6 +17,7 @@ public:
     void load_rom(std::span<const u8> rom);
     void load_bios(std::span<const u8> bios);
     void reset();
+    void press_pause();
     void run_cycles(u64 cycles);
 
     Z80State& cpu() { return cpu_; }
@@ -31,6 +32,7 @@ private:
     Joypad joypad_;
     Bus bus_;
     Z80State cpu_;
+    ConsoleModel model_;
 };
 
 } // namespace sgrecomp

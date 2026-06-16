@@ -16,11 +16,13 @@ public:
     };
 
     void set_player1(u8 pressed_mask) { player1_ = pressed_mask; }
+    void set_player2(u8 pressed_mask) { player2_ = pressed_mask; }
     u8 read_port_a() const;
     u8 read_port_b() const;
 
 private:
     u8 player1_ = 0;
+    u8 player2_ = 0;
 };
 
 } // namespace sgrecomp

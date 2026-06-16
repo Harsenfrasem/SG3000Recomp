@@ -3,7 +3,7 @@
 namespace sgrecomp {
 
 Console::Console(ConsoleModel model)
-    : bus_(model, vdp_, psg_, joypad_) {}
+    : bus_(model, vdp_, psg_, joypad_), model_(model) {}
 
 void Console::load_rom(std::span<const u8> rom) {
     bus_.load_rom(rom);
@@ -15,6 +15,12 @@ void Console::load_bios(std::span<const u8> bios) {
 
 void Console::reset() {
     cpu_ = {};
+}
+
+void Console::press_pause() {
+    if (model_ == ConsoleModel::SMS) {
+        service_non_maskable_interrupt(cpu_, bus_);
+    }
 }
 
 void Console::run_cycles(u64 cycles) {

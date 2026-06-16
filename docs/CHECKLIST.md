@@ -59,7 +59,7 @@ Use esta lista como guia de implementacao. Marque cada item somente depois de te
 - [x] Espelhamento correto de RAM de 8 KiB.
 - [x] BIOS opcional local, carregada por `--bios` e ignorada pelo Git.
 - [x] SMapper parcial: slots de ROM e SRAM de cartucho em dois bancos.
-- [x] Remocao automatica de header genérico de 512 bytes.
+- [x] Remocao automatica de header generico de 512 bytes.
 - [ ] Deteccao completa de header e regioes de ROM/BIOS.
 - [ ] SMapper completo: control, slots, SRAM, enable bits.
 - [ ] Codemasters mapper.
@@ -74,9 +74,9 @@ Use esta lista como guia de implementacao. Marque cada item somente depois de te
 - [ ] SMS Mode 4 tile renderer.
 - [ ] Sprites, prioridade e limite por scanline.
 - [ ] Paleta CRAM real e framebuffer.
-- [ ] VBlank, line interrupts e status flags.
+- [x] VBlank, line interrupts e status flags iniciais.
 - [ ] Timing NTSC/PAL configuravel.
-- [ ] Pause/NMI do SMS.
+- [x] Pause/NMI do SMS conectado ao runtime.
 
 ## PSG / Audio
 
@@ -90,8 +90,8 @@ Use esta lista como guia de implementacao. Marque cada item somente depois de te
 ## Entrada
 
 - [x] Leitura active-low do player 1.
-- [ ] Player 2.
-- [ ] Botao Pause.
+- [x] Player 2.
+- [x] Botao Pause do console.
 - [ ] Light Phaser.
 - [ ] Paddle/Sports Pad, se desejado.
 
