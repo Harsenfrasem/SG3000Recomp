@@ -623,7 +623,7 @@ void test_vdp_sprite_collision_and_overflow_flags() {
     assert((status & 0x40) != 0);
 }
 
-void setup_nine_visible_sprites(Vdp& vdp) {
+void setup_visible_sprites(Vdp& vdp, int count) {
     vdp.write_control(0x40);
     vdp.write_control(0x81); // register 1: display enabled
     vdp.write_control(0x7E);
@@ -642,27 +642,26 @@ void setup_nine_visible_sprites(Vdp& vdp) {
 
     vdp.write_control(0x00);
     vdp.write_control(0x7F); // sprite y table
-    for (int i = 0; i < 9; ++i) {
+    for (int i = 0; i < count; ++i) {
         vdp.write_data(0xFF);
     }
     vdp.write_data(0xD0);
 
     vdp.write_control(0x80);
     vdp.write_control(0x7F); // sprite attributes
-    for (int i = 0; i < 8; ++i) {
-        vdp.write_data(0x00);
+    for (int i = 0; i < count; ++i) {
+        vdp.write_data(static_cast<u8>(i * 8));
         vdp.write_data(0x00);
     }
-    vdp.write_data(0x10);
-    vdp.write_data(0x00);
 }
 
 void test_vdp_sprite_limit_enhancement() {
     Vdp accurate;
-    setup_nine_visible_sprites(accurate);
+    setup_visible_sprites(accurate, 9);
     accurate.tick(228);
     assert(accurate.framebuffer()[0] == 0xFF00FF00);
-    assert(accurate.framebuffer()[0x10] == 0xFF000000);
+    assert(accurate.framebuffer()[0x38] == 0xFF00FF00);
+    assert(accurate.framebuffer()[0x40] == 0xFF000000);
     assert((accurate.read_status() & 0x40) != 0);
 
     Vdp enhanced;
@@ -670,11 +669,51 @@ void test_vdp_sprite_limit_enhancement() {
     config.mode = RuntimeMode::Enhanced;
     config.disable_sprite_limit = true;
     enhanced.set_enhancements(config);
-    setup_nine_visible_sprites(enhanced);
+    setup_visible_sprites(enhanced, 9);
     enhanced.tick(228);
     assert(enhanced.framebuffer()[0] == 0xFF00FF00);
-    assert(enhanced.framebuffer()[0x10] == 0xFF00FF00);
+    assert(enhanced.framebuffer()[0x40] == 0xFF00FF00);
     assert((enhanced.read_status() & 0x40) != 0);
+}
+
+void test_vdp_reduce_flicker_uses_conservative_sprite_limit() {
+    Vdp reduced;
+    EnhancementConfig config;
+    config.mode = RuntimeMode::Enhanced;
+    config.reduce_flicker = true;
+    reduced.set_enhancements(config);
+    setup_visible_sprites(reduced, 17);
+    reduced.tick(228);
+    assert(reduced.framebuffer()[0x78] == 0xFF00FF00);
+    assert(reduced.framebuffer()[0x80] == 0xFF000000);
+    assert((reduced.read_status() & 0x40) != 0);
+
+    Vdp unlimited;
+    config.disable_sprite_limit = true;
+    unlimited.set_enhancements(config);
+    setup_visible_sprites(unlimited, 17);
+    unlimited.tick(228);
+    assert(unlimited.framebuffer()[0x80] == 0xFF00FF00);
+    assert((unlimited.read_status() & 0x40) != 0);
+}
+
+void test_console_enhancement_config_propagates_to_runtime_devices() {
+    Console console(ConsoleModel::SMS);
+    assert(console.enhancements().mode == RuntimeMode::Accurate);
+    assert(!console.vdp().enhancements().disable_sprite_limit);
+    assert(!console.psg().enhancements().disable_sprite_limit);
+
+    EnhancementConfig config;
+    config.mode = RuntimeMode::Enhanced;
+    config.disable_sprite_limit = true;
+    config.reduce_flicker = true;
+    console.set_enhancements(config);
+
+    assert(console.enhancements().mode == RuntimeMode::Enhanced);
+    assert(console.vdp().enhancements().disable_sprite_limit);
+    assert(console.vdp().enhancements().reduce_flicker);
+    assert(console.psg().enhancements().disable_sprite_limit);
+    assert(console.psg().enhancements().reduce_flicker);
 }
 
 void test_psg_tone_generates_sample() {
@@ -1134,6 +1173,8 @@ int main() {
     test_vdp_sprite_shift_and_zoom();
     test_vdp_sprite_collision_and_overflow_flags();
     test_vdp_sprite_limit_enhancement();
+    test_vdp_reduce_flicker_uses_conservative_sprite_limit();
+    test_console_enhancement_config_propagates_to_runtime_devices();
     test_psg_tone_generates_sample();
     test_misc_jumps_and_flags();
     test_v_counter_port();

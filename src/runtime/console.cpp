@@ -8,6 +8,7 @@ Console::Console(ConsoleModel model)
 Console::Console(ConsoleModel model, const EnhancementConfig& enhancements)
     : bus_(model, vdp_, psg_, joypad_), model_(model), enhancements_(enhancements) {
     vdp_.set_enhancements(enhancements_);
+    psg_.set_enhancements(enhancements_);
 }
 
 void Console::load_rom(std::span<const u8> rom) {
@@ -25,6 +26,7 @@ void Console::reset() {
 void Console::set_enhancements(const EnhancementConfig& enhancements) {
     enhancements_ = enhancements;
     vdp_.set_enhancements(enhancements_);
+    psg_.set_enhancements(enhancements_);
 }
 
 void Console::press_pause() {

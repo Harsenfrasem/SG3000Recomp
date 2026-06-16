@@ -614,6 +614,7 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
     Bus bus(model, vdp, psg, joypad);
     Z80State cpu;
     vdp.set_enhancements(opts.enhancements);
+    psg.set_enhancements(opts.enhancements);
     if (bios != nullptr) {
         bus.load_bios(*bios);
     }

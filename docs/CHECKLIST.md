@@ -28,8 +28,9 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 
 - [x] Estrutura publica `EnhancementConfig` no runtime.
 - [x] Modo padrao `accurate`, sem melhorias ativadas por acidente.
-- [ ] Conectar config ao `Psg` e futuro host runtime.
+- [ ] Conectar config ao futuro host runtime.
 - [x] Conectar config inicial ao `Console` e `Vdp`.
+- [x] Conectar config inicial ao `Psg`.
 - [ ] Carregamento de config TOML/JSON por alvo sem guardar caminhos locais.
 - [x] Registrar no relatorio de smoke quais enhancements estao ativos.
 
@@ -37,9 +38,9 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 
 - [x] VDP com limite original de sprites por scanline no modo fiel.
 - [x] Flag `disable_sprite_limit` para renderizar mais sprites por scanline.
-- [ ] Flag `reduce_flicker` para estrategia menos agressiva mantendo prioridade previsivel.
+- [x] Flag `reduce_flicker` para estrategia menos agressiva mantendo prioridade previsivel.
 - [x] Teste sintetico de sprite overflow comparando modo fiel e enhanced.
-- [ ] Documentar que enhancements podem alterar comportamento visual original.
+- [x] Documentar que enhancements podem alterar comportamento visual original.
 
 ### 4. Host runtime com janela/audio
 
@@ -163,7 +164,7 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] `EnhancementConfig` integrado ao runtime inicial.
 - [x] Modo fiel como padrao imutavel.
 - [x] `disable_sprite_limit`.
-- [ ] `reduce_flicker`.
+- [x] `reduce_flicker`.
 - [ ] Perfis por jogo.
 - [ ] Audio FM opcional.
 - [ ] Relatorio/debug mostrando enhancements ativos.
