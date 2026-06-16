@@ -12,6 +12,7 @@
 - 8-bit ALU register groups: `add`, `adc`, `sub`, `sbc`, `and`, `xor`, `or`, `cp`
 - 8-bit ALU immediate groups: `add`, `adc`, `sub`, `sbc`, `and`, `xor`, `or`, `cp`
 - `inc/dec r`, `inc/dec rr`, `add hl,rr`
+- `daa`
 - `push/pop qq`
 - `jp`, `call`, `ret`, conditional `jp/call/ret`, `djnz`, `rst`
 - `jr`, `jr z`, `jr nz`, `jr c`, `jr nc`

@@ -15,3 +15,11 @@ out/
 generated_*.cpp
 recompiled_rom.cpp
 local-roms/
+local-bios/
+*.sms
+*.sg
+*.gg
+*.rom
+*.bin
+*.zip
+*.7z

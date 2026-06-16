@@ -9,6 +9,10 @@ void Console::load_rom(std::span<const u8> rom) {
     bus_.load_rom(rom);
 }
 
+void Console::load_bios(std::span<const u8> bios) {
+    bus_.load_bios(bios);
+}
+
 void Console::reset() {
     cpu_ = {};
 }

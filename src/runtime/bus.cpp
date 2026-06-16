@@ -14,16 +14,29 @@ Bus::Bus(ConsoleModel model, Vdp& vdp, Psg& psg, Joypad& joypad)
 void Bus::load_rom(std::span<const u8> rom) {
     rom_.assign(rom.begin(), rom.end());
     memory_.fill(0xFF);
+    memory_control_ = 0;
     mapper_control_ = 0;
     mapper_slots_[0] = 0;
     mapper_slots_[1] = 1;
     mapper_slots_[2] = 2;
+    bios_enabled_ = !bios_.empty();
+    refresh_mapper();
+}
+
+void Bus::load_bios(std::span<const u8> bios) {
+    bios_.assign(bios.begin(), bios.end());
+    bios_enabled_ = !bios_.empty();
+    refresh_mapper();
+}
+
+void Bus::set_bios_enabled(bool enabled) {
+    bios_enabled_ = enabled && !bios_.empty();
     refresh_mapper();
 }
 
 u8 Bus::read(u16 address) const {
-    if (model_ == ConsoleModel::SG3000 && address >= 0xC000) {
-        return memory_[address];
+    if (address >= 0xC000) {
+        return memory_[mirrored_ram_address(address)];
     }
     return memory_[address];
 }
@@ -39,7 +52,9 @@ void Bus::write(u16 address, u8 value) {
     }
 
     if (address >= 0xC000) {
-        memory_[address] = value;
+        const u16 ram = mirrored_ram_address(address);
+        memory_[ram] = value;
+        memory_[static_cast<u16>(ram + 0x2000)] = value;
         return;
     }
 }
@@ -67,6 +82,11 @@ u8 Bus::input(u8 port) {
 }
 
 void Bus::output(u8 port, u8 value) {
+    if (model_ == ConsoleModel::MasterSystem && port == 0x3E) {
+        memory_control_ = value;
+        set_bios_enabled((value & 0x08) == 0);
+        return;
+    }
     if (port == 0xBE || port == 0x98) {
         vdp_.write_data(value);
         return;
@@ -82,25 +102,32 @@ void Bus::output(u8 port, u8 value) {
 
 void Bus::refresh_mapper() {
     std::fill(memory_.begin(), memory_.begin() + 0xC000, 0xFF);
-    if (rom_.empty()) {
-        return;
-    }
-
-    const std::size_t banks = (rom_.size() + 0x3FFF) / 0x4000;
-    for (int slot = 0; slot < 3; ++slot) {
-        const std::size_t bank = mapper_slots_[slot] % std::max<std::size_t>(banks, 1);
-        const std::size_t src = bank * 0x4000;
-        const std::size_t dst = static_cast<std::size_t>(slot) * 0x4000;
-        if (src >= rom_.size()) {
-            continue;
+    if (!rom_.empty()) {
+        const std::size_t banks = (rom_.size() + 0x3FFF) / 0x4000;
+        for (int slot = 0; slot < 3; ++slot) {
+            const std::size_t bank = mapper_slots_[slot] % std::max<std::size_t>(banks, 1);
+            const std::size_t src = bank * 0x4000;
+            const std::size_t dst = static_cast<std::size_t>(slot) * 0x4000;
+            if (src >= rom_.size()) {
+                continue;
+            }
+            const std::size_t len = std::min<std::size_t>(0x4000, rom_.size() - src);
+            std::copy_n(rom_.begin() + static_cast<std::ptrdiff_t>(src), len, memory_.begin() + static_cast<std::ptrdiff_t>(dst));
         }
-        const std::size_t len = std::min<std::size_t>(0x4000, rom_.size() - src);
-        std::copy_n(rom_.begin() + static_cast<std::ptrdiff_t>(src), len, memory_.begin() + static_cast<std::ptrdiff_t>(dst));
+
+        if (rom_.size() > 0x400) {
+            std::copy_n(rom_.begin(), 0x400, memory_.begin());
+        }
     }
 
-    if (rom_.size() > 0x400) {
-        std::copy_n(rom_.begin(), 0x400, memory_.begin());
+    if (bios_enabled_ && !bios_.empty()) {
+        const std::size_t len = std::min<std::size_t>(bios_.size(), 0xC000);
+        std::copy_n(bios_.begin(), len, memory_.begin());
     }
+}
+
+u16 Bus::mirrored_ram_address(u16 address) {
+    return static_cast<u16>(0xC000 + ((address - 0xC000) & 0x1FFF));
 }
 
 } // namespace sgrecomp

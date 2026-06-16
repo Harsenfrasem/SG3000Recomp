@@ -37,6 +37,7 @@ Use esta lista como guia de implementacao. Marque cada item somente depois de te
 - [x] Operacoes de 16 bits iniciais: `add hl,rr`, `inc rr`, `dec rr`, stack `push/pop`.
 - [x] Branches condicionais iniciais: `jp`, `call`, `ret`, `djnz`.
 - [x] `rst`, `ex af,af'`, `exx`, `ex de,hl`, `ex (sp),hl`, `ei`, `di`.
+- [x] Ajuste decimal `daa`.
 - [x] `ldi/ldir`, `cpi/cpir`.
 - [x] Prefixo `CB`: rotate, shift, bit, res, set.
 - [x] Prefixo `ED` inicial: `im`, `reti/retn`, `neg`, `ld i/r`, `ld dd,(nn)`, `ld (nn),dd`, `ldi/ldir`, `cpi/cpir`.
@@ -54,12 +55,14 @@ Use esta lista como guia de implementacao. Marque cada item somente depois de te
 - [x] Mapa Z80 de 64 KiB.
 - [x] Slots de ROM de 16 KiB para Master System.
 - [x] Escrita RAM em `0xC000-0xFFFF`.
-- [ ] Espelhamento correto de RAM de 8 KiB.
+- [x] Espelhamento correto de RAM de 8 KiB.
+- [x] BIOS opcional local, carregada por `--bios` e ignorada pelo Git.
+- [ ] Deteccao de header e regioes de ROM/BIOS.
 - [ ] Sega mapper completo: control, slots, SRAM, enable bits.
 - [ ] Codemasters mapper.
 - [ ] Korean mappers usados por ROMs especificas.
 - [ ] SG-3000 cartridge layouts.
-- [ ] BIOS opcional e deteccao de header.
+- [ ] Modelar porta de controle de memoria `0x3E` com todos os bits reais.
 
 ## VDP
 

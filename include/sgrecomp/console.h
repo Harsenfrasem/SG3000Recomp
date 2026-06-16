@@ -15,6 +15,7 @@ public:
     explicit Console(ConsoleModel model);
 
     void load_rom(std::span<const u8> rom);
+    void load_bios(std::span<const u8> bios);
     void reset();
     void run_cycles(u64 cycles);
 

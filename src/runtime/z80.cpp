@@ -52,6 +52,30 @@ u8 sub8(Z80State& cpu, u8 lhs, u8 rhs) {
     return result;
 }
 
+void daa(Z80State& cpu) {
+    const u8 old_a = cpu.a;
+    u8 correction = 0;
+    bool carry = (cpu.f & flag_c) != 0;
+
+    if ((cpu.f & flag_h) != 0 || ((cpu.f & flag_n) == 0 && (cpu.a & 0x0F) > 9)) {
+        correction = static_cast<u8>(correction | 0x06);
+    }
+    if (carry || ((cpu.f & flag_n) == 0 && cpu.a > 0x99)) {
+        correction = static_cast<u8>(correction | 0x60);
+        carry = true;
+    }
+
+    cpu.a = (cpu.f & flag_n) != 0
+        ? static_cast<u8>(cpu.a - correction)
+        : static_cast<u8>(cpu.a + correction);
+    cpu.f = static_cast<u8>((cpu.f & flag_n) |
+        (cpu.a & flag_s) |
+        (cpu.a == 0 ? flag_z : 0) |
+        (((old_a ^ cpu.a) & 0x10) ? flag_h : 0) |
+        parity(cpu.a) |
+        (carry ? flag_c : 0));
+}
+
 u8 adc8(Z80State& cpu, u8 lhs, u8 rhs) {
     const u8 carry = static_cast<u8>(cpu.f & flag_c);
     const u16 sum = static_cast<u16>(lhs + rhs + carry);
@@ -1065,6 +1089,7 @@ DecodedInstruction decode_z80(const std::array<u8, 0x10000>& memory, u16 pc) {
     case 0x1F: out.cycles = 4; out.mnemonic = "rra"; break;
     case 0x21: out.size = 3; out.cycles = 10; out.mnemonic = imm16(memory, pc, "ld hl,"); break;
     case 0x22: out.size = 3; out.cycles = 16; out.mnemonic = imm16(memory, pc, "ld (),hl"); break;
+    case 0x27: out.cycles = 4; out.mnemonic = "daa"; break;
     case 0x28: out.size = 2; out.cycles = 12; out.mnemonic = imm8(memory, pc, "jr z,"); break;
     case 0x2F: out.cycles = 4; out.mnemonic = "cpl"; break;
     case 0x30: out.size = 2; out.cycles = 12; out.mnemonic = imm8(memory, pc, "jr nc,"); break;
@@ -1373,6 +1398,10 @@ void execute_one(Z80State& cpu, Bus& bus) {
     case 0x2A:
         cpu.set_hl(read16(bus, fetch16(cpu, bus)));
         cpu.cycles += 16;
+        break;
+    case 0x27:
+        daa(cpu);
+        cpu.cycles += 4;
         break;
     case 0x2F:
         cpu.a = static_cast<u8>(~cpu.a);

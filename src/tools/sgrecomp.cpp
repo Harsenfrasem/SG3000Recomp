@@ -12,6 +12,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -23,6 +24,7 @@ using namespace sgrecomp;
 
 struct Options {
     std::filesystem::path input;
+    std::filesystem::path bios;
     std::filesystem::path output = "recompiled_rom.cpp";
     ConsoleModel model = ConsoleModel::MasterSystem;
     bool disassemble_only = false;
@@ -40,8 +42,8 @@ std::vector<u8> read_file(const std::filesystem::path& path) {
 }
 
 void print_usage() {
-    std::cout << "usage: sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--model sms|sg3000] [--disasm]\n"
-              << "       sgrecomp <rom.sms|rom.sg> --run-smoke [--steps n] [--trace]\n";
+    std::cout << "usage: sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--model sms|sg3000] [--disasm] [--bios bios.sms]\n"
+              << "       sgrecomp <rom.sms|rom.sg> --run-smoke [--steps n] [--trace] [--bios bios.sms]\n";
 }
 
 Options parse_args(int argc, char** argv) {
@@ -54,6 +56,10 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "-o" && i + 1 < argc) {
             opts.output = argv[++i];
+            continue;
+        }
+        if (arg == "--bios" && i + 1 < argc) {
+            opts.bios = argv[++i];
             continue;
         }
         if (arg == "--model" && i + 1 < argc) {
@@ -95,11 +101,14 @@ Options parse_args(int argc, char** argv) {
     return opts;
 }
 
-std::array<u8, 0x10000> image_for_decode(ConsoleModel model, const std::vector<u8>& rom) {
+std::array<u8, 0x10000> image_for_decode(ConsoleModel model, const std::vector<u8>& rom, const std::vector<u8>* bios = nullptr) {
     Vdp vdp;
     Psg psg;
     Joypad joypad;
     Bus bus(model, vdp, psg, joypad);
+    if (bios != nullptr) {
+        bus.load_bios(*bios);
+    }
     bus.load_rom(rom);
     return bus.debug_memory();
 }
@@ -115,12 +124,15 @@ void disassemble(const std::array<u8, 0x10000>& image, std::size_t limit) {
     }
 }
 
-void run_smoke(ConsoleModel model, const std::vector<u8>& rom, std::size_t max_steps, bool trace) {
+void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector<u8>* bios, std::size_t max_steps, bool trace) {
     Vdp vdp;
     Psg psg;
     Joypad joypad;
     Bus bus(model, vdp, psg, joypad);
     Z80State cpu;
+    if (bios != nullptr) {
+        bus.load_bios(*bios);
+    }
     bus.load_rom(rom);
 
     const auto& image = bus.debug_memory();
@@ -253,13 +265,16 @@ int main(int argc, char** argv) {
     try {
         const Options opts = parse_args(argc, argv);
         const auto rom = read_file(opts.input);
-        const auto image = image_for_decode(opts.model, rom);
+        const std::optional<std::vector<u8>> bios = opts.bios.empty()
+            ? std::optional<std::vector<u8>>{}
+            : std::optional<std::vector<u8>>{read_file(opts.bios)};
+        const auto image = image_for_decode(opts.model, rom, opts.disassemble_only && bios ? &*bios : nullptr);
         const std::size_t limit = std::min<std::size_t>(rom.size(), 0xC000);
 
         if (opts.disassemble_only) {
             disassemble(image, limit);
         } else if (opts.run_smoke) {
-            run_smoke(opts.model, rom, opts.max_steps, opts.trace);
+            run_smoke(opts.model, rom, bios ? &*bios : nullptr, opts.max_steps, opts.trace);
         } else {
             generate_cpp(opts.output, image, limit);
             std::cout << "generated " << opts.output.string() << "\n";

@@ -488,6 +488,23 @@ void test_ed_adc_sbc_hl() {
     assert(console.cpu().hl() == 0x1001);
 }
 
+void test_daa_after_add_and_subtract() {
+    const std::vector<u8> rom = {
+        0x3E, 0x15, // ld a,$15
+        0xC6, 0x27, // add a,$27
+        0x27,       // daa -> $42
+        0xD6, 0x27, // sub $27
+        0x27,       // daa -> $15
+        0x76,       // halt
+    };
+
+    Console console(ConsoleModel::MasterSystem);
+    console.load_rom(rom);
+    run_until_halt(console);
+
+    assert(console.cpu().a == 0x15);
+}
+
 void test_mapper_keeps_ram() {
     std::vector<u8> rom(0x8000, 0x00);
     rom[0x00] = 0x3E; // ld a,$5a
@@ -511,6 +528,69 @@ void test_mapper_keeps_ram() {
 
     assert(console.cpu().a == 0x5A);
     assert(console.bus().read(0xC000) == 0x5A);
+}
+
+void test_ram_mirroring() {
+    const std::vector<u8> rom = {
+        0x3E, 0x5A,       // ld a,$5a
+        0x32, 0x00, 0xC0, // ld ($c000),a
+        0x3A, 0x00, 0xE0, // ld a,($e000)
+        0x32, 0x00, 0xF0, // ld ($f000),a
+        0x76,             // halt
+    };
+
+    Console console(ConsoleModel::MasterSystem);
+    console.load_rom(rom);
+    run_until_halt(console);
+
+    assert(console.cpu().a == 0x5A);
+    assert(console.bus().read(0xC000) == 0x5A);
+    assert(console.bus().read(0xE000) == 0x5A);
+    assert(console.bus().read(0xD000) == 0x5A);
+    assert(console.bus().read(0xF000) == 0x5A);
+}
+
+void test_bios_overlay_boots_before_rom() {
+    const std::vector<u8> bios = {
+        0x3E, 0x99, // ld a,$99
+        0x76,       // halt
+    };
+    const std::vector<u8> rom = {
+        0x3E, 0x42, // ld a,$42
+        0x76,       // halt
+    };
+
+    Console console(ConsoleModel::MasterSystem);
+    console.load_bios(bios);
+    console.load_rom(rom);
+    run_until_halt(console);
+
+    assert(console.cpu().a == 0x99);
+    assert(console.bus().bios_enabled());
+}
+
+void test_bios_can_disable_itself_with_memory_control_port() {
+    std::vector<u8> bios(8, 0x00);
+    bios[0] = 0x3E; // ld a,$08
+    bios[1] = 0x08;
+    bios[2] = 0xD3; // out ($3e),a
+    bios[3] = 0x3E;
+
+    std::vector<u8> rom(8, 0x00);
+    rom[0] = 0x3E; // ld a,$42
+    rom[1] = 0x42;
+    rom[2] = 0x76; // halt
+    rom[4] = 0xC3; // jp $0000, fetched after BIOS overlay is disabled
+    rom[5] = 0x00;
+    rom[6] = 0x00;
+
+    Console console(ConsoleModel::MasterSystem);
+    console.load_bios(bios);
+    console.load_rom(rom);
+    run_until_halt(console);
+
+    assert(console.cpu().a == 0x42);
+    assert(!console.bus().bios_enabled());
 }
 
 void test_bc_de_indirect_loads() {
@@ -576,7 +656,11 @@ int main() {
     test_index_cb_operations();
     test_index_displacement_loads_and_alu();
     test_ed_adc_sbc_hl();
+    test_daa_after_add_and_subtract();
     test_mapper_keeps_ram();
+    test_ram_mirroring();
+    test_bios_overlay_boots_before_rom();
+    test_bios_can_disable_itself_with_memory_control_port();
     test_bc_de_indirect_loads();
     test_hl_absolute_load_store();
     return 0;

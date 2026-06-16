@@ -52,6 +52,9 @@ Before the project has a full host window/audio loop, use the CLI smoke runner:
 ```powershell
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --steps 50000
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --steps 200 --trace
+.\build\zig-debug\sgrecomp.exe game.sms --run-smoke --steps 50000 --bios bios.sms
 ```
+
+BIOS files are only for local testing. Keep them in `local-bios/`; that directory is ignored and generated C++ does not embed BIOS data.
 
 The runner reports unsupported opcodes with disassembly and register state, which is the fastest way to decide the next CPU or hardware feature to implement for a real ROM.
