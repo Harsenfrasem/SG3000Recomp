@@ -11,6 +11,52 @@ Use esta lista como guia de implementacao. Marque cada item somente depois de te
 - [ ] Adicionar CI para Windows, Linux e macOS.
 - [ ] Adicionar formatador (`clang-format`) e preset de lint.
 
+## Roadmap: Emulador/Recompiler com Enhancements
+
+Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhorias opcionais.
+
+### 1. Completar modo fiel basico
+
+- [ ] CPU Z80: fechar flags, ciclos e opcodes raros contra suite conhecida.
+- [ ] Memoria/cartucho: completar SMapper, layouts SG-3000 e mappers alternativos.
+- [ ] VDP: completar Mode 4, TMS9918/SG-3000 modes, prioridade de sprites e limite por scanline exato.
+- [ ] PSG: mixer estereo, buffer de audio e sample rate configuravel.
+- [ ] Timing: NTSC/PAL, VBlank, line IRQ, Pause/NMI e prioridades.
+- [ ] Validacao: traces comparados com emulador de referencia e ROMs homebrew permitidas.
+
+### 2. Criar `EnhancementConfig`
+
+- [ ] Estrutura publica `EnhancementConfig` no runtime.
+- [ ] Modo padrao `accurate`, sem melhorias ativadas por acidente.
+- [ ] Conectar config ao `Console`, `Vdp`, `Psg` e futuro host runtime.
+- [ ] Carregamento de config TOML/JSON por alvo sem guardar caminhos locais.
+- [ ] Registrar no relatorio de smoke quais enhancements estao ativos.
+
+### 3. Primeiro enhancement: `disable_sprite_limit` / `reduce_flicker`
+
+- [ ] VDP com limite original de sprites por scanline no modo fiel.
+- [ ] Flag `disable_sprite_limit` para renderizar mais sprites por scanline.
+- [ ] Flag `reduce_flicker` para estrategia menos agressiva mantendo prioridade previsivel.
+- [ ] Teste sintetico de sprite overflow comparando modo fiel e enhanced.
+- [ ] Documentar que enhancements podem alterar comportamento visual original.
+
+### 4. Host runtime com janela/audio
+
+- [ ] Loop host de video, audio e input.
+- [ ] Backend SDL2 opcional ou camada equivalente configuravel.
+- [ ] Sincronizacao de frame, audio buffer e input polling.
+- [ ] Save RAM em arquivo, save states e debug overlay.
+- [ ] Modo de execucao interpretado, recompilado e hibrido no host.
+
+### 5. Audio FM opcional e perfis por jogo
+
+- [ ] `GameProfile` para configurar compatibilidade e enhancements por jogo.
+- [ ] Identificacao de jogo por hash/header sem incluir ROM/BIOS no repositorio.
+- [ ] FM opcional para jogos com suporte conhecido.
+- [ ] Experimento de FM enhancement para PSG-only com perfis manuais.
+- [ ] Fallback obrigatorio para PSG original.
+- [ ] Documentar limites: FM sintetico nao deve ser tratado como fidelidade historica.
+
 ## Recompilador
 
 - [x] CLI `sgrecomp` com entrada ROM, saida C++ e modo disassembly.
@@ -110,6 +156,16 @@ Use esta lista como guia de implementacao. Marque cada item somente depois de te
 - [x] Save RAM em arquivo local pelo smoke runner.
 - [ ] Estado serializavel para save states.
 - [ ] Debug overlay de PC, registradores, FPS e fallback count.
+
+## Enhancements Opcionais
+
+- [ ] `EnhancementConfig` integrado ao runtime.
+- [ ] Modo fiel como padrao imutavel.
+- [ ] `disable_sprite_limit`.
+- [ ] `reduce_flicker`.
+- [ ] Perfis por jogo.
+- [ ] Audio FM opcional.
+- [ ] Relatorio/debug mostrando enhancements ativos.
 
 ## Testes
 

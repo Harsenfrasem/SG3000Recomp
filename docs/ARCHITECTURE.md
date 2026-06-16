@@ -37,6 +37,18 @@ The project uses a hybrid path while the lifter matures:
 
 This keeps ROMs debuggable from the first milestone while allowing the static code path to grow safely.
 
+## Enhancement Strategy
+
+The runtime should keep accurate behavior as the default. Enhancements are optional runtime features layered on top of the compatible path, not replacements for it.
+
+Planned execution modes:
+
+- `accurate`: interpreter/recompiler runtime with original limits and timing goals.
+- `hybrid`: generated C++ where available, interpreter fallback elsewhere.
+- `enhanced`: accurate or hybrid execution plus explicit user-enabled improvements.
+
+The first enhancement target is sprite flicker reduction through `disable_sprite_limit` and `reduce_flicker`. Later enhancements can add host-facing features, FM audio options, and per-game profiles. Profiles must identify software by hashes or public metadata and must not require committing ROM, BIOS, save, or local path data.
+
 ## Static Analysis Report
 
 The CLI can write a local analysis file with `--dump-analysis`. The report is intentionally text-first so it can be inspected quickly during bring-up. It lists the scan limit, reachable blocks, instructions per block, static successors, direct-emitted instructions, fallback instructions, and indirect exits such as register jumps.
