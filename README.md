@@ -56,6 +56,7 @@ Runtime smoke execution is useful before full video/audio support exists:
 ```powershell
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --steps 50000
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --steps 200 --trace
+.\build\zig-debug\sgrecomp.exe game.sms --run-smoke --dump-frame out\frame.ppm --dump-audio out\audio.wav
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --disable-sprite-limit
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --reduce-flicker
 ```
@@ -63,6 +64,8 @@ Runtime smoke execution is useful before full video/audio support exists:
 If execution reaches an unsupported opcode, the tool prints the instruction, PC, registers, interrupt state, and cycle count.
 
 Enhancements are off by default. Smoke summaries print the active mode and enhancement flags so compatibility tests can confirm whether they are running in accurate or enhanced mode.
+
+`--dump-frame` and `--dump-audio` are local smoke artifacts for visual/audio inspection. Keep them under ignored directories such as `out/` when testing private ROMs.
 
 Sprite enhancements currently keep the original overflow status bit. Accurate mode renders the original 8 sprites per scanline, `--reduce-flicker` raises that render limit to 16, and `--disable-sprite-limit` renders all visible sprites on the scanline.
 

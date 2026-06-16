@@ -29,6 +29,7 @@ struct Options {
     std::filesystem::path input;
     std::filesystem::path bios;
     std::filesystem::path dump_frame;
+    std::filesystem::path dump_audio;
     std::filesystem::path dump_vram;
     std::filesystem::path dump_cram;
     std::filesystem::path dump_sram;
@@ -63,7 +64,8 @@ std::vector<u8> normalize_rom_payload(std::vector<u8> rom) {
 void print_usage() {
     std::cout << "usage: sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--model sms|sg3000] [--disasm] [--bios bios.sms]\n"
               << "       sgrecomp <rom.sms|rom.sg> --run-smoke [--steps n] [--trace] [--bios bios.sms]\n"
-              << "                [--dump-frame frame.ppm] [--dump-vram vram.bin] [--dump-cram cram.bin]\n"
+              << "                [--dump-frame frame.ppm] [--dump-audio audio.wav]\n"
+              << "                [--dump-vram vram.bin] [--dump-cram cram.bin]\n"
               << "                [--load-sram save.sav] [--save-sram save.sav] [--dump-sram sram.bin]\n"
               << "                [--dump-coverage pcs.csv] [--disable-sprite-limit] [--reduce-flicker]\n"
               << "       sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--dump-analysis analysis.txt]\n";
@@ -87,6 +89,10 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--dump-frame" && i + 1 < argc) {
             opts.dump_frame = argv[++i];
+            continue;
+        }
+        if (arg == "--dump-audio" && i + 1 < argc) {
+            opts.dump_audio = argv[++i];
             continue;
         }
         if (arg == "--dump-vram" && i + 1 < argc) {
@@ -208,6 +214,56 @@ void write_frame_ppm(const std::filesystem::path& path, const std::array<u32, Vd
         };
         out.write(rgb, sizeof(rgb));
     }
+}
+
+void write_u16_le(std::ostream& out, u16 value) {
+    const char bytes[2] = {
+        static_cast<char>(value & 0xFF),
+        static_cast<char>((value >> 8) & 0xFF),
+    };
+    out.write(bytes, sizeof(bytes));
+}
+
+void write_u32_le(std::ostream& out, u32 value) {
+    const char bytes[4] = {
+        static_cast<char>(value & 0xFF),
+        static_cast<char>((value >> 8) & 0xFF),
+        static_cast<char>((value >> 16) & 0xFF),
+        static_cast<char>((value >> 24) & 0xFF),
+    };
+    out.write(bytes, sizeof(bytes));
+}
+
+void write_audio_wav(const std::filesystem::path& path, const std::vector<s16>& stereo_samples, u32 sample_rate) {
+    if (path.has_parent_path()) {
+        std::filesystem::create_directories(path.parent_path());
+    }
+
+    std::ofstream out(path, std::ios::binary);
+    if (!out) {
+        throw std::runtime_error("cannot open audio output file");
+    }
+
+    const u16 channels = 2;
+    const u16 bits_per_sample = 16;
+    const u16 block_align = static_cast<u16>(channels * bits_per_sample / 8);
+    const u32 byte_rate = sample_rate * block_align;
+    const u32 data_size = static_cast<u32>(stereo_samples.size() * sizeof(s16));
+
+    out.write("RIFF", 4);
+    write_u32_le(out, 36 + data_size);
+    out.write("WAVE", 4);
+    out.write("fmt ", 4);
+    write_u32_le(out, 16);
+    write_u16_le(out, 1);
+    write_u16_le(out, channels);
+    write_u32_le(out, sample_rate);
+    write_u32_le(out, byte_rate);
+    write_u16_le(out, block_align);
+    write_u16_le(out, bits_per_sample);
+    out.write("data", 4);
+    write_u32_le(out, data_size);
+    out.write(reinterpret_cast<const char*>(stereo_samples.data()), static_cast<std::streamsize>(data_size));
 }
 
 template <typename Container>
@@ -626,6 +682,25 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
     const auto& image = bus.debug_memory();
     std::bitset<0x10000> visited_pc;
     std::array<u32, 0x10000> pc_counts{};
+    std::vector<s16> audio_samples;
+    constexpr u32 audio_sample_rate = 44100;
+    constexpr int cpu_cycles_per_audio_sample = 81;
+    int audio_cycle_accumulator = 0;
+    const auto tick_devices = [&](int elapsed) {
+        vdp.tick(elapsed);
+        psg.tick(elapsed);
+        if (!opts.dump_audio.empty()) {
+            audio_cycle_accumulator += elapsed;
+            while (audio_cycle_accumulator >= cpu_cycles_per_audio_sample) {
+                audio_cycle_accumulator -= cpu_cycles_per_audio_sample;
+                const auto sample = psg.sample();
+                for (float channel : sample) {
+                    const float clipped = std::clamp(channel, -1.0F, 1.0F);
+                    audio_samples.push_back(static_cast<s16>(clipped * 32767.0F));
+                }
+            }
+        }
+    };
     const auto print_runtime_summary = [&]() {
         const auto& framebuffer = vdp.framebuffer();
         const auto lit_pixels = std::count_if(framebuffer.begin(), framebuffer.end(), [](u32 pixel) {
@@ -644,6 +719,11 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
         if (!opts.dump_frame.empty()) {
             write_frame_ppm(opts.dump_frame, framebuffer);
             std::cout << "frame dumped: " << opts.dump_frame.string() << "\n";
+        }
+        if (!opts.dump_audio.empty()) {
+            write_audio_wav(opts.dump_audio, audio_samples, audio_sample_rate);
+            std::cout << "audio dumped: " << opts.dump_audio.string()
+                      << " (" << (audio_samples.size() / 2) << " stereo samples)\n";
         }
         if (!opts.dump_vram.empty()) {
             write_binary_dump(opts.dump_vram, vdp.debug_vram());
@@ -680,11 +760,11 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
         try {
             const u64 cycles_before = cpu.cycles;
             execute_one(cpu, bus);
-            vdp.tick(static_cast<int>(cpu.cycles - cycles_before));
+            tick_devices(static_cast<int>(cpu.cycles - cycles_before));
             if (vdp.irq_pending()) {
                 const u64 irq_before = cpu.cycles;
                 if (service_maskable_interrupt(cpu, bus)) {
-                    vdp.tick(static_cast<int>(cpu.cycles - irq_before));
+                    tick_devices(static_cast<int>(cpu.cycles - irq_before));
                 }
             }
         } catch (const std::exception& e) {

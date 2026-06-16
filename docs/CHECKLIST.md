@@ -44,6 +44,8 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 
 ### 4. Host runtime com janela/audio
 
+- [ ] Proximo bloco: retorno visual/audio demonstravel antes do host completo.
+- [x] Smoke runner com dump local de frame e audio WAV.
 - [ ] Loop host de video, audio e input.
 - [ ] Backend SDL2 opcional ou camada equivalente configuravel.
 - [ ] Sincronizacao de frame, audio buffer e input polling.
@@ -140,6 +142,7 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Gerar ondas dos 3 canais de tom.
 - [x] Canal de ruido inicial.
 - [x] Tabela de volume/log attenuation inicial.
+- [x] Dump WAV local pelo smoke runner.
 - [ ] Mixer estereo e sample rate configuravel.
 - [ ] Buffer de audio para host backend.
 
@@ -177,6 +180,7 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [ ] Comparacao de traces com emulador de referencia.
 - [x] Testes do gerador C++ compilando o arquivo emitido.
 - [x] Teste do relatorio de analise estatica do gerador.
+- [x] Teste do dump WAV do smoke runner.
 - [ ] Testes de regressao com ROMs homebrew permitidas.
 - [x] Smoke runner testado com ROMs locais privadas, sem imagens versionadas.
 

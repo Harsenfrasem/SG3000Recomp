@@ -105,6 +105,8 @@ int main() {
     const std::filesystem::path rom_path = output_dir / "fixture.sms";
     const std::filesystem::path generated_path = output_dir / "generated_fixture.cpp";
     const std::filesystem::path analysis_path = output_dir / "analysis.txt";
+    const std::filesystem::path audio_rom_path = output_dir / "audio_fixture.sms";
+    const std::filesystem::path audio_path = output_dir / "audio_fixture.wav";
     const std::filesystem::path object_path = output_dir / "generated_fixture.obj";
 
     const std::vector<unsigned char> rom = {
@@ -205,4 +207,24 @@ int main() {
 
     compile_generated_cpp(generated_path, object_path);
     assert(std::filesystem::exists(object_path));
+
+    const std::vector<unsigned char> audio_rom = {
+        0x3E, 0x80, // ld a,$80: tone channel 0 latch
+        0xD3, 0x7F, // out ($7f),a
+        0x3E, 0x00, // ld a,$00: tone high bits
+        0xD3, 0x7F, // out ($7f),a
+        0x3E, 0x90, // ld a,$90: channel 0 volume max
+        0xD3, 0x7F, // out ($7f),a
+        0x18, 0xFE, // jr -2
+    };
+    write_binary(audio_rom_path, audio_rom);
+
+    const std::string audio_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(audio_rom_path)
+        + " --run-smoke --steps 4096 --dump-audio " + quote(audio_path);
+    assert(run_command(audio_command) == 0);
+    const std::string wav = read_text(audio_path);
+    assert(wav.size() > 44);
+    assert(wav.substr(0, 4) == "RIFF");
+    assert(wav.substr(8, 4) == "WAVE");
+    assert(wav.substr(36, 4) == "data");
 }
