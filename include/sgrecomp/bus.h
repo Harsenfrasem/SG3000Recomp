@@ -25,6 +25,8 @@ public:
     void load_bios(std::span<const u8> bios);
     void set_bios_enabled(bool enabled);
     bool bios_enabled() const { return bios_enabled_; }
+    bool cartridge_ram_enabled() const;
+    u8 cartridge_ram_bank() const;
     u8 read(u16 address) const;
     void write(u16 address, u8 value);
     u8 input(u8 port);
@@ -38,6 +40,7 @@ private:
     Psg& psg_;
     Joypad& joypad_;
     std::array<u8, 0x10000> memory_{};
+    std::array<u8, 0x8000> cartridge_ram_{};
     std::vector<u8> rom_;
     std::vector<u8> bios_;
     bool bios_enabled_ = false;
@@ -46,6 +49,7 @@ private:
     u8 mapper_slots_[3] = {0, 1, 2};
 
     void refresh_mapper();
+    bool slot2_cartridge_ram_enabled() const;
     static u16 mirrored_ram_address(u16 address);
 };
 

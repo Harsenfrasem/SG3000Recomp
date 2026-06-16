@@ -38,6 +38,7 @@ struct Z80State {
     u8 r = 0;
     bool iff1 = false;
     bool iff2 = false;
+    bool ei_pending = false;
     u8 interrupt_mode = 0;
     bool halted = false;
     u64 cycles = 0;
@@ -63,6 +64,7 @@ struct DecodedInstruction {
 DecodedInstruction decode_z80(const std::array<u8, 0x10000>& memory, u16 pc);
 void dump_z80_state(std::ostream& out, const Z80State& cpu);
 bool service_maskable_interrupt(Z80State& cpu, Bus& bus);
+void service_non_maskable_interrupt(Z80State& cpu, Bus& bus);
 void execute_one(Z80State& cpu, Bus& bus);
 
 } // namespace sgrecomp

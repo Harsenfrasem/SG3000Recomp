@@ -471,6 +471,33 @@ void test_index_displacement_loads_and_alu() {
     assert(console.cpu().a == 0x20);
 }
 
+void test_index_high_low_register_operations() {
+    const std::vector<u8> rom = {
+        0xDD, 0x21, 0x34, 0x12, // ld ix,$1234
+        0xDD, 0x24,             // inc ixh -> $13
+        0xDD, 0x2D,             // dec ixl -> $33
+        0xDD, 0x44,             // ld b,ixh
+        0xDD, 0x4D,             // ld c,ixl
+        0xDD, 0x26, 0x56,       // ld ixh,$56
+        0xDD, 0x2E, 0x78,       // ld ixl,$78
+        0xDD, 0x7C,             // ld a,ixh
+        0xDD, 0x85,             // add a,ixl -> $ce
+        0xFD, 0x21, 0x00, 0xC0, // ld iy,$c000
+        0xFD, 0x2E, 0xA5,       // ld iyl,$a5
+        0xFD, 0x75, 0x02,       // ld (iy+2),iyl
+        0x76,                   // halt
+    };
+
+    Console console(ConsoleModel::MasterSystem);
+    console.load_rom(rom);
+    run_until_halt(console);
+
+    assert(console.cpu().b == 0x13);
+    assert(console.cpu().c == 0x33);
+    assert(console.cpu().a == 0xCE);
+    assert(console.bus().read(0xC0A7) == 0xA5);
+}
+
 void test_ed_adc_sbc_hl() {
     const std::vector<u8> rom = {
         0x21, 0x00, 0x10, // ld hl,$1000
@@ -593,6 +620,60 @@ void test_bios_can_disable_itself_with_memory_control_port() {
     assert(!console.bus().bios_enabled());
 }
 
+void test_sega_mapper_cartridge_ram_banks() {
+    std::vector<u8> rom(0x10000, 0x00);
+    rom[0x8000] = 0x22;
+
+    Console console(ConsoleModel::MasterSystem);
+    console.load_rom(rom);
+
+    assert(console.bus().read(0x8000) == 0x22);
+    console.bus().write(0xFFFC, 0x08);
+    assert(console.bus().cartridge_ram_enabled());
+    assert(console.bus().cartridge_ram_bank() == 0);
+    console.bus().write(0x8000, 0x5A);
+    assert(console.bus().read(0x8000) == 0x5A);
+
+    console.bus().write(0xFFFC, 0x0C);
+    assert(console.bus().cartridge_ram_bank() == 1);
+    assert(console.bus().read(0x8000) == 0x00);
+    console.bus().write(0x8000, 0xA5);
+
+    console.bus().write(0xFFFC, 0x08);
+    assert(console.bus().read(0x8000) == 0x5A);
+    console.bus().write(0xFFFC, 0x00);
+    assert(!console.bus().cartridge_ram_enabled());
+    assert(console.bus().read(0x8000) == 0x22);
+}
+
+void test_ei_delay_and_nmi_service() {
+    std::vector<u8> rom(0x80, 0x00);
+    rom[0x00] = 0xFB; // ei
+    rom[0x01] = 0x00; // nop
+    rom[0x02] = 0x76; // halt
+    rom[0x66] = 0x3E; // nmi: ld a,$66
+    rom[0x67] = 0x66;
+    rom[0x68] = 0x76; // halt
+
+    Console console(ConsoleModel::MasterSystem);
+    console.load_rom(rom);
+
+    execute_one(console.cpu(), console.bus());
+    assert(!console.cpu().iff1);
+    assert(console.cpu().ei_pending);
+    assert(!service_maskable_interrupt(console.cpu(), console.bus()));
+
+    execute_one(console.cpu(), console.bus());
+    assert(console.cpu().iff1);
+    assert(console.cpu().iff2);
+
+    service_non_maskable_interrupt(console.cpu(), console.bus());
+    assert(!console.cpu().iff1);
+    assert(console.cpu().iff2);
+    run_until_halt(console);
+    assert(console.cpu().a == 0x66);
+}
+
 void test_bc_de_indirect_loads() {
     const std::vector<u8> rom = {
         0x01, 0x00, 0xC0, // ld bc,$c000
@@ -655,12 +736,15 @@ int main() {
     test_accumulator_rotates();
     test_index_cb_operations();
     test_index_displacement_loads_and_alu();
+    test_index_high_low_register_operations();
     test_ed_adc_sbc_hl();
     test_daa_after_add_and_subtract();
     test_mapper_keeps_ram();
     test_ram_mirroring();
     test_bios_overlay_boots_before_rom();
     test_bios_can_disable_itself_with_memory_control_port();
+    test_sega_mapper_cartridge_ram_banks();
+    test_ei_delay_and_nmi_service();
     test_bc_de_indirect_loads();
     test_hl_absolute_load_store();
     return 0;

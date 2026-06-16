@@ -43,10 +43,11 @@ Use esta lista como guia de implementacao. Marque cada item somente depois de te
 - [x] Prefixo `ED` inicial: `im`, `reti/retn`, `neg`, `ld i/r`, `ld dd,(nn)`, `ld (nn),dd`, `ldi/ldir`, `cpi/cpir`.
 - [x] Prefixo `ED` restante parcial: block I/O, `adc hl,rr`, `sbc hl,rr`, `rrd/rld`.
 - [ ] Prefixo `ED` restante: flags/ciclos exatos e opcodes nao documentados.
-- [x] Prefixos `DD/FD` iniciais: IX/IY, stack, `jp (ix/iy)`, loads absolutos, deslocamento `ld/inc/dec/alu`, `DD/FD CB`.
+- [x] Prefixos `DD/FD` iniciais: IX/IY, stack, `jp (ix/iy)`, loads absolutos, deslocamento `ld/inc/dec/alu`, `DD/FD CB`, `IXH/IXL/IYH/IYL`.
 - [ ] Prefixos `DD/FD` restantes: opcodes espelhados raros, flags/ciclos exatos e casos nao documentados completos.
 - [x] Interrupt mode: IM 0/1/2, `ei/di`, `reti/retn`.
-- [ ] Interrupts: NMI, IRQ maskable, delayed `ei`.
+- [x] Interrupts: IRQ maskable inicial, delayed `ei`, servico NMI inicial.
+- [ ] Interrupts: NMI ligado ao Pause, prioridades e timing exato.
 - [ ] Testar flags contra suite conhecida de Z80.
 - [ ] Validar cycle counts por opcode e por branch tomado/nao tomado.
 
@@ -57,6 +58,7 @@ Use esta lista como guia de implementacao. Marque cada item somente depois de te
 - [x] Escrita RAM em `0xC000-0xFFFF`.
 - [x] Espelhamento correto de RAM de 8 KiB.
 - [x] BIOS opcional local, carregada por `--bios` e ignorada pelo Git.
+- [x] Sega mapper parcial: slots de ROM e SRAM de cartucho em dois bancos.
 - [ ] Deteccao de header e regioes de ROM/BIOS.
 - [ ] Sega mapper completo: control, slots, SRAM, enable bits.
 - [ ] Codemasters mapper.

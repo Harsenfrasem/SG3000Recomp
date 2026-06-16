@@ -240,6 +240,42 @@ void write_index(Z80State& cpu, bool iy, u16 value) {
     }
 }
 
+u8 read_index_reg(const Z80State& cpu, bool iy, u8 index) {
+    switch (index & 0x07) {
+    case 0: return cpu.b;
+    case 1: return cpu.c;
+    case 2: return cpu.d;
+    case 3: return cpu.e;
+    case 4: return iy ? cpu.iyh : cpu.ixh;
+    case 5: return iy ? cpu.iyl : cpu.ixl;
+    default: return cpu.a;
+    }
+}
+
+void write_index_reg(Z80State& cpu, bool iy, u8 index, u8 value) {
+    switch (index & 0x07) {
+    case 0: cpu.b = value; break;
+    case 1: cpu.c = value; break;
+    case 2: cpu.d = value; break;
+    case 3: cpu.e = value; break;
+    case 4:
+        if (iy) {
+            cpu.iyh = value;
+        } else {
+            cpu.ixh = value;
+        }
+        break;
+    case 5:
+        if (iy) {
+            cpu.iyl = value;
+        } else {
+            cpu.ixl = value;
+        }
+        break;
+    default: cpu.a = value; break;
+    }
+}
+
 void write_qq(Z80State& cpu, u8 index, u16 value) {
     switch (index & 0x03) {
     case 0: cpu.set_bc(value); break;
@@ -776,6 +812,21 @@ void execute_index(Z80State& cpu, Bus& bus, bool iy, u8 op) {
         write_index(cpu, iy, static_cast<u16>(read_index(cpu, iy) - 1));
         cpu.cycles += 10;
         return;
+    case 0x24:
+    case 0x25:
+    case 0x2C:
+    case 0x2D: {
+        const u8 reg = static_cast<u8>((op >> 3) & 0x07);
+        const u8 value = read_index_reg(cpu, iy, reg);
+        write_index_reg(cpu, iy, reg, (op & 0x01) != 0 ? dec8(cpu, value) : inc8(cpu, value));
+        cpu.cycles += 8;
+        return;
+    }
+    case 0x26:
+    case 0x2E:
+        write_index_reg(cpu, iy, static_cast<u8>((op >> 3) & 0x07), fetch8(cpu, bus));
+        cpu.cycles += 11;
+        return;
     case 0x34: {
         const auto displacement = static_cast<s8>(fetch8(cpu, bus));
         const u16 address = static_cast<u16>(read_index(cpu, iy) + displacement);
@@ -796,6 +847,10 @@ void execute_index(Z80State& cpu, Bus& bus, bool iy, u8 op) {
         cpu.cycles += 19;
         return;
     }
+    case 0x76:
+        cpu.halted = true;
+        cpu.cycles += 8;
+        return;
     case 0xE1:
         write_index(cpu, iy, pop16(cpu, bus));
         cpu.cycles += 14;
@@ -830,7 +885,8 @@ void execute_index(Z80State& cpu, Bus& bus, bool iy, u8 op) {
         if ((op & 0xF8) == 0x70) {
             const u8 reg = static_cast<u8>(op & 0x07);
             const auto displacement = static_cast<s8>(fetch8(cpu, bus));
-            bus.write(static_cast<u16>(read_index(cpu, iy) + displacement), read_reg(cpu, bus, reg));
+            const u8 value = reg == 6 ? bus.read(static_cast<u16>(read_index(cpu, iy) + displacement)) : read_index_reg(cpu, iy, reg);
+            bus.write(static_cast<u16>(read_index(cpu, iy) + displacement), value);
             cpu.cycles += 19;
             return;
         }
@@ -848,6 +904,50 @@ void execute_index(Z80State& cpu, Bus& bus, bool iy, u8 op) {
             case 7: (void)sub8(cpu, cpu.a, rhs); break;
             }
             cpu.cycles += 19;
+            return;
+        }
+        if ((op & 0xC0) == 0x40 && op != 0x76) {
+            const u8 dst = static_cast<u8>((op >> 3) & 0x07);
+            const u8 src = static_cast<u8>(op & 0x07);
+            if (dst != 6 && src != 6 && (dst == 4 || dst == 5 || src == 4 || src == 5)) {
+                write_index_reg(cpu, iy, dst, read_index_reg(cpu, iy, src));
+                cpu.cycles += 8;
+                return;
+            }
+            if (dst != 6 && src != 6) {
+                write_reg(cpu, bus, dst, read_reg(cpu, bus, src));
+                cpu.cycles += 8;
+                return;
+            }
+        }
+        if ((op & 0xC0) == 0x80 && ((op & 0x07) == 4 || (op & 0x07) == 5)) {
+            const u8 rhs = read_index_reg(cpu, iy, op & 0x07);
+            switch ((op >> 3) & 0x07) {
+            case 0: cpu.a = add8(cpu, cpu.a, rhs); break;
+            case 1: cpu.a = adc8(cpu, cpu.a, rhs); break;
+            case 2: cpu.a = sub8(cpu, cpu.a, rhs); break;
+            case 3: cpu.a = sbc8(cpu, cpu.a, rhs); break;
+            case 4: cpu.a = and8(cpu, cpu.a, rhs); break;
+            case 5: cpu.a = xor8(cpu, cpu.a, rhs); break;
+            case 6: cpu.a = or8(cpu, cpu.a, rhs); break;
+            case 7: (void)sub8(cpu, cpu.a, rhs); break;
+            }
+            cpu.cycles += 8;
+            return;
+        }
+        if ((op & 0xC0) == 0x80 && (op & 0x07) != 6) {
+            const u8 rhs = read_reg(cpu, bus, op & 0x07);
+            switch ((op >> 3) & 0x07) {
+            case 0: cpu.a = add8(cpu, cpu.a, rhs); break;
+            case 1: cpu.a = adc8(cpu, cpu.a, rhs); break;
+            case 2: cpu.a = sub8(cpu, cpu.a, rhs); break;
+            case 3: cpu.a = sbc8(cpu, cpu.a, rhs); break;
+            case 4: cpu.a = and8(cpu, cpu.a, rhs); break;
+            case 5: cpu.a = xor8(cpu, cpu.a, rhs); break;
+            case 6: cpu.a = or8(cpu, cpu.a, rhs); break;
+            case 7: (void)sub8(cpu, cpu.a, rhs); break;
+            }
+            cpu.cycles += 8;
             return;
         }
         std::ostringstream message;
@@ -1279,7 +1379,7 @@ void dump_z80_state(std::ostream& out, const Z80State& cpu) {
 }
 
 bool service_maskable_interrupt(Z80State& cpu, Bus& bus) {
-    if (!cpu.iff1) {
+    if (!cpu.iff1 || cpu.ei_pending) {
         return false;
     }
 
@@ -1298,10 +1398,31 @@ bool service_maskable_interrupt(Z80State& cpu, Bus& bus) {
     return true;
 }
 
+void service_non_maskable_interrupt(Z80State& cpu, Bus& bus) {
+    cpu.halted = false;
+    cpu.ei_pending = false;
+    cpu.iff2 = cpu.iff1;
+    cpu.iff1 = false;
+    push16(cpu, bus, cpu.pc);
+    cpu.pc = 0x0066;
+    cpu.cycles += 11;
+}
+
 void execute_one(Z80State& cpu, Bus& bus) {
     if (cpu.halted) {
+        if (cpu.ei_pending) {
+            cpu.iff1 = true;
+            cpu.iff2 = true;
+            cpu.ei_pending = false;
+        }
         cpu.cycles += 4;
         return;
+    }
+
+    if (cpu.ei_pending) {
+        cpu.iff1 = true;
+        cpu.iff2 = true;
+        cpu.ei_pending = false;
     }
 
     const u8 opcode = fetch8(cpu, bus);
@@ -1500,6 +1621,7 @@ void execute_one(Z80State& cpu, Bus& bus) {
     case 0xF3:
         cpu.iff1 = false;
         cpu.iff2 = false;
+        cpu.ei_pending = false;
         cpu.cycles += 4;
         break;
     case 0xFD:
@@ -1511,8 +1633,7 @@ void execute_one(Z80State& cpu, Bus& bus) {
         cpu.cycles += 6;
         break;
     case 0xFB:
-        cpu.iff1 = true;
-        cpu.iff2 = true;
+        cpu.ei_pending = true;
         cpu.cycles += 4;
         break;
     case 0xFE: {

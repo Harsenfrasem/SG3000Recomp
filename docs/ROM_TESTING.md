@@ -27,4 +27,4 @@ Current result from private local smoke testing:
 - Multiple Master System ROMs can load and execute hundreds of thousands of Z80 steps.
 - A private BIOS plus ROM smoke test reaches the configured step limit without hitting an unsupported opcode.
 - They still do not render playable output. The next blockers are hardware behavior: VDP timing/rendering, interrupt accuracy, mapper details, input, and audio.
-- Recent private tests helped prioritize V counter reads, mapper RAM preservation, RAM mirroring, local BIOS overlay, IX/IY handling, indexed CB operations, `daa`, and additional ED instructions.
+- Recent private tests helped prioritize V counter reads, mapper RAM preservation, RAM mirroring, cartridge SRAM, local BIOS overlay, IX/IY handling, indexed CB operations, `IXH/IXL/IYH/IYL`, `daa`, delayed `ei`, NMI service, and additional ED instructions.

@@ -25,6 +25,7 @@
 - `adc hl,rr`, `sbc hl,rr`, `rrd`, `rld`
 - IX/IY basics: `ld ix/iy,nn`, `push/pop ix/iy`, `jp (ix/iy)`, `ld sp,ix/iy`
 - IX/IY indexed memory operations for common load, ALU, inc/dec, and `DD/FD CB` forms
+- IXH/IXL/IYH/IYL load, inc/dec, ALU source, and redundant prefixed register operations
 - `halt`
 - CB-prefixed `rlc`, `rrc`, `rl`, `rr`, `sla`, `sra`, `sll`, `srl`, `bit`, `res`, `set`
 
@@ -41,6 +42,6 @@
 ## Next Opcode Families
 
 - Remaining DD/FD rare mirrored and undocumented forms.
-- Delayed `ei`, NMI, and maskable IRQ servicing.
+- Pause/NMI source wiring and exact interrupt timing.
 - Flag parity conformance tests against a known Z80 suite.
 - Cycle-count validation for taken and untaken branches.

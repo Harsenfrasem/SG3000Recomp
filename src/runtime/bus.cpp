@@ -34,6 +34,14 @@ void Bus::set_bios_enabled(bool enabled) {
     refresh_mapper();
 }
 
+bool Bus::cartridge_ram_enabled() const {
+    return slot2_cartridge_ram_enabled();
+}
+
+u8 Bus::cartridge_ram_bank() const {
+    return static_cast<u8>((mapper_control_ & 0x04) != 0 ? 1 : 0);
+}
+
 u8 Bus::read(u16 address) const {
     if (address >= 0xC000) {
         return memory_[mirrored_ram_address(address)];
@@ -42,6 +50,13 @@ u8 Bus::read(u16 address) const {
 }
 
 void Bus::write(u16 address, u8 value) {
+    if (model_ == ConsoleModel::MasterSystem && slot2_cartridge_ram_enabled() && address >= 0x8000 && address < 0xC000) {
+        const std::size_t offset = static_cast<std::size_t>(cartridge_ram_bank()) * 0x4000 + (address - 0x8000);
+        cartridge_ram_[offset] = value;
+        memory_[address] = value;
+        return;
+    }
+
     if (model_ == ConsoleModel::MasterSystem && address >= 0xFFFC) {
         if (address == 0xFFFC) {
             mapper_control_ = value;
@@ -120,10 +135,19 @@ void Bus::refresh_mapper() {
         }
     }
 
+    if (model_ == ConsoleModel::MasterSystem && slot2_cartridge_ram_enabled()) {
+        const std::size_t offset = static_cast<std::size_t>(cartridge_ram_bank()) * 0x4000;
+        std::copy_n(cartridge_ram_.begin() + static_cast<std::ptrdiff_t>(offset), 0x4000, memory_.begin() + 0x8000);
+    }
+
     if (bios_enabled_ && !bios_.empty()) {
         const std::size_t len = std::min<std::size_t>(bios_.size(), 0xC000);
         std::copy_n(bios_.begin(), len, memory_.begin());
     }
+}
+
+bool Bus::slot2_cartridge_ram_enabled() const {
+    return (mapper_control_ & 0x08) != 0;
 }
 
 u16 Bus::mirrored_ram_address(u16 address) {
