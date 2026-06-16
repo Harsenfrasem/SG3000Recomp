@@ -17,7 +17,7 @@ Use esta lista como guia de implementacao. Marque cada item somente depois de te
 - [x] Geracao de dispatcher C++ por `pc`.
 - [x] Fallback para interpretador quando opcode ainda nao e levantado.
 - [x] ROM embutida no arquivo gerado com funcao `sgrecomp_load_rom`.
-- [x] Emissao direta ampliada para loads simples, stack, controle de fluxo, interrupcoes basicas, `rst` e matriz `ld r,r`.
+- [x] Emissao direta ampliada para loads simples, stack, ALU 8-bit, controle de fluxo, I/O basico, interrupcoes basicas, IX/IY stack, `rst` e matriz `ld r,r`.
 - [x] Smoke runner de ROM com estado de registradores e trace opcional.
 - [x] Smoke runner com resumo de PCs, audio, framebuffer e dumps locais de frame/VRAM/CRAM.
 - [x] Smoke runner com dump CSV de cobertura de PCs.

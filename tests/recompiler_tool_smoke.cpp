@@ -131,6 +131,26 @@ int main() {
         0xED, 0x56,             // im 1
         0xFB,                   // ei
         0xC7,                   // rst $00
+        0x23,                   // inc hl
+        0x13,                   // inc de
+        0x0C,                   // inc c
+        0xB7,                   // or a
+        0xC6, 0x01,             // add a,$01
+        0xD3, 0xBF,             // out ($bf),a
+        0x10, 0xFC,             // djnz -4
+        0xED, 0x43, 0x00, 0xC0, // ld ($c000),bc
+        0xED, 0x4B, 0x00, 0xC0, // ld bc,($c000)
+        0xED, 0xA0,             // ldi
+        0xED, 0xB0,             // ldir
+        0x08,                   // ex af,af'
+        0x17,                   // rla
+        0x19,                   // add hl,de
+        0xDB, 0xDD,             // in a,($dd)
+        0xD9,                   // exx
+        0xDD, 0xE1,             // pop ix
+        0xDD, 0xE5,             // push ix
+        0xFD, 0xE1,             // pop iy
+        0xFD, 0xE5,             // push iy
     };
     write_binary(rom_path, rom);
 
@@ -156,6 +176,24 @@ int main() {
     assert(contains(generated, "cpu.interrupt_mode = 1; cpu.pc = 0x0028;"));
     assert(contains(generated, "cpu.ei_pending = true; cpu.pc = 0x0029;"));
     assert(contains(generated, "cpu.pc = 0x0000; cpu.cycles += 11;"));
+    assert(contains(generated, "cpu.set_hl(static_cast<sgrecomp::u16>(cpu.hl() + 1));"));
+    assert(contains(generated, "cpu.c = sgrecomp_inc8(cpu, cpu.c);"));
+    assert(contains(generated, "cpu.a = sgrecomp_or8(cpu, cpu.a, cpu.a);"));
+    assert(contains(generated, "cpu.a = sgrecomp_add8(cpu, cpu.a, 0x01);"));
+    assert(contains(generated, "bus.output(0xbf, cpu.a);"));
+    assert(contains(generated, "cpu.b = static_cast<sgrecomp::u8>(cpu.b - 1);"));
+    assert(contains(generated, "const auto value = cpu.bc(); bus.write(0xc000"));
+    assert(contains(generated, "cpu.set_bc(sgrecomp::make_u16(lo, hi));"));
+    assert(contains(generated, "bus.write(cpu.de(), bus.read(cpu.hl()));"));
+    assert(contains(generated, "cpu.a = cpu.a_alt; cpu.f = cpu.f_alt;"));
+    assert(contains(generated, "const bool carry = (cpu.a & 0x80) != 0; cpu.a = static_cast<sgrecomp::u8>((cpu.a << 1)"));
+    assert(contains(generated, "const auto lhs = cpu.hl(); const auto rhs = cpu.de();"));
+    assert(contains(generated, "cpu.a = bus.input(0xdd);"));
+    assert(contains(generated, "cpu.b = cpu.b_alt; cpu.c = cpu.c_alt;"));
+    assert(contains(generated, "cpu.ixl = lo; cpu.ixh = hi;"));
+    assert(contains(generated, "cpu.iyl = lo; cpu.iyh = hi;"));
+    assert(contains(generated, "sgrecomp::make_u16(cpu.ixl, cpu.ixh)"));
+    assert(contains(generated, "sgrecomp::make_u16(cpu.iyl, cpu.iyh)"));
 
     const std::string analysis = read_text(analysis_path);
     assert(contains(analysis, "SG3000Recomp static analysis"));
