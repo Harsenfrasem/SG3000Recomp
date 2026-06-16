@@ -16,8 +16,8 @@ This repository is intentionally not a clone of any existing recompilation proje
 
 - Z80 CPU state, decoder, and fallback interpreter for the first instruction subset.
 - SMS and SG-3000 runtime shell: bus, ROM mapping, RAM writes, VDP ports, PSG latch, joypad reads.
-- `sgrecomp` CLI that can disassemble or generate a C++ instruction dispatcher.
-- Smoke test for a tiny Z80 program.
+- `sgrecomp` CLI that can disassemble, analyze reachable basic blocks, or generate a C++ instruction dispatcher.
+- Smoke tests for the Z80 runtime and for generated C++ compilation.
 
 Full compatibility requires completing the Z80/CB/DD/FD/ED opcode tables, exact cycle accounting, SMapper variants, VDP rendering modes, PSG synthesis, pause/NMI behavior, and ROM database heuristics.
 
@@ -45,8 +45,11 @@ ctest --preset msvc-debug
 ```powershell
 build\Debug\sgrecomp.exe game.sms -o generated_game.cpp
 build\Debug\sgrecomp.exe game.sms --disasm
+build\Debug\sgrecomp.exe game.sms -o generated_game.cpp --dump-analysis analysis.txt
 build\Debug\sgrecomp.exe game.sg --model sg3000 -o generated_sg3000.cpp
 ```
+
+`--dump-analysis` writes a static report with reachable basic blocks, static successors, direct-emitted instructions, fallback instructions, and indirect exits. It is the easiest way to see how close a ROM is to the current lifted C++ path.
 
 Runtime smoke execution is useful before full video/audio support exists:
 

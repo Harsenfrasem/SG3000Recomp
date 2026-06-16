@@ -9,11 +9,13 @@
 #include <cctype>
 #include <cstdlib>
 #include <bitset>
+#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <optional>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -31,6 +33,7 @@ struct Options {
     std::filesystem::path dump_cram;
     std::filesystem::path dump_sram;
     std::filesystem::path dump_coverage;
+    std::filesystem::path dump_analysis;
     std::filesystem::path load_sram;
     std::filesystem::path save_sram;
     std::filesystem::path output = "recompiled_rom.cpp";
@@ -61,7 +64,8 @@ void print_usage() {
               << "       sgrecomp <rom.sms|rom.sg> --run-smoke [--steps n] [--trace] [--bios bios.sms]\n"
               << "                [--dump-frame frame.ppm] [--dump-vram vram.bin] [--dump-cram cram.bin]\n"
               << "                [--load-sram save.sav] [--save-sram save.sav] [--dump-sram sram.bin]\n"
-              << "                [--dump-coverage pcs.csv]\n";
+              << "                [--dump-coverage pcs.csv]\n"
+              << "       sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--dump-analysis analysis.txt]\n";
 }
 
 Options parse_args(int argc, char** argv) {
@@ -98,6 +102,10 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--dump-coverage" && i + 1 < argc) {
             opts.dump_coverage = argv[++i];
+            continue;
+        }
+        if (arg == "--dump-analysis" && i + 1 < argc) {
+            opts.dump_analysis = argv[++i];
             continue;
         }
         if (arg == "--load-sram" && i + 1 < argc) {
@@ -227,6 +235,323 @@ void write_coverage_csv(
             << std::dec << "," << pc_counts[pc]
             << ",0x" << std::hex << std::setw(2) << static_cast<int>(decoded.opcode)
             << std::dec << "," << decoded.mnemonic << "\n";
+    }
+}
+
+struct InstructionFlow {
+    bool ends_block = false;
+    bool indirect = false;
+    std::vector<u16> successors;
+};
+
+struct BlockInstruction {
+    DecodedInstruction decoded;
+    bool direct_emit = false;
+};
+
+struct BasicBlock {
+    u16 start = 0;
+    u16 end = 0;
+    bool indirect_exit = false;
+    std::vector<BlockInstruction> instructions;
+    std::vector<u16> successors;
+};
+
+u16 read_u16_from_image(const std::array<u8, 0x10000>& image, u16 pc) {
+    return make_u16(image[static_cast<u16>(pc + 1)], image[static_cast<u16>(pc + 2)]);
+}
+
+u16 relative_target(u16 pc, u8 displacement) {
+    return static_cast<u16>(pc + 2 + static_cast<s8>(displacement));
+}
+
+bool in_code_window(u16 pc, std::size_t limit) {
+    return pc < limit && pc < 0xC000;
+}
+
+bool is_direct_emit_supported(u8 opcode) {
+    switch (opcode) {
+    case 0x00:
+    case 0x01:
+    case 0x02:
+    case 0x06:
+    case 0x0A:
+    case 0x0E:
+    case 0x11:
+    case 0x12:
+    case 0x16:
+    case 0x18:
+    case 0x1A:
+    case 0x1E:
+    case 0x20:
+    case 0x21:
+    case 0x22:
+    case 0x26:
+    case 0x28:
+    case 0x2A:
+    case 0x2E:
+    case 0x30:
+    case 0x31:
+    case 0x32:
+    case 0x36:
+    case 0x38:
+    case 0x3A:
+    case 0x3E:
+    case 0x76:
+    case 0xC3:
+    case 0xC9:
+    case 0xCD:
+    case 0xE9:
+    case 0xF3:
+    case 0xFB:
+        return true;
+    default:
+        if ((opcode & 0xC0) == 0x40 && opcode != 0x76) {
+            return true;
+        }
+        if ((opcode & 0xC7) == 0xC0 || (opcode & 0xC7) == 0xC2 || (opcode & 0xC7) == 0xC4) {
+            return true;
+        }
+        if ((opcode & 0xCF) == 0xC1 || (opcode & 0xCF) == 0xC5) {
+            return true;
+        }
+        if ((opcode & 0xC7) == 0xC7) {
+            return true;
+        }
+        return false;
+    }
+}
+
+bool is_direct_emit_supported(const std::array<u8, 0x10000>& image, u16 pc) {
+    const u8 opcode = image[pc];
+    if (opcode != 0xED) {
+        return is_direct_emit_supported(opcode);
+    }
+
+    switch (image[static_cast<u16>(pc + 1)]) {
+    case 0x45:
+    case 0x4D:
+    case 0x46:
+    case 0x56:
+    case 0x5E:
+    case 0x66:
+    case 0x76:
+    case 0x7E:
+        return true;
+    default:
+        return false;
+    }
+}
+
+InstructionFlow classify_flow(const std::array<u8, 0x10000>& image, u16 pc, const DecodedInstruction& insn, std::size_t limit) {
+    const u8 opcode = insn.opcode;
+    const u16 next = static_cast<u16>(pc + insn.size);
+    InstructionFlow flow;
+
+    const auto add_successor = [&](u16 target) {
+        if (in_code_window(target, limit)
+            && std::find(flow.successors.begin(), flow.successors.end(), target) == flow.successors.end()) {
+            flow.successors.push_back(target);
+        }
+    };
+
+    switch (opcode) {
+    case 0x10:
+        flow.ends_block = true;
+        add_successor(relative_target(pc, image[static_cast<u16>(pc + 1)]));
+        add_successor(next);
+        break;
+    case 0x18:
+        flow.ends_block = true;
+        add_successor(relative_target(pc, image[static_cast<u16>(pc + 1)]));
+        break;
+    case 0x20:
+    case 0x28:
+    case 0x30:
+    case 0x38:
+        flow.ends_block = true;
+        add_successor(relative_target(pc, image[static_cast<u16>(pc + 1)]));
+        add_successor(next);
+        break;
+    case 0xC3:
+        flow.ends_block = true;
+        add_successor(read_u16_from_image(image, pc));
+        break;
+    case 0xC9:
+    case 0x76:
+        flow.ends_block = true;
+        break;
+    case 0xCD:
+        flow.ends_block = true;
+        add_successor(read_u16_from_image(image, pc));
+        add_successor(next);
+        break;
+    case 0xE9:
+        flow.ends_block = true;
+        flow.indirect = true;
+        break;
+    default:
+        if ((opcode & 0xC7) == 0xC0) {
+            flow.ends_block = true;
+            add_successor(next);
+        } else if ((opcode & 0xC7) == 0xC2) {
+            flow.ends_block = true;
+            add_successor(read_u16_from_image(image, pc));
+            add_successor(next);
+        } else if ((opcode & 0xC7) == 0xC4) {
+            flow.ends_block = true;
+            add_successor(read_u16_from_image(image, pc));
+            add_successor(next);
+        } else if ((opcode & 0xC7) == 0xC7) {
+            flow.ends_block = true;
+            add_successor(static_cast<u16>(opcode & 0x38));
+            add_successor(next);
+        }
+        break;
+    }
+
+    return flow;
+}
+
+std::vector<BasicBlock> discover_basic_blocks(const std::array<u8, 0x10000>& image, std::size_t limit) {
+    std::vector<BasicBlock> blocks;
+    std::set<u16> queued_or_done;
+    std::deque<u16> worklist;
+
+    if (limit == 0) {
+        return blocks;
+    }
+
+    worklist.push_back(0);
+    queued_or_done.insert(0);
+
+    while (!worklist.empty()) {
+        const u16 start = worklist.front();
+        worklist.pop_front();
+        if (!in_code_window(start, limit)) {
+            continue;
+        }
+
+        BasicBlock block;
+        block.start = start;
+        u16 pc = start;
+        std::set<u16> seen_inside_block;
+
+        while (in_code_window(pc, limit) && seen_inside_block.insert(pc).second) {
+            const auto decoded = decode_z80(image, pc);
+            block.instructions.push_back({decoded, is_direct_emit_supported(image, pc)});
+            const auto flow = classify_flow(image, pc, decoded, limit);
+            block.end = static_cast<u16>(pc + decoded.size);
+            block.indirect_exit = flow.indirect;
+            block.successors = flow.successors;
+
+            if (flow.ends_block) {
+                break;
+            }
+            pc = static_cast<u16>(pc + decoded.size);
+        }
+
+        for (const u16 successor : block.successors) {
+            if (queued_or_done.insert(successor).second) {
+                worklist.push_back(successor);
+            }
+        }
+        blocks.push_back(std::move(block));
+    }
+
+    std::sort(blocks.begin(), blocks.end(), [](const BasicBlock& lhs, const BasicBlock& rhs) {
+        return lhs.start < rhs.start;
+    });
+    return blocks;
+}
+
+void write_analysis_report(
+    const std::filesystem::path& path,
+    std::size_t limit,
+    const std::vector<BasicBlock>& blocks) {
+    if (path.has_parent_path()) {
+        std::filesystem::create_directories(path.parent_path());
+    }
+
+    std::ofstream out(path);
+    if (!out) {
+        throw std::runtime_error("cannot open analysis output file");
+    }
+
+    std::size_t instruction_count = 0;
+    std::size_t direct_count = 0;
+    std::size_t indirect_blocks = 0;
+    std::array<std::size_t, 0x100> fallback_opcodes{};
+    std::array<std::string, 0x100> fallback_mnemonics{};
+
+    for (const auto& block : blocks) {
+        if (block.indirect_exit) {
+            ++indirect_blocks;
+        }
+        for (const auto& instruction : block.instructions) {
+            ++instruction_count;
+            if (instruction.direct_emit) {
+                ++direct_count;
+            } else {
+                ++fallback_opcodes[instruction.decoded.opcode];
+                if (fallback_mnemonics[instruction.decoded.opcode].empty()) {
+                    fallback_mnemonics[instruction.decoded.opcode] = instruction.decoded.mnemonic;
+                }
+            }
+        }
+    }
+
+    const std::size_t fallback_count = instruction_count - direct_count;
+    out << "SG3000Recomp static analysis\n";
+    out << "rom_scan_limit: 0x" << std::hex << std::setw(4) << std::setfill('0') << std::min<std::size_t>(limit, 0xC000)
+        << std::dec << "\n";
+    out << "basic_blocks: " << blocks.size() << "\n";
+    out << "instructions: " << instruction_count << "\n";
+    out << "direct_emit_instructions: " << direct_count << "\n";
+    out << "fallback_instructions: " << fallback_count << "\n";
+    out << "indirect_exit_blocks: " << indirect_blocks << "\n\n";
+
+    out << "blocks\n";
+    for (const auto& block : blocks) {
+        out << "block 0x" << std::hex << std::setw(4) << std::setfill('0') << block.start
+            << "-0x" << std::setw(4) << block.end << std::dec
+            << " instructions=" << block.instructions.size();
+        if (block.indirect_exit) {
+            out << " indirect_exit";
+        }
+        out << " successors=";
+        if (block.successors.empty()) {
+            out << "none";
+        } else {
+            for (std::size_t i = 0; i < block.successors.size(); ++i) {
+                if (i != 0) {
+                    out << ",";
+                }
+                out << "0x" << std::hex << std::setw(4) << std::setfill('0') << block.successors[i] << std::dec;
+            }
+        }
+        out << "\n";
+        for (const auto& instruction : block.instructions) {
+            out << "  0x" << std::hex << std::setw(4) << std::setfill('0') << instruction.decoded.pc
+                << "  0x" << std::setw(2) << static_cast<int>(instruction.decoded.opcode) << std::dec
+                << "  " << (instruction.direct_emit ? "direct  " : "fallback")
+                << "  " << instruction.decoded.mnemonic << "\n";
+        }
+    }
+
+    out << "\nfallback_opcodes\n";
+    bool any_fallback = false;
+    for (std::size_t opcode = 0; opcode < fallback_opcodes.size(); ++opcode) {
+        if (fallback_opcodes[opcode] == 0) {
+            continue;
+        }
+        any_fallback = true;
+        out << "0x" << std::hex << std::setw(2) << std::setfill('0') << opcode << std::dec
+            << " count=" << fallback_opcodes[opcode]
+            << " mnemonic=" << fallback_mnemonics[opcode] << "\n";
+    }
+    if (!any_fallback) {
+        out << "none\n";
     }
 }
 
@@ -388,7 +713,9 @@ void emit_pop16_to(std::ostream& out, const std::string& target_call) {
 
 void emit_case(std::ostream& out, const std::array<u8, 0x10000>& image, u16 pc) {
     const u8 opcode = image[pc];
+    const auto decoded = decode_z80(image, pc);
     out << "    case 0x" << std::hex << std::setw(4) << std::setfill('0') << pc << ": ";
+    out << "/* " << decoded.mnemonic << " */ ";
     switch (opcode) {
     case 0x00:
         out << "cpu.pc = 0x" << std::setw(4) << (pc + 1) << "; cpu.cycles += 4; return;\n";
@@ -524,6 +851,46 @@ void emit_case(std::ostream& out, const std::array<u8, 0x10000>& image, u16 pc) 
     case 0xE9:
         out << "cpu.pc = cpu.hl(); cpu.cycles += 4; return;\n";
         break;
+    case 0xED:
+        switch (image[static_cast<u16>(pc + 1)]) {
+        case 0x45:
+            out << "{ const auto lo = bus.read(cpu.sp); cpu.sp = static_cast<sgrecomp::u16>(cpu.sp + 1); "
+                << "const auto hi = bus.read(cpu.sp); cpu.sp = static_cast<sgrecomp::u16>(cpu.sp + 1); "
+                << "cpu.pc = sgrecomp::make_u16(lo, hi); cpu.iff1 = cpu.iff2; cpu.cycles += 14; return; }\n";
+            break;
+        case 0x4D:
+            out << "{ const auto lo = bus.read(cpu.sp); cpu.sp = static_cast<sgrecomp::u16>(cpu.sp + 1); "
+                << "const auto hi = bus.read(cpu.sp); cpu.sp = static_cast<sgrecomp::u16>(cpu.sp + 1); "
+                << "cpu.pc = sgrecomp::make_u16(lo, hi); cpu.cycles += 14; return; }\n";
+            break;
+        case 0x46:
+        case 0x66:
+            out << "cpu.interrupt_mode = 0; cpu.pc = 0x" << std::setw(4) << (pc + 2)
+                << "; cpu.cycles += 8; return;\n";
+            break;
+        case 0x56:
+        case 0x76:
+            out << "cpu.interrupt_mode = 1; cpu.pc = 0x" << std::setw(4) << (pc + 2)
+                << "; cpu.cycles += 8; return;\n";
+            break;
+        case 0x5E:
+        case 0x7E:
+            out << "cpu.interrupt_mode = 2; cpu.pc = 0x" << std::setw(4) << (pc + 2)
+                << "; cpu.cycles += 8; return;\n";
+            break;
+        default:
+            out << "sgrecomp::execute_one(cpu, bus); return;\n";
+            break;
+        }
+        break;
+    case 0xF3:
+        out << "cpu.iff1 = false; cpu.iff2 = false; cpu.ei_pending = false; cpu.pc = 0x"
+            << std::setw(4) << (pc + 1) << "; cpu.cycles += 4; return;\n";
+        break;
+    case 0xFB:
+        out << "cpu.ei_pending = true; cpu.pc = 0x" << std::setw(4) << (pc + 1)
+            << "; cpu.cycles += 4; return;\n";
+        break;
     case 0x76:
         out << "cpu.halted = true; cpu.pc = 0x" << std::setw(4) << (pc + 1)
             << "; cpu.cycles += 4; return;\n";
@@ -568,6 +935,14 @@ void emit_case(std::ostream& out, const std::array<u8, 0x10000>& image, u16 pc) 
             const u8 pair = static_cast<u8>((opcode >> 4) & 0x03);
             emit_push16(out, qq_read_expr(pair));
             out << "cpu.pc = 0x" << std::setw(4) << (pc + 1) << "; cpu.cycles += 11; return;\n";
+        } else if ((opcode & 0xC7) == 0xC7) {
+            emit_push16(out, "0x" + [&] {
+                std::ostringstream ss;
+                ss << std::hex << std::setw(4) << std::setfill('0') << static_cast<u16>(pc + 1);
+                return ss.str();
+            }());
+            out << "cpu.pc = 0x" << std::setw(4) << static_cast<u16>(opcode & 0x38)
+                << "; cpu.cycles += 11; return;\n";
         } else {
             out << "sgrecomp::execute_one(cpu, bus); return;\n";
         }
@@ -627,6 +1002,11 @@ int main(int argc, char** argv) {
             : std::optional<std::vector<u8>>{read_file(opts.bios)};
         const auto image = image_for_decode(opts.model, rom, opts.disassemble_only && bios ? &*bios : nullptr);
         const std::size_t limit = std::min<std::size_t>(rom.size(), 0xC000);
+        if (!opts.dump_analysis.empty()) {
+            const auto blocks = discover_basic_blocks(image, limit);
+            write_analysis_report(opts.dump_analysis, limit, blocks);
+            std::cout << "analysis dumped: " << opts.dump_analysis.string() << "\n";
+        }
 
         if (opts.disassemble_only) {
             disassemble(image, limit);

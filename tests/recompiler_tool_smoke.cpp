@@ -104,6 +104,7 @@ int main() {
 
     const std::filesystem::path rom_path = output_dir / "fixture.sms";
     const std::filesystem::path generated_path = output_dir / "generated_fixture.cpp";
+    const std::filesystem::path analysis_path = output_dir / "analysis.txt";
     const std::filesystem::path object_path = output_dir / "generated_fixture.obj";
 
     const std::vector<unsigned char> rom = {
@@ -126,14 +127,20 @@ int main() {
         0xE9,                   // jp (hl)
         0x22, 0x00, 0xC0,       // ld ($c000),hl
         0x2A, 0x00, 0xC0,       // ld hl,($c000)
+        0xF3,                   // di
+        0xED, 0x56,             // im 1
+        0xFB,                   // ei
+        0xC7,                   // rst $00
     };
     write_binary(rom_path, rom);
 
-    const std::string generate_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(rom_path) + " -o " + quote(generated_path);
+    const std::string generate_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(rom_path)
+        + " -o " + quote(generated_path) + " --dump-analysis " + quote(analysis_path);
     assert(run_command(generate_command) == 0);
 
     const std::string generated = read_text(generated_path);
     assert(contains(generated, "cpu.set_hl(0xc000)"));
+    assert(contains(generated, "/* ld hl,"));
     assert(contains(generated, "bus.write(cpu.hl(), cpu.a);"));
     assert(contains(generated, "cpu.a = bus.read(cpu.hl())"));
     assert(contains(generated, "bus.write(0xc010, cpu.a);"));
@@ -145,6 +152,18 @@ int main() {
     assert(contains(generated, "cpu.pc = cpu.hl();"));
     assert(contains(generated, "bus.write(0xc000, cpu.l); bus.write(0xc001, cpu.h);"));
     assert(contains(generated, "cpu.l = bus.read(0xc000); cpu.h = bus.read(0xc001);"));
+    assert(contains(generated, "cpu.iff1 = false; cpu.iff2 = false; cpu.ei_pending = false;"));
+    assert(contains(generated, "cpu.interrupt_mode = 1; cpu.pc = 0x0028;"));
+    assert(contains(generated, "cpu.ei_pending = true; cpu.pc = 0x0029;"));
+    assert(contains(generated, "cpu.pc = 0x0000; cpu.cycles += 11;"));
+
+    const std::string analysis = read_text(analysis_path);
+    assert(contains(analysis, "SG3000Recomp static analysis"));
+    assert(contains(analysis, "basic_blocks:"));
+    assert(contains(analysis, "direct_emit_instructions:"));
+    assert(contains(analysis, "fallback_instructions:"));
+    assert(contains(analysis, "successors=0x0013"));
+    assert(contains(analysis, "successors=none"));
 
     compile_generated_cpp(generated_path, object_path);
     assert(std::filesystem::exists(object_path));

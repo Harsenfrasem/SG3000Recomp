@@ -17,14 +17,14 @@ Use esta lista como guia de implementacao. Marque cada item somente depois de te
 - [x] Geracao de dispatcher C++ por `pc`.
 - [x] Fallback para interpretador quando opcode ainda nao e levantado.
 - [x] ROM embutida no arquivo gerado com funcao `sgrecomp_load_rom`.
-- [x] Emissao direta ampliada para loads simples, stack, controle de fluxo e matriz `ld r,r`.
+- [x] Emissao direta ampliada para loads simples, stack, controle de fluxo, interrupcoes basicas, `rst` e matriz `ld r,r`.
 - [x] Smoke runner de ROM com estado de registradores e trace opcional.
 - [x] Smoke runner com resumo de PCs, audio, framebuffer e dumps locais de frame/VRAM/CRAM.
 - [x] Smoke runner com dump CSV de cobertura de PCs.
-- [ ] Descoberta de basic blocks e fluxo de controle real.
+- [x] Descoberta inicial de basic blocks e fluxo de controle estatico alcancavel.
 - [ ] Emissao de funcoes por bloco em vez de um `switch` monolitico.
-- [ ] Comentarios opcionais de disassembly no C++ gerado.
-- [ ] Relatorio de cobertura: opcodes levantados, fallback usado, bytes analisados.
+- [x] Comentarios de disassembly no C++ gerado.
+- [x] Relatorio de analise: blocos, sucessores, opcodes levantados e fallback usado.
 - [ ] Config TOML real para opcoes de alvo.
 
 ## CPU Z80
@@ -118,6 +118,7 @@ Use esta lista como guia de implementacao. Marque cada item somente depois de te
 - [ ] ROMs sinteticas para mapper, VDP, PSG e input.
 - [ ] Comparacao de traces com emulador de referencia.
 - [x] Testes do gerador C++ compilando o arquivo emitido.
+- [x] Teste do relatorio de analise estatica do gerador.
 - [ ] Testes de regressao com ROMs homebrew permitidas.
 - [x] Smoke runner testado com ROMs locais privadas, sem imagens versionadas.
 
