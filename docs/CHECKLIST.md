@@ -220,7 +220,8 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Save RAM em arquivo local pelo smoke runner.
 - [x] Save RAM em arquivo local pelo host Win32.
 - [x] Estado serializavel inicial para save states.
-- [ ] Save states com compatibilidade/versionamento longo e validacao de ROM hash.
+- [x] Save states com versao inicial e validacao de ROM hash/modelo.
+- [ ] Save states com compatibilidade longa, migracoes e validacao de BIOS/perfil.
 - [x] Debug overlay de PC, FPS, frame, modo runtime e audio.
 - [x] Debug overlay com estado de pausa, volume e latencia.
 - [ ] Debug overlay com registradores completos e fallback count.

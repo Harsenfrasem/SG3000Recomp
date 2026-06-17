@@ -2,12 +2,13 @@
 
 #include <cstring>
 #include <stdexcept>
+#include <string>
 
 namespace sgrecomp {
 namespace {
 
 constexpr u32 kMagic = 0x53534753; // SGSS
-constexpr u16 kVersion = 1;
+constexpr u16 kVersion = 2;
 
 class Writer {
 public:
@@ -31,6 +32,16 @@ public:
     }
 
     void i32v(int value) { u32v(static_cast<u32>(value)); }
+
+    void stringv(const std::string& value) {
+        if (value.size() > 0xFFFF) {
+            throw std::runtime_error("save state string is too large");
+        }
+        u16v(static_cast<u16>(value.size()));
+        for (const char c : value) {
+            u8v(static_cast<u8>(c));
+        }
+    }
 
     void doublev(double value) {
         u64 raw = 0;
@@ -89,6 +100,17 @@ public:
     }
 
     int i32v() { return static_cast<int>(u32v()); }
+
+    std::string stringv() {
+        const u16 len = u16v();
+        require(len);
+        std::string value;
+        value.reserve(len);
+        for (u16 i = 0; i < len; ++i) {
+            value.push_back(static_cast<char>(u8v()));
+        }
+        return value;
+    }
 
     double doublev() {
         const u64 raw = u64v();
@@ -155,9 +177,23 @@ Z80State read_cpu(Reader& in) {
     return cpu;
 }
 
-void write_state(Writer& out, const ConsoleState& state) {
+void write_metadata(Writer& out, const SaveStateMetadata& metadata) {
+    out.u8v(static_cast<u8>(metadata.model == ConsoleModel::SG3000 ? 1 : 0));
+    out.stringv(metadata.rom_hash);
+}
+
+SaveStateMetadata read_metadata(Reader& in) {
+    SaveStateMetadata metadata;
+    metadata.present = true;
+    metadata.model = in.u8v() == 1 ? ConsoleModel::SG3000 : ConsoleModel::SMS;
+    metadata.rom_hash = in.stringv();
+    return metadata;
+}
+
+void write_state(Writer& out, const ConsoleState& state, const SaveStateMetadata& metadata) {
     out.u32v(kMagic);
     out.u16v(kVersion);
+    write_metadata(out, metadata);
     write_cpu(out, state.cpu);
     out.array_bytes(state.bus.memory);
     out.array_bytes(state.bus.cartridge_ram);
@@ -197,12 +233,18 @@ void write_state(Writer& out, const ConsoleState& state) {
     out.u8v(state.joypad_player2);
 }
 
-ConsoleState read_state(Reader& in) {
+SaveStateImage read_image(Reader& in) {
     if (in.u32v() != kMagic) {
         throw std::runtime_error("not an SG3000Recomp save state");
     }
-    if (in.u16v() != kVersion) {
+    const u16 version = in.u16v();
+    if (version != 1 && version != kVersion) {
         throw std::runtime_error("unsupported save state version");
+    }
+
+    SaveStateImage image;
+    if (version >= 2) {
+        image.metadata = read_metadata(in);
     }
 
     ConsoleState state;
@@ -244,28 +286,49 @@ ConsoleState read_state(Reader& in) {
     state.joypad_player1 = in.u8v();
     state.joypad_player2 = in.u8v();
     in.finish();
-    return state;
+    image.state = state;
+    return image;
 }
 
 } // namespace
 
-std::vector<u8> serialize_console_state(const ConsoleState& state) {
+std::vector<u8> serialize_console_state(const ConsoleState& state, const SaveStateMetadata& metadata) {
     Writer writer;
-    write_state(writer, state);
+    write_state(writer, state, metadata);
     return writer.finish();
 }
 
 ConsoleState deserialize_console_state(std::span<const u8> bytes) {
-    Reader reader(bytes);
-    return read_state(reader);
+    return deserialize_console_state_image(bytes).state;
 }
 
-std::vector<u8> save_console_state(const Console& console) {
-    return serialize_console_state(console.save_state());
+SaveStateImage deserialize_console_state_image(std::span<const u8> bytes) {
+    Reader reader(bytes);
+    return read_image(reader);
+}
+
+std::vector<u8> save_console_state(const Console& console, const SaveStateMetadata& metadata) {
+    return serialize_console_state(console.save_state(), metadata);
 }
 
 void load_console_state(Console& console, std::span<const u8> bytes) {
     console.load_state(deserialize_console_state(bytes));
+}
+
+SaveStateMetadata read_save_state_metadata(std::span<const u8> bytes) {
+    return deserialize_console_state_image(bytes).metadata;
+}
+
+void validate_save_state_metadata(const SaveStateMetadata& actual, const SaveStateMetadata& expected) {
+    if (!actual.present) {
+        return;
+    }
+    if (!expected.rom_hash.empty() && actual.rom_hash != expected.rom_hash) {
+        throw std::runtime_error("save state ROM hash does not match the loaded ROM");
+    }
+    if (actual.model != expected.model) {
+        throw std::runtime_error("save state console model does not match the loaded model");
+    }
 }
 
 } // namespace sgrecomp

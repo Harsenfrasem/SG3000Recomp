@@ -1,4 +1,5 @@
 #include "sgrecomp/bus.h"
+#include "sgrecomp/game_profile.h"
 #include "sgrecomp/host_runtime.h"
 #include "sgrecomp/joypad.h"
 #include "sgrecomp/psg.h"
@@ -65,6 +66,7 @@ struct Options {
     bool run_smoke = false;
     bool run_host = false;
     bool trace = false;
+    bool force_state = false;
     std::size_t max_steps = 200000;
     std::size_t host_frames = 1;
 };
@@ -135,7 +137,7 @@ void print_usage() {
               << "                [--dump-vram vram.bin] [--dump-cram cram.bin]\n"
               << "                [--dump-tilemap tilemap.csv] [--dump-sprites sprites.csv]\n"
               << "                [--load-sram save.sav] [--save-sram save.sav] [--dump-sram sram.bin]\n"
-              << "                [--load-state state.sgstate] [--save-state state.sgstate]\n"
+              << "                [--load-state state.sgstate] [--save-state state.sgstate] [--force-state]\n"
               << "                [--dump-coverage pcs.csv] [--disable-sprite-limit] [--reduce-flicker] [--enable-fm]\n"
               << "       sgrecomp <rom.sms|rom.sg> --run-host [--frames n] [--bios bios.sms]\n"
               << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp] [--dump-audio audio.wav]\n"
@@ -244,6 +246,10 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--save-state" && i + 1 < argc) {
             opts.save_state = argv[++i];
+            continue;
+        }
+        if (arg == "--force-state") {
+            opts.force_state = true;
             continue;
         }
         if (arg == "--model" && i + 1 < argc) {
@@ -1099,8 +1105,13 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
     if (!opts.load_sram.empty()) {
         bus.load_cartridge_ram(read_file(opts.load_sram));
     }
+    const SaveStateMetadata expected_state_metadata{true, model, rom_hash_fnv1a64(rom)};
     if (!opts.load_state.empty()) {
-        const ConsoleState state = deserialize_console_state(read_file(opts.load_state));
+        const SaveStateImage image = deserialize_console_state_image(read_file(opts.load_state));
+        if (!opts.force_state) {
+            validate_save_state_metadata(image.metadata, expected_state_metadata);
+        }
+        const ConsoleState& state = image.state;
         cpu = state.cpu;
         bus.load_state(state.bus);
         vdp.load_state(state.vdp);
@@ -1232,7 +1243,7 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
                 joypad.player1(),
                 joypad.player2(),
             };
-            write_binary_dump(opts.save_state, serialize_console_state(state));
+            write_binary_dump(opts.save_state, serialize_console_state(state, expected_state_metadata));
             std::cout << "state saved: " << opts.save_state.string() << "\n";
         }
         if (!opts.dump_coverage.empty()) {
@@ -1303,8 +1314,13 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
     if (!opts.load_sram.empty()) {
         host.console().bus().load_cartridge_ram(read_file(opts.load_sram));
     }
+    const SaveStateMetadata expected_state_metadata{true, model, rom_hash_fnv1a64(rom)};
     if (!opts.load_state.empty()) {
-        load_console_state(host.console(), read_file(opts.load_state));
+        const auto state_bytes = read_file(opts.load_state);
+        if (!opts.force_state) {
+            validate_save_state_metadata(read_save_state_metadata(state_bytes), expected_state_metadata);
+        }
+        load_console_state(host.console(), state_bytes);
     }
 
     HostFrameResult result{};
@@ -1356,7 +1372,7 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
                   << (host.console().bus().cartridge_ram_dirty() ? " (dirty)" : " (unchanged)") << "\n";
     }
     if (!opts.save_state.empty()) {
-        write_binary_dump(opts.save_state, save_console_state(host.console()));
+        write_binary_dump(opts.save_state, save_console_state(host.console(), expected_state_metadata));
         std::cout << "state saved: " << opts.save_state.string() << "\n";
     }
 }

@@ -1465,7 +1465,8 @@ void test_console_save_state_round_trip_restores_runtime_state() {
     run_until_halt(console);
     assert(console.bus().read(0xC000) == 0x42);
 
-    const auto bytes = save_console_state(console);
+    const SaveStateMetadata metadata{true, ConsoleModel::SMS, "fnv1a64:test"};
+    const auto bytes = save_console_state(console, metadata);
     console.bus().write(0xC000, 0x99);
     console.cpu().a = 0x11;
     assert(console.bus().read(0xC000) == 0x99);
@@ -1478,6 +1479,11 @@ void test_console_save_state_round_trip_restores_runtime_state() {
     const auto restored = deserialize_console_state(bytes);
     assert(restored.cpu.a == 0x42);
     assert(restored.bus.memory[0xC000] == 0x42);
+    const auto image = deserialize_console_state_image(bytes);
+    assert(image.metadata.present);
+    assert(image.metadata.model == ConsoleModel::SMS);
+    assert(image.metadata.rom_hash == "fnv1a64:test");
+    validate_save_state_metadata(image.metadata, metadata);
 }
 
 void test_game_profile_hash_and_parse() {

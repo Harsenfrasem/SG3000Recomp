@@ -83,7 +83,7 @@ Enhancements are off by default. Smoke summaries print the active mode and enhan
 
 Sprite enhancements currently keep the original overflow status bit. Accurate mode renders the original 8 sprites per scanline, `--reduce-flicker` raises that render limit to 16, and `--disable-sprite-limit` renders all visible sprites on the scanline. `--enable-fm` enables the optional FM path for software/profile testing; the current FM synthesis is diagnostic plumbing and still needs a faithful YM2413/OPLL core.
 
-Save states are local binary snapshots of mutable runtime state. They do not embed ROM or BIOS bytes, so load the same software first and keep `.sgstate` files under ignored local folders such as `local-saves/`.
+Save states are local binary snapshots of mutable runtime state. They do not embed ROM or BIOS bytes, so load the same software first and keep `.sgstate` files under ignored local folders such as `local-saves/`. New save states include the ROM hash and console model; loading refuses mismatches unless `--force-state` is used for debugging.
 
 `--run-host` uses the headless host runtime path. It advances full frames, samples audio at 44.1 kHz, applies joypad state through the runtime API, and exposes the latest framebuffer for a future window backend.
 

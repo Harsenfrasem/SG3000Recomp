@@ -34,7 +34,7 @@ $env:PATH="$env:APPDATA\Python\Python314\Scripts;$env:PATH"
 
 `--bios` is intended for local smoke testing and disassembly only. Generated C++ still embeds only the ROM image, never the BIOS file.
 ROM files with a generic 512-byte copier header are normalized before loading.
-`--save-state` writes only mutable emulator state, not ROM or BIOS data. Always load the same ROM/BIOS combination before `--load-state`.
+`--save-state` writes only mutable emulator state, not ROM or BIOS data. Always load the same ROM/BIOS combination before `--load-state`. New state files validate ROM hash and console model; use `--force-state` only when intentionally debugging mismatches.
 The smoke runner also reports visited PCs, lit framebuffer pixels, the current PSG/FM sample, and can dump the current framebuffer, VRAM, CRAM, SRAM, PC coverage, PSG VGM writes, FM CSV writes, generic I/O access logs, RAM/cart/mapper writes, VDP writes, tilemap entries, and sprite table entries.
 
 FM support status: the runtime now exposes the expected local FM control path and can log writes to `$F0/$F1/$F2`. The current synthesis is still an approximation for plumbing and diagnostics, not a faithful YM2413/OPLL implementation.

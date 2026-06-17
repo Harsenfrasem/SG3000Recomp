@@ -132,6 +132,7 @@ int main() {
     const std::filesystem::path host_profile_sram_path = output_dir / "host_profile_save.sav";
     const std::filesystem::path state_path = output_dir / "fixture.sgstate";
     const std::filesystem::path state_reload_path = output_dir / "fixture_reload.sgstate";
+    const std::filesystem::path state_mismatch_rom_path = output_dir / "state_mismatch.sms";
     const std::filesystem::path object_path = output_dir / "generated_fixture.obj";
 
     const std::vector<unsigned char> rom = {
@@ -336,6 +337,17 @@ int main() {
         + " --save-state " + quote(state_reload_path);
     assert(run_command(reload_state_command) == 0);
     assert(read_binary(state_reload_path).size() == state_bytes.size());
+
+    std::vector<unsigned char> mismatch_rom = debug_rom;
+    mismatch_rom.push_back(0x00);
+    write_binary(state_mismatch_rom_path, mismatch_rom);
+    const std::string mismatch_state_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(state_mismatch_rom_path)
+        + " --run-smoke --steps 8 --load-state " + quote(state_path);
+    assert(run_command(mismatch_state_command) != 0);
+
+    const std::string forced_state_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(state_mismatch_rom_path)
+        + " --run-smoke --steps 8 --load-state " + quote(state_path) + " --force-state";
+    assert(run_command(forced_state_command) == 0);
 
     const std::vector<unsigned char> fm_rom = {
         0x3E, 0x01, // ld a,$01: enable FM, mute PSG

@@ -46,6 +46,7 @@ struct Options {
     bool audio = true;
     bool overlay = true;
     bool print_hash = false;
+    bool force_state = false;
     int audio_latency_ms = 80;
     std::size_t quit_after_frames = 0;
 };
@@ -322,7 +323,7 @@ void print_usage() {
     std::cout << "usage: sgrecomp_host <rom.sms|rom.sg> [--bios bios.sms] [--model sms|sg3000]\n"
               << "                    [--scale n] [--mute] [--no-overlay] [--audio-latency-ms n]\n"
               << "                    [--load-sram save.sav] [--save-sram save.sav]\n"
-              << "                    [--load-state state.sgstate] [--save-state state.sgstate]\n"
+              << "                    [--load-state state.sgstate] [--save-state state.sgstate] [--force-state]\n"
               << "                    [--profile profiles.txt]\n"
               << "                    [--print-hash]\n"
               << "                    [--quit-after-frames n]\n"
@@ -355,6 +356,10 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--save-state" && i + 1 < argc) {
             opts.save_state = argv[++i];
+            continue;
+        }
+        if (arg == "--force-state") {
+            opts.force_state = true;
             continue;
         }
         if (arg == "--profile" && i + 1 < argc) {
@@ -748,8 +753,13 @@ int run(int argc, char** argv) {
     if (!opts.load_sram.empty()) {
         app.host->console().bus().load_cartridge_ram(read_file(opts.load_sram));
     }
+    const SaveStateMetadata expected_state_metadata{true, opts.model, rom_hash};
     if (!opts.load_state.empty()) {
-        load_console_state(app.host->console(), read_file(opts.load_state));
+        const auto state_bytes = read_file(opts.load_state);
+        if (!opts.force_state) {
+            validate_save_state_metadata(read_save_state_metadata(state_bytes), expected_state_metadata);
+        }
+        load_console_state(app.host->console(), state_bytes);
     }
 
     app.bitmap_info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
@@ -777,7 +787,7 @@ int run(int argc, char** argv) {
                   << (app.host->console().bus().cartridge_ram_dirty() ? " (dirty)" : " (unchanged)") << "\n";
     }
     if (!opts.save_state.empty()) {
-        const auto bytes = save_console_state(app.host->console());
+        const auto bytes = save_console_state(app.host->console(), expected_state_metadata);
         write_binary_file(opts.save_state, std::span<const u8>(bytes.data(), bytes.size()));
         std::cout << "state saved: " << opts.save_state.string() << "\n";
     }
