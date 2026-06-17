@@ -34,8 +34,10 @@ u8 Vdp::read_h_counter() const {
 void Vdp::write_data(u8 value) {
     if (code_ == 3) {
         cram_[address_ & 0x1F] = value;
+        log_access(VdpAccessKind::Cram, static_cast<u16>(address_ & 0x1F), value);
     } else {
         vram_[address_ & 0x3FFF] = value;
+        log_access(VdpAccessKind::Vram, static_cast<u16>(address_ & 0x3FFF), value);
     }
     address_ = static_cast<u16>((address_ + 1) & 0x3FFF);
 }
@@ -52,6 +54,7 @@ void Vdp::write_control(u8 value) {
     address_ = static_cast<u16>(((value & 0x3F) << 8) | latch_);
     if (code == 2) {
         registers_[value & 0x0F] = latch_;
+        log_access(VdpAccessKind::Register, static_cast<u16>(value & 0x0F), latch_);
         if ((value & 0x0F) == 10) {
             line_counter_ = latch_;
         }
@@ -71,6 +74,13 @@ bool Vdp::irq_pending() const {
     const bool frame_irq = (status_ & 0x80) != 0 && (registers_[1] & 0x20) != 0;
     const bool line_irq = (status_ & 0x40) != 0 && (registers_[0] & 0x10) != 0;
     return frame_irq || line_irq;
+}
+
+void Vdp::set_access_logging_enabled(bool enabled) {
+    access_logging_enabled_ = enabled;
+    if (!enabled) {
+        logged_accesses_.clear();
+    }
 }
 
 void Vdp::advance_scanline() {
@@ -275,6 +285,12 @@ std::vector<VdpSpriteEntry> Vdp::debug_sprites() const {
     }
 
     return entries;
+}
+
+void Vdp::log_access(VdpAccessKind kind, u16 address, u8 value) {
+    if (access_logging_enabled_) {
+        logged_accesses_.push_back({current_cycle_, kind, address, value});
+    }
 }
 
 } // namespace sgrecomp

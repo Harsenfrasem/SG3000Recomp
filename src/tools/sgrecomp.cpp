@@ -27,6 +27,11 @@ namespace {
 
 using namespace sgrecomp;
 
+struct AddressRange {
+    u32 first = 0;
+    u32 last = 0;
+};
+
 struct Options {
     std::filesystem::path input;
     std::filesystem::path bios;
@@ -36,6 +41,8 @@ struct Options {
     std::filesystem::path dump_vgm;
     std::filesystem::path dump_fm_log;
     std::filesystem::path dump_io_log;
+    std::filesystem::path dump_memory_log;
+    std::filesystem::path dump_vdp_log;
     std::filesystem::path dump_vram;
     std::filesystem::path dump_cram;
     std::filesystem::path dump_tilemap;
@@ -48,6 +55,9 @@ struct Options {
     std::filesystem::path output = "recompiled_rom.cpp";
     ConsoleModel model = ConsoleModel::SMS;
     EnhancementConfig enhancements;
+    std::vector<AddressRange> memory_filters;
+    std::vector<AddressRange> vdp_filters;
+    std::vector<u8> io_port_filters;
     bool disassemble_only = false;
     bool run_smoke = false;
     bool run_host = false;
@@ -55,6 +65,47 @@ struct Options {
     std::size_t max_steps = 200000;
     std::size_t host_frames = 1;
 };
+
+u32 parse_number(std::string text) {
+    std::size_t consumed = 0;
+    const unsigned long value = std::stoul(text, &consumed, 0);
+    if (consumed != text.size()) {
+        throw std::runtime_error("invalid number: " + text);
+    }
+    return static_cast<u32>(value);
+}
+
+AddressRange parse_range(const std::string& text) {
+    const auto dash = text.find('-');
+    if (dash == std::string::npos) {
+        const u32 value = parse_number(text);
+        return {value, value};
+    }
+    AddressRange range{parse_number(text.substr(0, dash)), parse_number(text.substr(dash + 1))};
+    if (range.first > range.last) {
+        std::swap(range.first, range.last);
+    }
+    return range;
+}
+
+bool range_matches(const std::vector<AddressRange>& filters, u32 value) {
+    if (filters.empty()) {
+        return true;
+    }
+    for (const auto& filter : filters) {
+        if (value >= filter.first && value <= filter.last) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool port_matches(const std::vector<u8>& filters, u8 port) {
+    if (filters.empty()) {
+        return true;
+    }
+    return std::find(filters.begin(), filters.end(), port) != filters.end();
+}
 
 std::vector<u8> read_file(const std::filesystem::path& path) {
     std::ifstream file(path, std::ios::binary);
@@ -76,7 +127,8 @@ void print_usage() {
               << "       sgrecomp <rom.sms|rom.sg> --run-smoke [--steps n] [--trace] [--bios bios.sms]\n"
               << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp]\n"
               << "                [--dump-audio audio.wav] [--dump-vgm audio.vgm] [--dump-fm-log fm.csv]\n"
-              << "                [--dump-io-log io.csv]\n"
+              << "                [--dump-io-log io.csv] [--dump-memory-log memory.csv] [--dump-vdp-log vdp.csv]\n"
+              << "                [--io-port port] [--watch addr|start-end] [--watch-vdp addr|start-end]\n"
               << "                [--dump-vram vram.bin] [--dump-cram cram.bin]\n"
               << "                [--dump-tilemap tilemap.csv] [--dump-sprites sprites.csv]\n"
               << "                [--load-sram save.sav] [--save-sram save.sav] [--dump-sram sram.bin]\n"
@@ -124,6 +176,26 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--dump-io-log" && i + 1 < argc) {
             opts.dump_io_log = argv[++i];
+            continue;
+        }
+        if (arg == "--dump-memory-log" && i + 1 < argc) {
+            opts.dump_memory_log = argv[++i];
+            continue;
+        }
+        if (arg == "--dump-vdp-log" && i + 1 < argc) {
+            opts.dump_vdp_log = argv[++i];
+            continue;
+        }
+        if (arg == "--io-port" && i + 1 < argc) {
+            opts.io_port_filters.push_back(static_cast<u8>(parse_number(argv[++i]) & 0xFF));
+            continue;
+        }
+        if (arg == "--watch" && i + 1 < argc) {
+            opts.memory_filters.push_back(parse_range(argv[++i]));
+            continue;
+        }
+        if (arg == "--watch-vdp" && i + 1 < argc) {
+            opts.vdp_filters.push_back(parse_range(argv[++i]));
             continue;
         }
         if (arg == "--dump-vram" && i + 1 < argc) {
@@ -457,7 +529,10 @@ void write_fm_log_csv(const std::filesystem::path& path, const std::vector<Ym241
     }
 }
 
-void write_io_log_csv(const std::filesystem::path& path, const std::vector<BusIoAccess>& accesses) {
+void write_io_log_csv(
+    const std::filesystem::path& path,
+    const std::vector<BusIoAccess>& accesses,
+    const std::vector<u8>& port_filters) {
     if (path.has_parent_path()) {
         std::filesystem::create_directories(path.parent_path());
     }
@@ -469,8 +544,80 @@ void write_io_log_csv(const std::filesystem::path& path, const std::vector<BusIo
 
     out << "cycle,direction,port,value\n";
     for (const auto& access : accesses) {
+        if (!port_matches(port_filters, access.port)) {
+            continue;
+        }
         out << access.cycle << "," << (access.write ? "write" : "read")
             << ",0x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(access.port)
+            << ",0x" << std::setw(2) << static_cast<int>(access.value)
+            << std::dec << std::setfill(' ') << "\n";
+    }
+}
+
+const char* memory_kind_name(BusMemoryAccessKind kind) {
+    switch (kind) {
+    case BusMemoryAccessKind::Ram: return "ram";
+    case BusMemoryAccessKind::CartridgeRam: return "cartridge_ram";
+    case BusMemoryAccessKind::Mapper: return "mapper";
+    }
+    return "unknown";
+}
+
+void write_memory_log_csv(
+    const std::filesystem::path& path,
+    const std::vector<BusMemoryAccess>& accesses,
+    const std::vector<AddressRange>& filters) {
+    if (path.has_parent_path()) {
+        std::filesystem::create_directories(path.parent_path());
+    }
+
+    std::ofstream out(path);
+    if (!out) {
+        throw std::runtime_error("cannot open memory log output file");
+    }
+
+    out << "cycle,kind,address,physical,value\n";
+    for (const auto& access : accesses) {
+        if (!range_matches(filters, access.address) && !range_matches(filters, access.physical)) {
+            continue;
+        }
+        out << access.cycle << "," << memory_kind_name(access.kind)
+            << ",0x" << std::hex << std::setw(4) << std::setfill('0') << access.address
+            << ",0x" << std::setw(5) << access.physical
+            << ",0x" << std::setw(2) << static_cast<int>(access.value)
+            << std::dec << std::setfill(' ') << "\n";
+    }
+}
+
+const char* vdp_kind_name(VdpAccessKind kind) {
+    switch (kind) {
+    case VdpAccessKind::Vram: return "vram";
+    case VdpAccessKind::Cram: return "cram";
+    case VdpAccessKind::Register: return "register";
+    }
+    return "unknown";
+}
+
+void write_vdp_log_csv(
+    const std::filesystem::path& path,
+    const std::vector<VdpAccess>& accesses,
+    const std::vector<AddressRange>& filters) {
+    if (path.has_parent_path()) {
+        std::filesystem::create_directories(path.parent_path());
+    }
+
+    std::ofstream out(path);
+    if (!out) {
+        throw std::runtime_error("cannot open VDP log output file");
+    }
+
+    out << "cycle,kind,address,value\n";
+    for (const auto& access : accesses) {
+        if (!range_matches(filters, access.address)) {
+            continue;
+        }
+        out << access.cycle << "," << vdp_kind_name(access.kind)
+            << ",0x" << std::hex << std::setw(4) << std::setfill('0') << access.address
             << ",0x" << std::setw(2) << static_cast<int>(access.value)
             << std::dec << std::setfill(' ') << "\n";
     }
@@ -930,6 +1077,8 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
     psg.set_write_logging_enabled(!opts.dump_vgm.empty());
     bus.set_fm_present(opts.enhancements.enable_fm || !opts.dump_fm_log.empty());
     bus.set_io_logging_enabled(!opts.dump_io_log.empty());
+    bus.set_memory_logging_enabled(!opts.dump_memory_log.empty());
+    vdp.set_access_logging_enabled(!opts.dump_vdp_log.empty());
     ym2413.set_write_logging_enabled(!opts.dump_fm_log.empty());
     if (bios != nullptr) {
         bus.load_bios(*bios);
@@ -1008,9 +1157,19 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
                       << " (" << ym2413.logged_writes().size() << " writes)\n";
         }
         if (!opts.dump_io_log.empty()) {
-            write_io_log_csv(opts.dump_io_log, bus.logged_io());
+            write_io_log_csv(opts.dump_io_log, bus.logged_io(), opts.io_port_filters);
             std::cout << "io log dumped: " << opts.dump_io_log.string()
                       << " (" << bus.logged_io().size() << " accesses)\n";
+        }
+        if (!opts.dump_memory_log.empty()) {
+            write_memory_log_csv(opts.dump_memory_log, bus.logged_memory(), opts.memory_filters);
+            std::cout << "memory log dumped: " << opts.dump_memory_log.string()
+                      << " (" << bus.logged_memory().size() << " writes)\n";
+        }
+        if (!opts.dump_vdp_log.empty()) {
+            write_vdp_log_csv(opts.dump_vdp_log, vdp.logged_accesses(), opts.vdp_filters);
+            std::cout << "vdp log dumped: " << opts.dump_vdp_log.string()
+                      << " (" << vdp.logged_accesses().size() << " writes)\n";
         }
         if (!opts.dump_vram.empty()) {
             write_binary_dump(opts.dump_vram, vdp.debug_vram());
@@ -1059,6 +1218,7 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
         try {
             const u64 cycles_before = cpu.cycles;
             bus.set_cycle(cycles_before);
+            vdp.set_cycle(cycles_before);
             psg.set_cycle(cycles_before);
             ym2413.set_cycle(cycles_before);
             execute_one(cpu, bus);
@@ -1066,6 +1226,7 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
             if (vdp.irq_pending()) {
                 const u64 irq_before = cpu.cycles;
                 bus.set_cycle(irq_before);
+                vdp.set_cycle(irq_before);
                 psg.set_cycle(irq_before);
                 ym2413.set_cycle(irq_before);
                 if (service_maskable_interrupt(cpu, bus)) {

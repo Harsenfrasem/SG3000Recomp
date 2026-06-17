@@ -69,6 +69,7 @@ void Bus::write(u16 address, u8 value) {
         cartridge_ram_[offset] = value;
         cartridge_ram_dirty_ = true;
         memory_[address] = value;
+        log_memory(BusMemoryAccessKind::CartridgeRam, address, static_cast<u32>(offset), value);
         return;
     }
 
@@ -78,6 +79,7 @@ void Bus::write(u16 address, u8 value) {
         } else {
             smapper_slots_[address - 0xFFFD] = value;
         }
+        log_memory(BusMemoryAccessKind::Mapper, address, address, value);
         refresh_smapper();
     }
 
@@ -85,6 +87,7 @@ void Bus::write(u16 address, u8 value) {
         const u16 ram = mirrored_ram_address(address);
         memory_[ram] = value;
         memory_[static_cast<u16>(ram + 0x2000)] = value;
+        log_memory(BusMemoryAccessKind::Ram, address, ram, value);
         return;
     }
 }
@@ -176,6 +179,13 @@ void Bus::set_io_logging_enabled(bool enabled) {
     }
 }
 
+void Bus::set_memory_logging_enabled(bool enabled) {
+    memory_logging_enabled_ = enabled;
+    if (!enabled) {
+        logged_memory_.clear();
+    }
+}
+
 void Bus::refresh_smapper() {
     std::fill(memory_.begin(), memory_.begin() + 0xC000, 0xFF);
     if (!rom_.empty()) {
@@ -222,6 +232,12 @@ u16 Bus::mirrored_ram_address(u16 address) {
 void Bus::log_io(bool write, u8 port, u8 value) {
     if (io_logging_enabled_) {
         logged_io_.push_back({current_cycle_, write, port, value});
+    }
+}
+
+void Bus::log_memory(BusMemoryAccessKind kind, u16 address, u32 physical, u8 value) {
+    if (memory_logging_enabled_) {
+        logged_memory_.push_back({current_cycle_, kind, address, physical, value});
     }
 }
 

@@ -849,6 +849,68 @@ void test_bus_io_logging_records_reads_and_writes() {
     assert(log[1].port == 0xDC);
 }
 
+void test_bus_memory_logging_records_ram_mapper_and_cartridge_ram() {
+    Vdp vdp;
+    Psg psg;
+    Ym2413 ym2413;
+    Joypad joypad;
+    Bus bus(ConsoleModel::SMS, vdp, psg, ym2413, joypad);
+    std::vector<u8> rom(0x10000, 0x00);
+    bus.load_rom(rom);
+
+    bus.set_memory_logging_enabled(true);
+    bus.set_cycle(10);
+    bus.write(0xC123, 0x5A);
+    bus.set_cycle(20);
+    bus.write(0xFFFC, 0x08);
+    bus.set_cycle(30);
+    bus.write(0x8000, 0xA5);
+
+    const auto& log = bus.logged_memory();
+    bool saw_ram = false;
+    bool saw_mapper = false;
+    bool saw_cartridge_ram = false;
+    for (const auto& access : log) {
+        saw_ram = saw_ram || (access.kind == BusMemoryAccessKind::Ram
+            && access.address == 0xC123 && access.physical == 0xC123);
+        saw_mapper = saw_mapper || (access.kind == BusMemoryAccessKind::Mapper
+            && access.address == 0xFFFC);
+        saw_cartridge_ram = saw_cartridge_ram || (access.kind == BusMemoryAccessKind::CartridgeRam
+            && access.address == 0x8000 && access.physical == 0x0000);
+    }
+    assert(saw_ram);
+    assert(saw_mapper);
+    assert(saw_cartridge_ram);
+}
+
+void test_vdp_access_logging_records_register_vram_and_cram_writes() {
+    Vdp vdp;
+    vdp.set_access_logging_enabled(true);
+    vdp.set_cycle(11);
+    vdp.write_control(0x40);
+    vdp.write_control(0x81);
+    vdp.set_cycle(22);
+    vdp.write_control(0x00);
+    vdp.write_control(0x40);
+    vdp.write_data(0xAA);
+    vdp.set_cycle(33);
+    vdp.write_control(0x00);
+    vdp.write_control(0xC0);
+    vdp.write_data(0x03);
+
+    const auto& log = vdp.logged_accesses();
+    assert(log.size() == 3);
+    assert(log[0].kind == VdpAccessKind::Register);
+    assert(log[0].address == 1);
+    assert(log[0].value == 0x40);
+    assert(log[1].kind == VdpAccessKind::Vram);
+    assert(log[1].address == 0x0000);
+    assert(log[1].value == 0xAA);
+    assert(log[2].kind == VdpAccessKind::Cram);
+    assert(log[2].address == 0x0000);
+    assert(log[2].value == 0x03);
+}
+
 void test_console_enhancement_config_propagates_to_runtime_devices() {
     Console console(ConsoleModel::SMS);
     assert(console.enhancements().mode == RuntimeMode::Accurate);
@@ -1448,6 +1510,8 @@ int main() {
     test_vdp_reduce_flicker_uses_conservative_sprite_limit();
     test_vdp_debug_tilemap_and_sprite_snapshots();
     test_bus_io_logging_records_reads_and_writes();
+    test_bus_memory_logging_records_ram_mapper_and_cartridge_ram();
+    test_vdp_access_logging_records_register_vram_and_cram_writes();
     test_console_enhancement_config_propagates_to_runtime_devices();
     test_psg_tone_generates_sample();
     test_ym2413_audio_control_and_register_writes();

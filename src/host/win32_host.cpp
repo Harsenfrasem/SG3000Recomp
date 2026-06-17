@@ -322,7 +322,7 @@ void print_usage() {
               << "                    [--profile profiles.txt]\n"
               << "                    [--print-hash]\n"
               << "                    [--quit-after-frames n]\n"
-              << "                    [--disable-sprite-limit] [--reduce-flicker]\n";
+              << "                    [--disable-sprite-limit] [--reduce-flicker] [--enable-fm]\n";
 }
 
 Options parse_args(int argc, char** argv) {

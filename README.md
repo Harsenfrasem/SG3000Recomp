@@ -59,6 +59,7 @@ Runtime smoke execution is useful before full video/audio support exists:
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --dump-frame out\frame.ppm --dump-frame-bmp out\frame.bmp --dump-audio out\audio.wav --dump-vgm out\audio.vgm
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --enable-fm --dump-audio out\fm.wav --dump-fm-log out\fm-writes.csv
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --dump-io-log out\io.csv --dump-tilemap out\tilemap.csv --dump-sprites out\sprites.csv
+.\build\zig-debug\sgrecomp.exe game.sms --run-smoke --dump-memory-log out\memory.csv --watch 0xc000-0xc0ff --dump-vdp-log out\vdp.csv --watch-vdp 0x0000-0x03ff --io-port 0xbe
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --disable-sprite-limit
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --reduce-flicker
 .\build\zig-debug\sgrecomp.exe game.sms --run-host --frames 3 --dump-frame-bmp out\host-frame.bmp --dump-audio out\host-audio.wav
@@ -75,7 +76,7 @@ If execution reaches an unsupported opcode, the tool prints the instruction, PC,
 
 Enhancements are off by default. Smoke summaries print the active mode and enhancement flags so compatibility tests can confirm whether they are running in accurate or enhanced mode.
 
-`--dump-frame`, `--dump-frame-bmp`, `--dump-audio`, `--dump-vgm`, `--dump-fm-log`, `--dump-io-log`, `--dump-tilemap`, and `--dump-sprites` are local smoke artifacts for visual/audio inspection and reverse engineering. Keep them under ignored directories such as `out/` when testing private ROMs. BMP is convenient for opening a quick frame preview on Windows; PPM remains a simple raw technical frame dump. WAV is useful for listening to the current PSG/FM renderer; VGM is useful for inspecting captured PSG writes with timing; FM and I/O CSV logs capture port activity; tilemap and sprite CSVs expose VDP tables in a readable form.
+`--dump-frame`, `--dump-frame-bmp`, `--dump-audio`, `--dump-vgm`, `--dump-fm-log`, `--dump-io-log`, `--dump-memory-log`, `--dump-vdp-log`, `--dump-tilemap`, and `--dump-sprites` are local smoke artifacts for visual/audio inspection and reverse engineering. Keep them under ignored directories such as `out/` when testing private ROMs. BMP is convenient for opening a quick frame preview on Windows; PPM remains a simple raw technical frame dump. WAV is useful for listening to the current PSG/FM renderer; VGM is useful for inspecting captured PSG writes with timing; FM, I/O, memory, and VDP CSV logs capture runtime activity; tilemap and sprite CSVs expose VDP tables in a readable form. Use `--watch`, `--watch-vdp`, and `--io-port` to filter noisy logs.
 
 Sprite enhancements currently keep the original overflow status bit. Accurate mode renders the original 8 sprites per scanline, `--reduce-flicker` raises that render limit to 16, and `--disable-sprite-limit` renders all visible sprites on the scanline. `--enable-fm` enables the optional FM path for software/profile testing; the current FM synthesis is diagnostic plumbing and still needs a faithful YM2413/OPLL core.
 

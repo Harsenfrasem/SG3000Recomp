@@ -118,6 +118,10 @@ int main() {
     const std::filesystem::path io_log_path = output_dir / "io_fixture.csv";
     const std::filesystem::path tilemap_path = output_dir / "tilemap_fixture.csv";
     const std::filesystem::path sprites_path = output_dir / "sprites_fixture.csv";
+    const std::filesystem::path debug_rom_path = output_dir / "debug_fixture.sms";
+    const std::filesystem::path memory_log_path = output_dir / "memory_fixture.csv";
+    const std::filesystem::path vdp_log_path = output_dir / "vdp_fixture.csv";
+    const std::filesystem::path filtered_io_log_path = output_dir / "filtered_io_fixture.csv";
     const std::filesystem::path fm_rom_path = output_dir / "fm_fixture.sms";
     const std::filesystem::path fm_log_path = output_dir / "fm_fixture.csv";
     const std::filesystem::path host_frame_path = output_dir / "host_frame.bmp";
@@ -279,6 +283,43 @@ int main() {
 
     const std::string sprites = read_text(sprites_path);
     assert(contains(sprites, "index,raw_y,x,y,tile,terminator"));
+
+    const std::vector<unsigned char> debug_rom = {
+        0x3E, 0x5A,       // ld a,$5a
+        0x32, 0x00, 0xC0, // ld ($c000),a
+        0x3E, 0x40,       // ld a,$40
+        0xD3, 0xBF,       // out ($bf),a: register value
+        0x3E, 0x81,       // ld a,$81
+        0xD3, 0xBF,       // out ($bf),a: register 1
+        0x3E, 0x00,       // ld a,$00
+        0xD3, 0xBF,       // out ($bf),a: VRAM address low
+        0x3E, 0x40,       // ld a,$40
+        0xD3, 0xBF,       // out ($bf),a: VRAM write high
+        0x3E, 0xAA,       // ld a,$aa
+        0xD3, 0xBE,       // out ($be),a: VRAM data
+        0x76,             // halt
+    };
+    write_binary(debug_rom_path, debug_rom);
+
+    const std::string debug_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(debug_rom_path)
+        + " --run-smoke --steps 64"
+        + " --dump-memory-log " + quote(memory_log_path) + " --watch 0xc000"
+        + " --dump-vdp-log " + quote(vdp_log_path) + " --watch-vdp 0x0000-0x0001"
+        + " --dump-io-log " + quote(filtered_io_log_path) + " --io-port 0xbe";
+    assert(run_command(debug_command) == 0);
+
+    const std::string memory_log = read_text(memory_log_path);
+    assert(contains(memory_log, "cycle,kind,address,physical,value"));
+    assert(contains(memory_log, "ram,0xc000"));
+
+    const std::string vdp_log = read_text(vdp_log_path);
+    assert(contains(vdp_log, "cycle,kind,address,value"));
+    assert(contains(vdp_log, "vram,0x0000,0xaa"));
+
+    const std::string filtered_io_log = read_text(filtered_io_log_path);
+    assert(contains(filtered_io_log, "cycle,direction,port,value"));
+    assert(contains(filtered_io_log, "write,0xbe,0xaa"));
+    assert(!contains(filtered_io_log, "0xbf"));
 
     const std::vector<unsigned char> fm_rom = {
         0x3E, 0x01, // ld a,$01: enable FM, mute PSG

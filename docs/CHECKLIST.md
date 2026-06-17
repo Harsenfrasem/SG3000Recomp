@@ -92,7 +92,10 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Roadmap de engenharia reversa por hash em `docs/ENHANCED_PORT_ROADMAP.md`.
 - [ ] Inventario local privado por hash, fora do Git.
 - [x] Log CSV de I/O por porta no smoke runner.
-- [x] Trace filtrado por PC via cobertura e I/O por porta via CSV.
+- [x] Log CSV de writes RAM/cart/mapper no smoke runner.
+- [x] Log CSV de writes VRAM/CRAM/registradores VDP no smoke runner.
+- [x] Filtros por faixa/endereco e porta para logs de engenharia reversa.
+- [x] Trace filtrado por PC via cobertura, memoria, VDP e I/O por CSV.
 - [x] Dump legivel de tilemap e sprite table.
 - [ ] Relatorio local por hash com camera, scroll, HUD, entidades e bancos.
 - [ ] Renderer enhanced separado do renderer fiel.
@@ -253,6 +256,7 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Teste do dump VGM PSG do smoke runner.
 - [x] Teste do controle/log FM no runtime e na CLI.
 - [x] Teste do log I/O e dumps tilemap/sprite no runtime e na CLI.
+- [x] Teste de watchpoints RAM/VDP/I/O no runtime e na CLI.
 - [x] Teste do save SRAM pelo host Win32 com ROM sintetica.
 - [x] Teste de parser/hash de `GameProfile` e perfil aplicado no host.
 - [ ] Testes de regressao com ROMs homebrew permitidas.
