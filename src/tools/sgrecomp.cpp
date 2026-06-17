@@ -777,6 +777,11 @@ struct BasicBlock {
     std::vector<u16> successors;
 };
 
+struct PointerTable {
+    u16 address = 0;
+    std::vector<u16> targets;
+};
+
 u16 read_u16_from_image(const std::array<u8, 0x10000>& image, u16 pc) {
     return make_u16(image[static_cast<u16>(pc + 1)], image[static_cast<u16>(pc + 2)]);
 }
@@ -1042,6 +1047,64 @@ std::vector<BasicBlock> discover_basic_blocks(
     return blocks;
 }
 
+std::vector<PointerTable> discover_pointer_tables(
+    const std::array<u8, 0x10000>& image,
+    std::size_t limit,
+    std::span<const BasicBlock> blocks) {
+    std::set<u16> block_starts;
+    for (const auto& block : blocks) {
+        block_starts.insert(block.start);
+    }
+
+    std::vector<PointerTable> tables;
+    constexpr std::size_t kMaxPointerTableEntries = 256;
+    for (std::size_t offset = 0; offset + 1 < limit && offset + 1 < 0xC000;) {
+        const u16 address = static_cast<u16>(offset);
+        if (block_starts.find(address) != block_starts.end()) {
+            offset += 2;
+            continue;
+        }
+
+        std::vector<u16> targets;
+        std::size_t cursor = offset;
+        while (cursor + 1 < limit && cursor + 1 < 0xC000 && targets.size() < kMaxPointerTableEntries) {
+            if (block_starts.find(static_cast<u16>(cursor)) != block_starts.end()
+                || block_starts.find(static_cast<u16>(cursor + 1)) != block_starts.end()) {
+                break;
+            }
+            const u16 target = make_u16(image[static_cast<u16>(cursor)], image[static_cast<u16>(cursor + 1)]);
+            if (!in_code_window(target, limit)) {
+                break;
+            }
+            targets.push_back(target);
+            cursor += 2;
+        }
+
+        while (!targets.empty() && targets.back() == 0x0000) {
+            targets.pop_back();
+            cursor -= 2;
+        }
+
+        const std::set<u16> distinct_targets(targets.begin(), targets.end());
+        const bool has_nonzero_target = std::any_of(targets.begin(), targets.end(), [](u16 target) {
+            return target != 0;
+        });
+        std::size_t known_block_targets = 0;
+        for (const u16 target : distinct_targets) {
+            if (block_starts.find(target) != block_starts.end()) {
+                ++known_block_targets;
+            }
+        }
+        if (targets.size() >= 3 && distinct_targets.size() >= 2 && has_nonzero_target && known_block_targets >= 2) {
+            tables.push_back({address, std::move(targets)});
+            offset = cursor;
+        } else {
+            offset += 2;
+        }
+    }
+    return tables;
+}
+
 void write_analysis_report(
     const std::filesystem::path& path,
     std::span<const u8> rom,
@@ -1082,6 +1145,14 @@ void write_analysis_report(
 
     const std::size_t fallback_count = instruction_count - direct_count;
     const CartridgeHeaderInfo header = analyze_cartridge_header(rom);
+    const std::vector<PointerTable> pointer_tables = discover_pointer_tables(
+        [&]() {
+            std::array<u8, 0x10000> image{};
+            std::copy(rom.begin(), rom.begin() + static_cast<std::ptrdiff_t>(std::min<std::size_t>(rom.size(), image.size())), image.begin());
+            return image;
+        }(),
+        limit,
+        blocks);
     out << "SG3000Recomp static analysis\n";
     out << "rom_scan_limit: 0x" << std::hex << std::setw(4) << std::setfill('0') << std::min<std::size_t>(limit, 0xC000)
         << std::dec << "\n";
@@ -1118,6 +1189,7 @@ void write_analysis_report(
     out << "direct_emit_instructions: " << direct_count << "\n";
     out << "fallback_instructions: " << fallback_count << "\n";
     out << "indirect_exit_blocks: " << indirect_blocks << "\n\n";
+    out << "pointer_tables: " << pointer_tables.size() << "\n\n";
 
     out << "blocks\n";
     for (const auto& block : blocks) {
@@ -1160,6 +1232,27 @@ void write_analysis_report(
     }
     if (!any_fallback) {
         out << "none\n";
+    }
+
+    out << "\npointer_tables_detail\n";
+    if (pointer_tables.empty()) {
+        out << "none\n";
+    } else {
+        for (const auto& table : pointer_tables) {
+            out << "table 0x" << std::hex << std::setw(4) << std::setfill('0') << table.address
+                << std::dec << " entries=" << table.targets.size() << " targets=";
+            const std::size_t shown = std::min<std::size_t>(table.targets.size(), 16);
+            for (std::size_t i = 0; i < shown; ++i) {
+                if (i != 0) {
+                    out << ",";
+                }
+                out << "0x" << std::hex << std::setw(4) << std::setfill('0') << table.targets[i] << std::dec;
+            }
+            if (shown < table.targets.size()) {
+                out << ",...";
+            }
+            out << "\n";
+        }
     }
 }
 

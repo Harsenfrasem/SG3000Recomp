@@ -53,7 +53,7 @@ The first enhancement target is sprite flicker reduction through `disable_sprite
 
 ## Static Analysis Report
 
-The CLI can write a local analysis file with `--dump-analysis`. The report is intentionally text-first so it can be inspected quickly during bring-up. It lists the scan limit, default entry points, reachable blocks, instructions per block, static successors, direct-emitted instructions, fallback instructions, and indirect exits such as register jumps. Default entry points include reset, IM1 IRQ at `0x0038`, and NMI/Pause at `0x0066`.
+The CLI can write a local analysis file with `--dump-analysis`. The report is intentionally text-first so it can be inspected quickly during bring-up. It lists the scan limit, default entry points, reachable blocks, instructions per block, static successors, direct-emitted instructions, fallback instructions, indirect exits such as register jumps, and heuristic little-endian pointer tables. Default entry points include reset, IM1 IRQ at `0x0038`, and NMI/Pause at `0x0066`.
 
 The report does not include ROM or BIOS assets and should normally be written under an ignored local output directory while testing private software.
 

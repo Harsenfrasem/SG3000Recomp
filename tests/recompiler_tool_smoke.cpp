@@ -115,6 +115,8 @@ int main() {
     const std::filesystem::path header_analysis_path = output_dir / "header_analysis.txt";
     const std::filesystem::path entry_rom_path = output_dir / "entry_fixture.sms";
     const std::filesystem::path entry_analysis_path = output_dir / "entry_analysis.txt";
+    const std::filesystem::path pointer_rom_path = output_dir / "pointer_fixture.sms";
+    const std::filesystem::path pointer_analysis_path = output_dir / "pointer_analysis.txt";
     const std::filesystem::path audio_rom_path = output_dir / "audio_fixture.sms";
     const std::filesystem::path frame_bmp_path = output_dir / "frame_fixture.bmp";
     const std::filesystem::path audio_path = output_dir / "audio_fixture.wav";
@@ -286,6 +288,23 @@ int main() {
     assert(contains(entry_analysis, "block 0x0000"));
     assert(contains(entry_analysis, "block 0x0038"));
     assert(contains(entry_analysis, "block 0x0066"));
+
+    std::vector<unsigned char> pointer_rom(0x100, 0x00);
+    pointer_rom[0x0000] = 0x76; // halt
+    pointer_rom[0x0038] = 0x76; // halt
+    pointer_rom[0x0066] = 0x76; // halt
+    pointer_rom[0x007E] = 0xFF; pointer_rom[0x007F] = 0xFF;
+    pointer_rom[0x0080] = 0x00; pointer_rom[0x0081] = 0x00;
+    pointer_rom[0x0082] = 0x38; pointer_rom[0x0083] = 0x00;
+    pointer_rom[0x0084] = 0x66; pointer_rom[0x0085] = 0x00;
+    write_binary(pointer_rom_path, pointer_rom);
+
+    const std::string pointer_analysis_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(pointer_rom_path)
+        + " --dump-analysis " + quote(pointer_analysis_path);
+    assert(run_command(pointer_analysis_command) == 0);
+    const std::string pointer_analysis = read_text(pointer_analysis_path);
+    assert(contains(pointer_analysis, "pointer_tables: 1"));
+    assert(contains(pointer_analysis, "table 0x0080 entries=3 targets=0x0000,0x0038,0x0066"));
 
     const std::vector<unsigned char> audio_rom = {
         0x3E, 0x80, // ld a,$80: tone channel 0 latch

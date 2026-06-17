@@ -134,6 +134,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [ ] Emissao de funcoes por bloco em vez de um `switch` monolitico.
 - [x] Comentarios de disassembly no C++ gerado.
 - [x] Relatorio de analise: blocos, sucessores, opcodes levantados e fallback usado.
+- [x] Relatorio de analise: deteccao heuristica de tabelas de ponteiros little-endian.
 - [ ] Config TOML real para opcoes de alvo.
 
 ## CPU Z80
