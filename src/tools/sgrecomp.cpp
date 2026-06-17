@@ -1743,10 +1743,9 @@ void emit_alu(std::ostream& out, u8 group, const std::string& rhs) {
     }
 }
 
-void emit_case(std::ostream& out, const std::array<u8, 0x10000>& image, u16 pc) {
+void emit_instruction_body(std::ostream& out, const std::array<u8, 0x10000>& image, u16 pc) {
     const u8 opcode = image[pc];
     const auto decoded = decode_z80(image, pc);
-    out << "    case 0x" << std::hex << std::setw(4) << std::setfill('0') << pc << ": ";
     out << "/* " << decoded.mnemonic << " */ ";
     switch (opcode) {
     case 0x00:
@@ -2131,7 +2130,40 @@ void emit_case(std::ostream& out, const std::array<u8, 0x10000>& image, u16 pc) 
     }
 }
 
-void generate_cpp(const std::filesystem::path& output, const std::array<u8, 0x10000>& image, std::size_t limit) {
+void emit_case(std::ostream& out, const std::array<u8, 0x10000>& image, u16 pc) {
+    out << "    case 0x" << std::hex << std::setw(4) << std::setfill('0') << pc << ": ";
+    emit_instruction_body(out, image, pc);
+}
+
+std::string block_function_name(u16 pc) {
+    std::ostringstream out;
+    out << "sgrecomp_block_" << std::hex << std::setw(4) << std::setfill('0') << pc;
+    return out.str();
+}
+
+void emit_block_function(std::ostream& out, const std::array<u8, 0x10000>& image, const BasicBlock& block) {
+    out << "void " << block_function_name(block.start)
+        << "(sgrecomp::Z80State& cpu, sgrecomp::Bus& bus) {\n";
+    out << "    switch (cpu.pc) {\n";
+    for (const auto& instruction : block.instructions) {
+        emit_case(out, image, instruction.decoded.pc);
+    }
+    out << "    default: sgrecomp::execute_one(cpu, bus); return;\n";
+    out << "    }\n";
+    out << "}\n\n";
+}
+
+bool is_block_start(std::span<const BasicBlock> blocks, u16 pc) {
+    return std::find_if(blocks.begin(), blocks.end(), [&](const BasicBlock& block) {
+        return block.start == pc;
+    }) != blocks.end();
+}
+
+void generate_cpp(
+    const std::filesystem::path& output,
+    const std::array<u8, 0x10000>& image,
+    std::size_t limit,
+    std::span<const BasicBlock> blocks) {
     std::ofstream out(output);
     if (!out) {
         throw std::runtime_error("cannot open output file");
@@ -2235,15 +2267,24 @@ void generate_cpp(const std::filesystem::path& output, const std::array<u8, 0x10
     out << "    return result;\n";
     out << "}\n";
     out << "} // namespace\n\n";
+    for (const auto& block : blocks) {
+        emit_block_function(out, image, block);
+    }
     out << "extern \"C\" void sgrecomp_load_rom(sgrecomp::Bus& bus) {\n";
     out << "    bus.load_rom(kRom);\n";
     out << "}\n\n";
     out << "extern \"C\" void sgrecomp_run_instruction(sgrecomp::Z80State& cpu, sgrecomp::Bus& bus) {\n";
     out << "    if (cpu.halted) { cpu.cycles += 4; return; }\n";
     out << "    switch (cpu.pc) {\n";
+    for (const auto& block : blocks) {
+        out << "    case 0x" << std::hex << std::setw(4) << std::setfill('0') << block.start
+            << ": " << block_function_name(block.start) << "(cpu, bus); return;\n";
+    }
     for (u16 pc = 0; pc < limit && pc < 0xC000;) {
         const auto insn = decode_z80(image, pc);
-        emit_case(out, image, pc);
+        if (!is_block_start(blocks, pc)) {
+            emit_case(out, image, pc);
+        }
         pc = static_cast<u16>(pc + insn.size);
     }
     out << "    default: sgrecomp::execute_one(cpu, bus); return;\n";
@@ -2278,7 +2319,9 @@ int main(int argc, char** argv) {
         } else if (opts.run_host) {
             run_host(opts.model, rom, bios ? &*bios : nullptr, opts);
         } else {
-            generate_cpp(opts.output, image, limit);
+            const auto entry_points = default_entry_points(limit);
+            const auto blocks = discover_basic_blocks(image, limit, entry_points);
+            generate_cpp(opts.output, image, limit, blocks);
             std::cout << "generated " << opts.output.string() << "\n";
         }
     } catch (const std::exception& e) {

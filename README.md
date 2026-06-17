@@ -106,6 +106,8 @@ extern "C" void sgrecomp_load_rom(sgrecomp::Bus& bus);
 extern "C" void sgrecomp_run_instruction(sgrecomp::Z80State& cpu, sgrecomp::Bus& bus);
 ```
 
+Generated files include per-basic-block helpers for statically reachable entry points and keep the PC dispatcher as a compatibility bridge for fallback and non-discovered paths.
+
 ## Layout
 
 - `src/tools`: ROM analysis and code generation tools.

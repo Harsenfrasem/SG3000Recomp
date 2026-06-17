@@ -195,6 +195,8 @@ int main() {
     assert(run_command(generate_command) == 0);
 
     const std::string generated = read_text(generated_path);
+    assert(contains(generated, "void sgrecomp_block_0000"));
+    assert(contains(generated, "sgrecomp_block_0000(cpu, bus); return;"));
     assert(contains(generated, "cpu.set_hl(0xc000)"));
     assert(contains(generated, "/* ld hl,"));
     assert(contains(generated, "bus.write(cpu.hl(), cpu.a);"));
