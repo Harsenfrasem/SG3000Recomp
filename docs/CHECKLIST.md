@@ -50,11 +50,13 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Loop host headless de frame, audio e input.
 - [x] Loop host de janela com video e input inicial no Windows.
 - [x] Audio em tempo real inicial no host de janela via Win32 waveOut.
-- [ ] Audio em tempo real refinado com controle de latencia e underrun.
+- [x] Audio em tempo real com pre-buffer inicial e contadores de underrun/drop.
+- [ ] Audio em tempo real refinado com controle de latencia configuravel.
 - [ ] Backend SDL2 opcional ou camada equivalente configuravel.
 - [x] Sincronizacao inicial de frame, buffer de audio e input por frame.
 - [ ] Sincronizacao refinada para backend de janela/audio real.
 - [ ] Save RAM em arquivo, save states e debug overlay.
+- [x] Overlay debug simples com FPS, frame, PC, modo runtime e status de audio.
 - [ ] Modo de execucao interpretado, recompilado e hibrido no host.
 
 ### 5. Audio FM opcional e perfis por jogo
@@ -164,6 +166,7 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [ ] Mixer estereo e sample rate configuravel.
 - [x] Buffer de audio para host backend headless.
 - [x] Saida Win32 waveOut inicial no host.
+- [x] Contadores de fila, underrun e buffers descartados no host.
 - [ ] Mixer estereo e sample rate configuravel no host.
 
 ## Entrada
@@ -178,13 +181,15 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 
 - [x] Loop host de janela com video e input inicial.
 - [x] Loop host de janela com audio em tempo real inicial.
-- [ ] Controle de latencia, pausa e volume no host de janela.
+- [x] Pre-buffer inicial e telemetria de underrun no host de janela.
+- [ ] Controle de latencia configuravel, pausa e volume no host de janela.
 - [ ] Backend SDL2 opcional.
 - [x] Backend Win32 inicial para desenvolvimento no Windows.
 - [x] HostRuntime headless com framebuffer, input por frame e buffer de audio.
 - [x] Save RAM em arquivo local pelo smoke runner.
 - [ ] Estado serializavel para save states.
-- [ ] Debug overlay de PC, registradores, FPS e fallback count.
+- [x] Debug overlay de PC, FPS, frame, modo runtime e audio.
+- [ ] Debug overlay com registradores completos e fallback count.
 
 ## GUI
 

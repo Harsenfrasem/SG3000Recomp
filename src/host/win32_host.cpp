@@ -15,11 +15,13 @@
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <iterator>
 #include <memory>
 #include <optional>
 #include <span>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -35,10 +37,18 @@ struct Options {
     EnhancementConfig enhancements;
     int scale = 3;
     bool audio = true;
+    bool overlay = true;
 };
 
 class Win32Audio {
 public:
+    struct Stats {
+        std::size_t queued_buffers = 0;
+        u64 submitted_buffers = 0;
+        u64 dropped_buffers = 0;
+        u64 underruns = 0;
+    };
+
     Win32Audio() = default;
     Win32Audio(const Win32Audio&) = delete;
     Win32Audio& operator=(const Win32Audio&) = delete;
@@ -48,6 +58,7 @@ public:
     }
 
     bool open(u32 sample_rate) {
+        sample_rate_ = sample_rate;
         WAVEFORMATEX format{};
         format.wFormatTag = WAVE_FORMAT_PCM;
         format.nChannels = 2;
@@ -68,21 +79,37 @@ public:
             return;
         }
 
+        cleanup_completed_buffers();
+        if (primed_ && stats_.queued_buffers == 0) {
+            ++stats_.underruns;
+        }
+        if (!primed_) {
+            queue_samples(silence_for(interleaved_stereo.size()));
+            queue_samples(silence_for(interleaved_stereo.size()));
+            primed_ = true;
+        }
+        if (!queue_samples(interleaved_stereo)) {
+            ++stats_.dropped_buffers;
+        }
+    }
+
+    Stats stats() const {
+        return stats_;
+    }
+
+    u32 sample_rate() const {
+        return sample_rate_;
+    }
+
+    void cleanup_completed_buffers() {
+        if (device_ == nullptr) {
+            return;
+        }
         for (auto& buffer : buffers_) {
             if (buffer.prepared && (buffer.header.dwFlags & WHDR_DONE) != 0) {
                 waveOutUnprepareHeader(device_, &buffer.header, sizeof(buffer.header));
                 buffer.prepared = false;
-            }
-            if (!buffer.prepared) {
-                buffer.samples.assign(interleaved_stereo.begin(), interleaved_stereo.end());
-                buffer.header = {};
-                buffer.header.lpData = reinterpret_cast<LPSTR>(buffer.samples.data());
-                buffer.header.dwBufferLength = static_cast<DWORD>(buffer.samples.size() * sizeof(s16));
-                if (waveOutPrepareHeader(device_, &buffer.header, sizeof(buffer.header)) == MMSYSERR_NOERROR) {
-                    buffer.prepared = true;
-                    waveOutWrite(device_, &buffer.header, sizeof(buffer.header));
-                }
-                return;
+                stats_.queued_buffers = stats_.queued_buffers == 0 ? 0 : stats_.queued_buffers - 1;
             }
         }
     }
@@ -98,6 +125,7 @@ public:
                 buffer.prepared = false;
             }
         }
+        stats_.queued_buffers = 0;
         waveOutClose(device_);
         device_ = nullptr;
     }
@@ -111,14 +139,53 @@ private:
 
     HWAVEOUT device_ = nullptr;
     std::array<AudioBuffer, 4> buffers_{};
+    Stats stats_{};
+    u32 sample_rate_ = 44100;
+    bool primed_ = false;
+    std::vector<s16> silence_;
+
+    std::span<const s16> silence_for(std::size_t samples) {
+        silence_.assign(samples, 0);
+        return silence_;
+    }
+
+    bool queue_samples(std::span<const s16> interleaved_stereo) {
+        for (auto& buffer : buffers_) {
+            if (!buffer.prepared) {
+                buffer.samples.assign(interleaved_stereo.begin(), interleaved_stereo.end());
+                buffer.header = {};
+                buffer.header.lpData = reinterpret_cast<LPSTR>(buffer.samples.data());
+                buffer.header.dwBufferLength = static_cast<DWORD>(buffer.samples.size() * sizeof(s16));
+                if (waveOutPrepareHeader(device_, &buffer.header, sizeof(buffer.header)) != MMSYSERR_NOERROR) {
+                    return false;
+                }
+                buffer.prepared = true;
+                if (waveOutWrite(device_, &buffer.header, sizeof(buffer.header)) != MMSYSERR_NOERROR) {
+                    waveOutUnprepareHeader(device_, &buffer.header, sizeof(buffer.header));
+                    buffer.prepared = false;
+                    return false;
+                }
+                ++stats_.queued_buffers;
+                ++stats_.submitted_buffers;
+                return true;
+            }
+        }
+        return false;
+    }
 };
 
 struct AppState {
     std::unique_ptr<HostRuntime> host;
     std::unique_ptr<Win32Audio> audio;
     HostInputState input;
+    HostFrameResult last_frame;
     BITMAPINFO bitmap_info{};
     bool running = true;
+    bool overlay_enabled = true;
+    double fps = 0.0;
+    u64 rendered_frames = 0;
+    std::chrono::steady_clock::time_point fps_window_start = std::chrono::steady_clock::now();
+    u64 fps_window_frames = 0;
 };
 
 std::vector<u8> read_file(const std::filesystem::path& path) {
@@ -138,7 +205,8 @@ std::vector<u8> normalize_rom_payload(std::vector<u8> rom) {
 
 void print_usage() {
     std::cout << "usage: sgrecomp_host <rom.sms|rom.sg> [--bios bios.sms] [--model sms|sg3000]\n"
-              << "                    [--scale n] [--mute] [--disable-sprite-limit] [--reduce-flicker]\n";
+              << "                    [--scale n] [--mute] [--no-overlay]\n"
+              << "                    [--disable-sprite-limit] [--reduce-flicker]\n";
 }
 
 Options parse_args(int argc, char** argv) {
@@ -170,6 +238,10 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--mute") {
             opts.audio = false;
+            continue;
+        }
+        if (arg == "--no-overlay") {
+            opts.overlay = false;
             continue;
         }
         if (arg == "--disable-sprite-limit") {
@@ -218,6 +290,61 @@ void update_key(AppState& app, WPARAM key, bool pressed) {
     if (key == VK_RETURN) {
         app.input.pause = pressed;
     }
+    if (key == VK_F1 && pressed) {
+        app.overlay_enabled = !app.overlay_enabled;
+    }
+}
+
+const char* runtime_mode_name(RuntimeMode mode) {
+    switch (mode) {
+    case RuntimeMode::Accurate: return "accurate";
+    case RuntimeMode::Enhanced: return "enhanced";
+    case RuntimeMode::Hybrid: return "hybrid";
+    default: return "unknown";
+    }
+}
+
+std::string overlay_text(const AppState& app) {
+    const auto& config = app.host->console().enhancements();
+    std::ostringstream out;
+    out << std::fixed << std::setprecision(1)
+        << "FPS " << app.fps
+        << "  frame " << app.last_frame.frame_index
+        << "  PC $" << std::hex << std::uppercase << std::setw(4) << std::setfill('0')
+        << static_cast<int>(app.host->console().cpu().pc) << std::dec << "\n"
+        << "mode " << runtime_mode_name(config.mode)
+        << "  sprite_limit " << (config.disable_sprite_limit ? "off" : "on")
+        << "  reduce_flicker " << (config.reduce_flicker ? "on" : "off") << "\n";
+
+    if (app.audio) {
+        app.audio->cleanup_completed_buffers();
+        const auto stats = app.audio->stats();
+        out << "audio on  queued " << stats.queued_buffers
+            << "  underruns " << stats.underruns
+            << "  drops " << stats.dropped_buffers
+            << "  " << app.audio->sample_rate() << " Hz";
+    } else {
+        out << "audio muted";
+    }
+    out << "\nF1 overlay";
+    return out.str();
+}
+
+void draw_overlay(HDC dc, const AppState& app) {
+    if (!app.overlay_enabled) {
+        return;
+    }
+
+    const std::string text = overlay_text(app);
+    RECT background{8, 8, 388, 84};
+    HBRUSH brush = CreateSolidBrush(RGB(0, 0, 0));
+    FillRect(dc, &background, brush);
+    DeleteObject(brush);
+
+    SetBkMode(dc, TRANSPARENT);
+    SetTextColor(dc, RGB(220, 240, 220));
+    RECT text_rect{14, 12, 382, 82};
+    DrawTextA(dc, text.c_str(), -1, &text_rect, DT_LEFT | DT_TOP | DT_NOCLIP);
 }
 
 void render_frame(HWND hwnd, AppState& app) {
@@ -249,6 +376,7 @@ void render_frame(HWND hwnd, AppState& app) {
         &app.bitmap_info,
         DIB_RGB_COLORS,
         SRCCOPY);
+    draw_overlay(dc, app);
 
     EndPaint(hwnd, &paint);
 }
@@ -344,11 +472,22 @@ void run_message_loop(HWND hwnd, AppState& app) {
 
         const auto now = clock::now();
         if (now >= next_frame) {
-            app.host->run_frame(app.input);
+            app.last_frame = app.host->run_frame(app.input);
+            ++app.rendered_frames;
+            ++app.fps_window_frames;
             if (app.audio) {
                 app.audio->submit(app.host->audio());
             }
             app.host->clear_audio();
+
+            const auto elapsed = now - app.fps_window_start;
+            if (elapsed >= std::chrono::seconds(1)) {
+                app.fps = static_cast<double>(app.fps_window_frames)
+                    / std::chrono::duration<double>(elapsed).count();
+                app.fps_window_frames = 0;
+                app.fps_window_start = now;
+            }
+
             InvalidateRect(hwnd, nullptr, FALSE);
             UpdateWindow(hwnd);
             next_frame += std::chrono::duration_cast<clock::duration>(frame_duration);
@@ -370,6 +509,7 @@ int run(int argc, char** argv) {
 
     AppState app;
     app.host = std::make_unique<HostRuntime>(opts.model, opts.enhancements);
+    app.overlay_enabled = opts.overlay;
     if (bios) {
         app.host->load_bios(*bios);
     }
