@@ -51,12 +51,14 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Loop host de janela com video e input inicial no Windows.
 - [x] Audio em tempo real inicial no host de janela via Win32 waveOut.
 - [x] Audio em tempo real com pre-buffer inicial e contadores de underrun/drop.
-- [ ] Audio em tempo real refinado com controle de latencia configuravel.
+- [x] Audio em tempo real com controle de latencia configuravel no host Win32.
+- [ ] Audio em tempo real refinado com ajuste dinamico de latencia.
 - [ ] Backend SDL2 opcional ou camada equivalente configuravel.
 - [x] Sincronizacao inicial de frame, buffer de audio e input por frame.
 - [ ] Sincronizacao refinada para backend de janela/audio real.
 - [ ] Save RAM em arquivo, save states e debug overlay.
 - [x] Overlay debug simples com FPS, frame, PC, modo runtime e status de audio.
+- [x] Controles de runtime no host: pausa, reset, mute e volume.
 - [ ] Modo de execucao interpretado, recompilado e hibrido no host.
 
 ### 5. Audio FM opcional e perfis por jogo
@@ -167,6 +169,7 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Buffer de audio para host backend headless.
 - [x] Saida Win32 waveOut inicial no host.
 - [x] Contadores de fila, underrun e buffers descartados no host.
+- [x] Volume, mute e latencia configuravel no host Win32.
 - [ ] Mixer estereo e sample rate configuravel no host.
 
 ## Entrada
@@ -182,13 +185,15 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Loop host de janela com video e input inicial.
 - [x] Loop host de janela com audio em tempo real inicial.
 - [x] Pre-buffer inicial e telemetria de underrun no host de janela.
-- [ ] Controle de latencia configuravel, pausa e volume no host de janela.
+- [x] Controle de latencia configuravel, pausa e volume no host de janela.
+- [ ] Controle de pausa preservando estado de audio sem flush agressivo.
 - [ ] Backend SDL2 opcional.
 - [x] Backend Win32 inicial para desenvolvimento no Windows.
 - [x] HostRuntime headless com framebuffer, input por frame e buffer de audio.
 - [x] Save RAM em arquivo local pelo smoke runner.
 - [ ] Estado serializavel para save states.
 - [x] Debug overlay de PC, FPS, frame, modo runtime e audio.
+- [x] Debug overlay com estado de pausa, volume e latencia.
 - [ ] Debug overlay com registradores completos e fallback count.
 
 ## GUI

@@ -63,6 +63,7 @@ Runtime smoke execution is useful before full video/audio support exists:
 .\build\zig-debug\sgrecomp_host.exe game.sms --bios bios.sms --scale 3
 .\build\zig-debug\sgrecomp_host.exe game.sms --mute
 .\build\zig-debug\sgrecomp_host.exe game.sms --no-overlay
+.\build\zig-debug\sgrecomp_host.exe game.sms --audio-latency-ms 100
 ```
 
 If execution reaches an unsupported opcode, the tool prints the instruction, PC, registers, interrupt state, and cycle count.
@@ -75,7 +76,7 @@ Sprite enhancements currently keep the original overflow status bit. Accurate mo
 
 `--run-host` uses the headless host runtime path. It advances full frames, samples audio at 44.1 kHz, applies joypad state through the runtime API, and exposes the latest framebuffer for a future window backend.
 
-On Windows, `sgrecomp_host` opens the first native video/input/audio host window. Arrow keys map to the directional pad, `Z`/`X` map to the two action buttons, and `Enter` sends Pause/NMI. Audio uses the Win32 waveOut backend and can be disabled with `--mute`. The debug overlay shows FPS, frame count, PC, runtime mode, audio queue, underruns, and dropped buffers; press `F1` to toggle it or start with `--no-overlay`.
+On Windows, `sgrecomp_host` opens the first native video/input/audio host window. Arrow keys map to the directional pad, `Z`/`X` map to the two action buttons, and `Enter` sends Pause/NMI. `Space` pauses emulation, `R` resets the runtime, `M` mutes audio, and `+`/`-` adjust volume. Audio uses the Win32 waveOut backend, can be disabled with `--mute`, and accepts `--audio-latency-ms`. The debug overlay shows FPS, frame count, PC, runtime mode, pause state, volume, audio queue, underruns, and dropped buffers; press `F1` to toggle it or start with `--no-overlay`.
 
 Generated code exposes:
 

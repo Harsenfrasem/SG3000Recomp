@@ -38,12 +38,14 @@ struct Options {
     int scale = 3;
     bool audio = true;
     bool overlay = true;
+    int audio_latency_ms = 80;
 };
 
 class Win32Audio {
 public:
     struct Stats {
         std::size_t queued_buffers = 0;
+        std::size_t queued_sample_frames = 0;
         u64 submitted_buffers = 0;
         u64 dropped_buffers = 0;
         u64 underruns = 0;
@@ -57,8 +59,11 @@ public:
         close();
     }
 
-    bool open(u32 sample_rate) {
+    bool open(u32 sample_rate, int target_latency_ms) {
         sample_rate_ = sample_rate;
+        target_latency_ms_ = std::max(10, target_latency_ms);
+        target_latency_frames_ = static_cast<std::size_t>(
+            (static_cast<u64>(sample_rate_) * static_cast<u64>(target_latency_ms_)) / 1000);
         WAVEFORMATEX format{};
         format.wFormatTag = WAVE_FORMAT_PCM;
         format.nChannels = 2;
@@ -80,12 +85,16 @@ public:
         }
 
         cleanup_completed_buffers();
-        if (primed_ && stats_.queued_buffers == 0) {
+        const std::size_t sample_frames = interleaved_stereo.size() / 2;
+        if (primed_ && stats_.queued_sample_frames < sample_frames) {
             ++stats_.underruns;
         }
         if (!primed_) {
-            queue_samples(silence_for(interleaved_stereo.size()));
-            queue_samples(silence_for(interleaved_stereo.size()));
+            while (stats_.queued_sample_frames < target_latency_frames_) {
+                if (!queue_samples(silence_for(interleaved_stereo.size()))) {
+                    break;
+                }
+            }
             primed_ = true;
         }
         if (!queue_samples(interleaved_stereo)) {
@@ -101,6 +110,63 @@ public:
         return sample_rate_;
     }
 
+    int target_latency_ms() const {
+        return target_latency_ms_;
+    }
+
+    int queued_latency_ms() const {
+        if (sample_rate_ == 0) {
+            return 0;
+        }
+        return static_cast<int>((static_cast<u64>(stats_.queued_sample_frames) * 1000) / sample_rate_);
+    }
+
+    int volume_percent() const {
+        return volume_percent_;
+    }
+
+    bool muted() const {
+        return muted_;
+    }
+
+    void set_volume_percent(int volume_percent) {
+        volume_percent_ = std::clamp(volume_percent, 0, 100);
+        apply_volume();
+    }
+
+    void set_muted(bool muted) {
+        muted_ = muted;
+        apply_volume();
+    }
+
+    void set_paused(bool paused) {
+        if (device_ == nullptr) {
+            return;
+        }
+        if (paused) {
+            waveOutPause(device_);
+        } else {
+            waveOutRestart(device_);
+        }
+    }
+
+    void flush() {
+        if (device_ == nullptr) {
+            return;
+        }
+        waveOutReset(device_);
+        for (auto& buffer : buffers_) {
+            if (buffer.prepared) {
+                waveOutUnprepareHeader(device_, &buffer.header, sizeof(buffer.header));
+                buffer.prepared = false;
+                buffer.sample_frames = 0;
+            }
+        }
+        stats_.queued_buffers = 0;
+        stats_.queued_sample_frames = 0;
+        primed_ = false;
+    }
+
     void cleanup_completed_buffers() {
         if (device_ == nullptr) {
             return;
@@ -110,6 +176,10 @@ public:
                 waveOutUnprepareHeader(device_, &buffer.header, sizeof(buffer.header));
                 buffer.prepared = false;
                 stats_.queued_buffers = stats_.queued_buffers == 0 ? 0 : stats_.queued_buffers - 1;
+                stats_.queued_sample_frames = buffer.sample_frames > stats_.queued_sample_frames
+                    ? 0
+                    : stats_.queued_sample_frames - buffer.sample_frames;
+                buffer.sample_frames = 0;
             }
         }
     }
@@ -123,9 +193,11 @@ public:
             if (buffer.prepared) {
                 waveOutUnprepareHeader(device_, &buffer.header, sizeof(buffer.header));
                 buffer.prepared = false;
+                buffer.sample_frames = 0;
             }
         }
         stats_.queued_buffers = 0;
+        stats_.queued_sample_frames = 0;
         waveOutClose(device_);
         device_ = nullptr;
     }
@@ -134,13 +206,18 @@ private:
     struct AudioBuffer {
         WAVEHDR header{};
         std::vector<s16> samples;
+        std::size_t sample_frames = 0;
         bool prepared = false;
     };
 
     HWAVEOUT device_ = nullptr;
-    std::array<AudioBuffer, 4> buffers_{};
+    std::array<AudioBuffer, 8> buffers_{};
     Stats stats_{};
     u32 sample_rate_ = 44100;
+    int target_latency_ms_ = 80;
+    std::size_t target_latency_frames_ = 3528;
+    int volume_percent_ = 100;
+    bool muted_ = false;
     bool primed_ = false;
     std::vector<s16> silence_;
 
@@ -153,6 +230,7 @@ private:
         for (auto& buffer : buffers_) {
             if (!buffer.prepared) {
                 buffer.samples.assign(interleaved_stereo.begin(), interleaved_stereo.end());
+                buffer.sample_frames = buffer.samples.size() / 2;
                 buffer.header = {};
                 buffer.header.lpData = reinterpret_cast<LPSTR>(buffer.samples.data());
                 buffer.header.dwBufferLength = static_cast<DWORD>(buffer.samples.size() * sizeof(s16));
@@ -163,14 +241,26 @@ private:
                 if (waveOutWrite(device_, &buffer.header, sizeof(buffer.header)) != MMSYSERR_NOERROR) {
                     waveOutUnprepareHeader(device_, &buffer.header, sizeof(buffer.header));
                     buffer.prepared = false;
+                    buffer.sample_frames = 0;
                     return false;
                 }
                 ++stats_.queued_buffers;
+                stats_.queued_sample_frames += buffer.sample_frames;
                 ++stats_.submitted_buffers;
                 return true;
             }
         }
         return false;
+    }
+
+    void apply_volume() {
+        if (device_ == nullptr) {
+            return;
+        }
+        const DWORD channel = muted_
+            ? 0
+            : static_cast<DWORD>((volume_percent_ * 0xFFFF) / 100);
+        waveOutSetVolume(device_, channel | (channel << 16));
     }
 };
 
@@ -181,6 +271,7 @@ struct AppState {
     HostFrameResult last_frame;
     BITMAPINFO bitmap_info{};
     bool running = true;
+    bool emulation_paused = false;
     bool overlay_enabled = true;
     double fps = 0.0;
     u64 rendered_frames = 0;
@@ -205,7 +296,7 @@ std::vector<u8> normalize_rom_payload(std::vector<u8> rom) {
 
 void print_usage() {
     std::cout << "usage: sgrecomp_host <rom.sms|rom.sg> [--bios bios.sms] [--model sms|sg3000]\n"
-              << "                    [--scale n] [--mute] [--no-overlay]\n"
+              << "                    [--scale n] [--mute] [--no-overlay] [--audio-latency-ms n]\n"
               << "                    [--disable-sprite-limit] [--reduce-flicker]\n";
 }
 
@@ -242,6 +333,10 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--no-overlay") {
             opts.overlay = false;
+            continue;
+        }
+        if (arg == "--audio-latency-ms" && i + 1 < argc) {
+            opts.audio_latency_ms = std::clamp(std::stoi(argv[++i]), 10, 300);
             continue;
         }
         if (arg == "--disable-sprite-limit") {
@@ -293,6 +388,31 @@ void update_key(AppState& app, WPARAM key, bool pressed) {
     if (key == VK_F1 && pressed) {
         app.overlay_enabled = !app.overlay_enabled;
     }
+    if (key == VK_SPACE && pressed) {
+        app.emulation_paused = !app.emulation_paused;
+        if (app.audio) {
+            app.audio->set_paused(app.emulation_paused);
+        }
+    }
+    if (key == 'R' && pressed) {
+        app.host->reset();
+        app.last_frame = {};
+        app.rendered_frames = 0;
+        app.fps_window_frames = 0;
+        app.fps = 0.0;
+        if (app.audio) {
+            app.audio->flush();
+        }
+    }
+    if (key == 'M' && pressed && app.audio) {
+        app.audio->set_muted(!app.audio->muted());
+    }
+    if ((key == VK_OEM_PLUS || key == VK_ADD) && pressed && app.audio) {
+        app.audio->set_volume_percent(app.audio->volume_percent() + 5);
+    }
+    if ((key == VK_OEM_MINUS || key == VK_SUBTRACT) && pressed && app.audio) {
+        app.audio->set_volume_percent(app.audio->volume_percent() - 5);
+    }
 }
 
 const char* runtime_mode_name(RuntimeMode mode) {
@@ -314,19 +434,24 @@ std::string overlay_text(const AppState& app) {
         << static_cast<int>(app.host->console().cpu().pc) << std::dec << "\n"
         << "mode " << runtime_mode_name(config.mode)
         << "  sprite_limit " << (config.disable_sprite_limit ? "off" : "on")
-        << "  reduce_flicker " << (config.reduce_flicker ? "on" : "off") << "\n";
+        << "  reduce_flicker " << (config.reduce_flicker ? "on" : "off")
+        << "  " << (app.emulation_paused ? "paused" : "running") << "\n";
 
     if (app.audio) {
         app.audio->cleanup_completed_buffers();
         const auto stats = app.audio->stats();
-        out << "audio on  queued " << stats.queued_buffers
+        out << "audio " << (app.audio->muted() ? "muted" : "on")
+            << "  vol " << app.audio->volume_percent() << "%"
+            << "  queued " << stats.queued_buffers
+            << "/" << app.audio->queued_latency_ms() << "ms"
+            << " target " << app.audio->target_latency_ms() << "ms"
             << "  underruns " << stats.underruns
             << "  drops " << stats.dropped_buffers
             << "  " << app.audio->sample_rate() << " Hz";
     } else {
         out << "audio muted";
     }
-    out << "\nF1 overlay";
+    out << "\nF1 overlay  Space pause  R reset  M mute  +/- volume";
     return out.str();
 }
 
@@ -472,6 +597,13 @@ void run_message_loop(HWND hwnd, AppState& app) {
 
         const auto now = clock::now();
         if (now >= next_frame) {
+            if (app.emulation_paused) {
+                InvalidateRect(hwnd, nullptr, FALSE);
+                UpdateWindow(hwnd);
+                next_frame = now + std::chrono::duration_cast<clock::duration>(frame_duration);
+                Sleep(1);
+                continue;
+            }
             app.last_frame = app.host->run_frame(app.input);
             ++app.rendered_frames;
             ++app.fps_window_frames;
@@ -524,7 +656,7 @@ int run(int argc, char** argv) {
 
     if (opts.audio) {
         app.audio = std::make_unique<Win32Audio>();
-        if (!app.audio->open(app.host->config().audio_sample_rate)) {
+        if (!app.audio->open(app.host->config().audio_sample_rate, opts.audio_latency_ms)) {
             std::cerr << "sgrecomp_host: audio device unavailable, continuing muted\n";
             app.audio.reset();
         }
