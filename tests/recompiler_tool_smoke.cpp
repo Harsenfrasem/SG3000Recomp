@@ -112,6 +112,7 @@ int main() {
     const std::filesystem::path generated_path = output_dir / "generated_fixture.cpp";
     const std::filesystem::path analysis_path = output_dir / "analysis.txt";
     const std::filesystem::path audio_rom_path = output_dir / "audio_fixture.sms";
+    const std::filesystem::path frame_bmp_path = output_dir / "frame_fixture.bmp";
     const std::filesystem::path audio_path = output_dir / "audio_fixture.wav";
     const std::filesystem::path vgm_path = output_dir / "audio_fixture.vgm";
     const std::filesystem::path object_path = output_dir / "generated_fixture.obj";
@@ -227,8 +228,18 @@ int main() {
     write_binary(audio_rom_path, audio_rom);
 
     const std::string audio_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(audio_rom_path)
-        + " --run-smoke --steps 4096 --dump-audio " + quote(audio_path) + " --dump-vgm " + quote(vgm_path);
+        + " --run-smoke --steps 4096 --dump-frame-bmp " + quote(frame_bmp_path)
+        + " --dump-audio " + quote(audio_path) + " --dump-vgm " + quote(vgm_path);
     assert(run_command(audio_command) == 0);
+    const auto frame_bmp = read_binary(frame_bmp_path);
+    assert(frame_bmp.size() > 54);
+    assert(frame_bmp[0] == 'B');
+    assert(frame_bmp[1] == 'M');
+    assert(frame_bmp[10] == 54);
+    assert(frame_bmp[18] == 0);
+    assert(frame_bmp[19] == 1);
+    assert(frame_bmp[22] == 192);
+
     const std::string wav = read_text(audio_path);
     assert(wav.size() > 44);
     assert(wav.substr(0, 4) == "RIFF");

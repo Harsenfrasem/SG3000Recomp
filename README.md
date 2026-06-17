@@ -56,7 +56,7 @@ Runtime smoke execution is useful before full video/audio support exists:
 ```powershell
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --steps 50000
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --steps 200 --trace
-.\build\zig-debug\sgrecomp.exe game.sms --run-smoke --dump-frame out\frame.ppm --dump-audio out\audio.wav --dump-vgm out\audio.vgm
+.\build\zig-debug\sgrecomp.exe game.sms --run-smoke --dump-frame out\frame.ppm --dump-frame-bmp out\frame.bmp --dump-audio out\audio.wav --dump-vgm out\audio.vgm
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --disable-sprite-limit
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --reduce-flicker
 ```
@@ -65,7 +65,7 @@ If execution reaches an unsupported opcode, the tool prints the instruction, PC,
 
 Enhancements are off by default. Smoke summaries print the active mode and enhancement flags so compatibility tests can confirm whether they are running in accurate or enhanced mode.
 
-`--dump-frame`, `--dump-audio`, and `--dump-vgm` are local smoke artifacts for visual/audio inspection. Keep them under ignored directories such as `out/` when testing private ROMs. WAV is useful for listening to the current PSG renderer; VGM is useful for inspecting captured PSG writes with timing.
+`--dump-frame`, `--dump-frame-bmp`, `--dump-audio`, and `--dump-vgm` are local smoke artifacts for visual/audio inspection. Keep them under ignored directories such as `out/` when testing private ROMs. BMP is convenient for opening a quick frame preview on Windows; PPM remains a simple raw technical frame dump. WAV is useful for listening to the current PSG renderer; VGM is useful for inspecting captured PSG writes with timing.
 
 Sprite enhancements currently keep the original overflow status bit. Accurate mode renders the original 8 sprites per scanline, `--reduce-flicker` raises that render limit to 16, and `--disable-sprite-limit` renders all visible sprites on the scanline.
 

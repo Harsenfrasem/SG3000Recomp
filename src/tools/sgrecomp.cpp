@@ -29,6 +29,7 @@ struct Options {
     std::filesystem::path input;
     std::filesystem::path bios;
     std::filesystem::path dump_frame;
+    std::filesystem::path dump_frame_bmp;
     std::filesystem::path dump_audio;
     std::filesystem::path dump_vgm;
     std::filesystem::path dump_vram;
@@ -65,7 +66,8 @@ std::vector<u8> normalize_rom_payload(std::vector<u8> rom) {
 void print_usage() {
     std::cout << "usage: sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--model sms|sg3000] [--disasm] [--bios bios.sms]\n"
               << "       sgrecomp <rom.sms|rom.sg> --run-smoke [--steps n] [--trace] [--bios bios.sms]\n"
-              << "                [--dump-frame frame.ppm] [--dump-audio audio.wav] [--dump-vgm audio.vgm]\n"
+              << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp]\n"
+              << "                [--dump-audio audio.wav] [--dump-vgm audio.vgm]\n"
               << "                [--dump-vram vram.bin] [--dump-cram cram.bin]\n"
               << "                [--load-sram save.sav] [--save-sram save.sav] [--dump-sram sram.bin]\n"
               << "                [--dump-coverage pcs.csv] [--disable-sprite-limit] [--reduce-flicker]\n"
@@ -90,6 +92,10 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--dump-frame" && i + 1 < argc) {
             opts.dump_frame = argv[++i];
+            continue;
+        }
+        if (arg == "--dump-frame-bmp" && i + 1 < argc) {
+            opts.dump_frame_bmp = argv[++i];
             continue;
         }
         if (arg == "--dump-audio" && i + 1 < argc) {
@@ -237,6 +243,57 @@ void write_u32_le(std::ostream& out, u32 value) {
         static_cast<char>((value >> 24) & 0xFF),
     };
     out.write(bytes, sizeof(bytes));
+}
+
+void write_frame_bmp(const std::filesystem::path& path, const std::array<u32, Vdp::width * Vdp::height>& framebuffer) {
+    if (path.has_parent_path()) {
+        std::filesystem::create_directories(path.parent_path());
+    }
+
+    std::ofstream out(path, std::ios::binary);
+    if (!out) {
+        throw std::runtime_error("cannot open BMP frame output file");
+    }
+
+    constexpr u32 width = Vdp::width;
+    constexpr u32 height = Vdp::height;
+    constexpr u32 file_header_size = 14;
+    constexpr u32 dib_header_size = 40;
+    constexpr u32 data_offset = file_header_size + dib_header_size;
+    constexpr u32 row_stride = ((width * 3 + 3) / 4) * 4;
+    constexpr u32 image_size = row_stride * height;
+    constexpr u32 file_size = data_offset + image_size;
+
+    out.put('B');
+    out.put('M');
+    write_u32_le(out, file_size);
+    write_u16_le(out, 0);
+    write_u16_le(out, 0);
+    write_u32_le(out, data_offset);
+
+    write_u32_le(out, dib_header_size);
+    write_u32_le(out, width);
+    write_u32_le(out, height);
+    write_u16_le(out, 1);
+    write_u16_le(out, 24);
+    write_u32_le(out, 0);
+    write_u32_le(out, image_size);
+    write_u32_le(out, 2835);
+    write_u32_le(out, 2835);
+    write_u32_le(out, 0);
+    write_u32_le(out, 0);
+
+    std::array<char, row_stride> row{};
+    for (int y = static_cast<int>(height) - 1; y >= 0; --y) {
+        row.fill(0);
+        for (u32 x = 0; x < width; ++x) {
+            const u32 pixel = framebuffer[static_cast<std::size_t>(y) * width + x];
+            row[x * 3 + 0] = static_cast<char>(pixel & 0xFF);
+            row[x * 3 + 1] = static_cast<char>((pixel >> 8) & 0xFF);
+            row[x * 3 + 2] = static_cast<char>((pixel >> 16) & 0xFF);
+        }
+        out.write(row.data(), row.size());
+    }
 }
 
 void write_audio_wav(const std::filesystem::path& path, const std::vector<s16>& stereo_samples, u32 sample_rate) {
@@ -794,6 +851,10 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
         if (!opts.dump_frame.empty()) {
             write_frame_ppm(opts.dump_frame, framebuffer);
             std::cout << "frame dumped: " << opts.dump_frame.string() << "\n";
+        }
+        if (!opts.dump_frame_bmp.empty()) {
+            write_frame_bmp(opts.dump_frame_bmp, framebuffer);
+            std::cout << "bmp frame dumped: " << opts.dump_frame_bmp.string() << "\n";
         }
         if (!opts.dump_audio.empty()) {
             write_audio_wav(opts.dump_audio, audio_samples, audio_sample_rate);

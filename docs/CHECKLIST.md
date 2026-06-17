@@ -44,8 +44,9 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 
 ### 4. Host runtime com janela/audio
 
-- [ ] Proximo bloco: retorno visual/audio demonstravel antes do host completo.
+- [x] Proximo bloco: retorno visual/audio demonstravel antes do host completo.
 - [x] Smoke runner com dump local de frame, audio WAV e log VGM PSG.
+- [x] Smoke runner com frame BMP local para preview visual rapido.
 - [ ] Loop host de video, audio e input.
 - [ ] Backend SDL2 opcional ou camada equivalente configuravel.
 - [ ] Sincronizacao de frame, audio buffer e input polling.
@@ -71,6 +72,7 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Smoke runner de ROM com estado de registradores e trace opcional.
 - [x] Smoke runner com resumo de PCs, audio, framebuffer e dumps locais de frame/VRAM/CRAM.
 - [x] Smoke runner com dump CSV de cobertura de PCs.
+- [x] Teste automatizado do dump BMP do smoke runner.
 - [x] Descoberta inicial de basic blocks e fluxo de controle estatico alcancavel.
 - [ ] Emissao de funcoes por bloco em vez de um `switch` monolitico.
 - [x] Comentarios de disassembly no C++ gerado.
