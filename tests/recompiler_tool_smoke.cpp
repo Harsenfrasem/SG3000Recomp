@@ -117,6 +117,8 @@ int main() {
     const std::filesystem::path entry_analysis_path = output_dir / "entry_analysis.txt";
     const std::filesystem::path pointer_rom_path = output_dir / "pointer_fixture.sms";
     const std::filesystem::path pointer_analysis_path = output_dir / "pointer_analysis.txt";
+    const std::filesystem::path hardware_rom_path = output_dir / "hardware_fixture.sms";
+    const std::filesystem::path hardware_analysis_path = output_dir / "hardware_analysis.txt";
     const std::filesystem::path audio_rom_path = output_dir / "audio_fixture.sms";
     const std::filesystem::path frame_bmp_path = output_dir / "frame_fixture.bmp";
     const std::filesystem::path audio_path = output_dir / "audio_fixture.wav";
@@ -236,6 +238,8 @@ int main() {
     assert(contains(analysis, "header_found: no"));
     assert(contains(analysis, "direct_emit_instructions:"));
     assert(contains(analysis, "fallback_instructions:"));
+    assert(contains(analysis, "static_hardware_accesses:"));
+    assert(contains(analysis, "in 0xdd joypad"));
     assert(contains(analysis, "successors=0x0013"));
     assert(contains(analysis, "successors=none"));
 
@@ -305,6 +309,24 @@ int main() {
     const std::string pointer_analysis = read_text(pointer_analysis_path);
     assert(contains(pointer_analysis, "pointer_tables: 1"));
     assert(contains(pointer_analysis, "table 0x0080 entries=3 targets=0x0000,0x0038,0x0066"));
+
+    const std::vector<unsigned char> hardware_rom = {
+        0x3E, 0x12,       // ld a,$12
+        0xD3, 0xBF,       // out ($bf),a
+        0xDB, 0xDD,       // in a,($dd)
+        0x32, 0xFC, 0xFF, // ld ($fffc),a
+        0x76,             // halt
+    };
+    write_binary(hardware_rom_path, hardware_rom);
+
+    const std::string hardware_analysis_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(hardware_rom_path)
+        + " --dump-analysis " + quote(hardware_analysis_path);
+    assert(run_command(hardware_analysis_command) == 0);
+    const std::string hardware_analysis = read_text(hardware_analysis_path);
+    assert(contains(hardware_analysis, "static_hardware_accesses: 3"));
+    assert(contains(hardware_analysis, "out 0xbf vdp_control"));
+    assert(contains(hardware_analysis, "in 0xdd joypad"));
+    assert(contains(hardware_analysis, "mapper_write 0xfffc mapper_register"));
 
     const std::vector<unsigned char> audio_rom = {
         0x3E, 0x80, // ld a,$80: tone channel 0 latch

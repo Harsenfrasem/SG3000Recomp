@@ -782,6 +782,13 @@ struct PointerTable {
     std::vector<u16> targets;
 };
 
+struct StaticHardwareAccess {
+    u16 pc = 0;
+    std::string kind;
+    u16 target = 0;
+    std::string note;
+};
+
 u16 read_u16_from_image(const std::array<u8, 0x10000>& image, u16 pc) {
     return make_u16(image[static_cast<u16>(pc + 1)], image[static_cast<u16>(pc + 2)]);
 }
@@ -1105,8 +1112,53 @@ std::vector<PointerTable> discover_pointer_tables(
     return tables;
 }
 
+const char* static_port_note(u8 port) {
+    if (port == 0xF0 || port == 0xF1 || port == 0xF2) {
+        return "fm";
+    }
+    if ((port & 0xC0) == 0x80) {
+        return (port & 0x01) == 0 ? "vdp_data" : "vdp_control";
+    }
+    if ((port & 0xC0) == 0x40) {
+        return (port & 0x01) == 0 ? "v_counter_or_psg" : "h_counter_or_psg";
+    }
+    if (port == 0xDC || port == 0xDD || port == 0xC0 || port == 0xC1) {
+        return "joypad";
+    }
+    if (port == 0x3E || port == 0xDE || port == 0xDF) {
+        return "memory_control";
+    }
+    return "io";
+}
+
+std::vector<StaticHardwareAccess> discover_static_hardware_accesses(
+    const std::array<u8, 0x10000>& image,
+    std::span<const BasicBlock> blocks) {
+    std::vector<StaticHardwareAccess> accesses;
+    for (const auto& block : blocks) {
+        for (const auto& instruction : block.instructions) {
+            const u16 pc = instruction.decoded.pc;
+            const u8 opcode = instruction.decoded.opcode;
+            if (opcode == 0xD3) {
+                const u8 port = image[static_cast<u16>(pc + 1)];
+                accesses.push_back({pc, "out", port, static_port_note(port)});
+            } else if (opcode == 0xDB) {
+                const u8 port = image[static_cast<u16>(pc + 1)];
+                accesses.push_back({pc, "in", port, static_port_note(port)});
+            } else if (opcode == 0x32) {
+                const u16 target = read_u16_from_image(image, pc);
+                if (target >= 0xFFFC) {
+                    accesses.push_back({pc, "mapper_write", target, "mapper_register"});
+                }
+            }
+        }
+    }
+    return accesses;
+}
+
 void write_analysis_report(
     const std::filesystem::path& path,
+    const std::array<u8, 0x10000>& image,
     std::span<const u8> rom,
     std::size_t limit,
     std::span<const u16> entry_points,
@@ -1145,14 +1197,8 @@ void write_analysis_report(
 
     const std::size_t fallback_count = instruction_count - direct_count;
     const CartridgeHeaderInfo header = analyze_cartridge_header(rom);
-    const std::vector<PointerTable> pointer_tables = discover_pointer_tables(
-        [&]() {
-            std::array<u8, 0x10000> image{};
-            std::copy(rom.begin(), rom.begin() + static_cast<std::ptrdiff_t>(std::min<std::size_t>(rom.size(), image.size())), image.begin());
-            return image;
-        }(),
-        limit,
-        blocks);
+    const std::vector<PointerTable> pointer_tables = discover_pointer_tables(image, limit, blocks);
+    const std::vector<StaticHardwareAccess> hardware_accesses = discover_static_hardware_accesses(image, blocks);
     out << "SG3000Recomp static analysis\n";
     out << "rom_scan_limit: 0x" << std::hex << std::setw(4) << std::setfill('0') << std::min<std::size_t>(limit, 0xC000)
         << std::dec << "\n";
@@ -1190,6 +1236,7 @@ void write_analysis_report(
     out << "fallback_instructions: " << fallback_count << "\n";
     out << "indirect_exit_blocks: " << indirect_blocks << "\n\n";
     out << "pointer_tables: " << pointer_tables.size() << "\n\n";
+    out << "static_hardware_accesses: " << hardware_accesses.size() << "\n\n";
 
     out << "blocks\n";
     for (const auto& block : blocks) {
@@ -1252,6 +1299,19 @@ void write_analysis_report(
                 out << ",...";
             }
             out << "\n";
+        }
+    }
+
+    out << "\nstatic_hardware_accesses_detail\n";
+    if (hardware_accesses.empty()) {
+        out << "none\n";
+    } else {
+        for (const auto& access : hardware_accesses) {
+            out << "0x" << std::hex << std::setw(4) << std::setfill('0') << access.pc
+                << std::dec << " " << access.kind
+                << " 0x" << std::hex << std::setw(access.target > 0xFF ? 4 : 2)
+                << std::setfill('0') << access.target << std::dec
+                << " " << access.note << "\n";
         }
     }
 }
@@ -2175,7 +2235,7 @@ int main(int argc, char** argv) {
         if (!opts.dump_analysis.empty()) {
             const auto entry_points = default_entry_points(limit);
             const auto blocks = discover_basic_blocks(image, limit, entry_points);
-            write_analysis_report(opts.dump_analysis, rom, limit, entry_points, blocks);
+            write_analysis_report(opts.dump_analysis, image, rom, limit, entry_points, blocks);
             const CartridgeHeaderInfo header = analyze_cartridge_header(rom);
             std::cout << "analysis dumped: " << opts.dump_analysis.string() << "\n";
             std::cout << "rom header: " << (header.found ? "found" : "not found") << "\n";
