@@ -13,6 +13,14 @@ struct Ym2413Write {
     u8 value = 0;
 };
 
+struct Ym2413State {
+    bool present = false;
+    u8 selected_register = 0;
+    u8 audio_control = 0;
+    std::array<u8, 0x40> registers{};
+    std::array<double, 9> phase{};
+};
+
 class Ym2413 {
 public:
     void reset();
@@ -36,6 +44,8 @@ public:
 
     const std::array<u8, 0x40>& debug_registers() const { return registers_; }
     u8 selected_register() const { return selected_register_; }
+    Ym2413State save_state() const;
+    void load_state(const Ym2413State& state);
 
 private:
     bool present_ = false;

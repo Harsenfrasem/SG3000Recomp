@@ -122,4 +122,16 @@ void Ym2413::log_write(u8 port, u8 value) {
     }
 }
 
+Ym2413State Ym2413::save_state() const {
+    return {present_, selected_register_, audio_control_, registers_, phase_};
+}
+
+void Ym2413::load_state(const Ym2413State& state) {
+    present_ = state.present;
+    selected_register_ = static_cast<u8>(state.selected_register & 0x3F);
+    audio_control_ = static_cast<u8>(state.audio_control & 0x03);
+    registers_ = state.registers;
+    phase_ = state.phase;
+}
+
 } // namespace sgrecomp

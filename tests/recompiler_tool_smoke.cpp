@@ -130,6 +130,8 @@ int main() {
     const std::filesystem::path host_sram_path = output_dir / "host_save.sav";
     const std::filesystem::path host_profile_path = output_dir / "host_profiles.txt";
     const std::filesystem::path host_profile_sram_path = output_dir / "host_profile_save.sav";
+    const std::filesystem::path state_path = output_dir / "fixture.sgstate";
+    const std::filesystem::path state_reload_path = output_dir / "fixture_reload.sgstate";
     const std::filesystem::path object_path = output_dir / "generated_fixture.obj";
 
     const std::vector<unsigned char> rom = {
@@ -305,7 +307,8 @@ int main() {
         + " --run-smoke --steps 64"
         + " --dump-memory-log " + quote(memory_log_path) + " --watch 0xc000"
         + " --dump-vdp-log " + quote(vdp_log_path) + " --watch-vdp 0x0000-0x0001"
-        + " --dump-io-log " + quote(filtered_io_log_path) + " --io-port 0xbe";
+        + " --dump-io-log " + quote(filtered_io_log_path) + " --io-port 0xbe"
+        + " --save-state " + quote(state_path);
     assert(run_command(debug_command) == 0);
 
     const std::string memory_log = read_text(memory_log_path);
@@ -320,6 +323,19 @@ int main() {
     assert(contains(filtered_io_log, "cycle,direction,port,value"));
     assert(contains(filtered_io_log, "write,0xbe,0xaa"));
     assert(!contains(filtered_io_log, "0xbf"));
+
+    const auto state_bytes = read_binary(state_path);
+    assert(state_bytes.size() > 0x10000);
+    assert(state_bytes[0] == 'S');
+    assert(state_bytes[1] == 'G');
+    assert(state_bytes[2] == 'S');
+    assert(state_bytes[3] == 'S');
+
+    const std::string reload_state_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(debug_rom_path)
+        + " --run-smoke --steps 8 --load-state " + quote(state_path)
+        + " --save-state " + quote(state_reload_path);
+    assert(run_command(reload_state_command) == 0);
+    assert(read_binary(state_reload_path).size() == state_bytes.size());
 
     const std::vector<unsigned char> fm_rom = {
         0x3E, 0x01, // ld a,$01: enable FM, mute PSG

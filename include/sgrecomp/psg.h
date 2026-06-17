@@ -13,6 +13,16 @@ struct PsgWrite {
     u8 value = 0;
 };
 
+struct PsgState {
+    std::array<u16, 4> tone{};
+    std::array<u8, 4> volume{};
+    std::array<int, 4> counters{};
+    std::array<bool, 4> output{};
+    u16 noise_lfsr = 0;
+    u8 latched_channel = 0;
+    bool latched_volume = false;
+};
+
 class Psg {
 public:
     void write(u8 value);
@@ -23,6 +33,8 @@ public:
     void set_cycle(u64 cycle) { current_cycle_ = cycle; }
     void set_write_logging_enabled(bool enabled);
     const std::vector<PsgWrite>& logged_writes() const { return logged_writes_; }
+    PsgState save_state() const;
+    void load_state(const PsgState& state);
 
 private:
     std::array<u16, 4> tone_{};

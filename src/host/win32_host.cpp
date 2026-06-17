@@ -4,6 +4,7 @@
 #include "sgrecomp/enhancements.h"
 #include "sgrecomp/game_profile.h"
 #include "sgrecomp/host_runtime.h"
+#include "sgrecomp/save_state.h"
 
 #include <windows.h>
 #include <mmsystem.h>
@@ -36,6 +37,8 @@ struct Options {
     std::filesystem::path bios;
     std::filesystem::path load_sram;
     std::filesystem::path save_sram;
+    std::filesystem::path load_state;
+    std::filesystem::path save_state;
     std::filesystem::path profile;
     ConsoleModel model = ConsoleModel::SMS;
     EnhancementConfig enhancements;
@@ -319,6 +322,7 @@ void print_usage() {
     std::cout << "usage: sgrecomp_host <rom.sms|rom.sg> [--bios bios.sms] [--model sms|sg3000]\n"
               << "                    [--scale n] [--mute] [--no-overlay] [--audio-latency-ms n]\n"
               << "                    [--load-sram save.sav] [--save-sram save.sav]\n"
+              << "                    [--load-state state.sgstate] [--save-state state.sgstate]\n"
               << "                    [--profile profiles.txt]\n"
               << "                    [--print-hash]\n"
               << "                    [--quit-after-frames n]\n"
@@ -343,6 +347,14 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--save-sram" && i + 1 < argc) {
             opts.save_sram = argv[++i];
+            continue;
+        }
+        if (arg == "--load-state" && i + 1 < argc) {
+            opts.load_state = argv[++i];
+            continue;
+        }
+        if (arg == "--save-state" && i + 1 < argc) {
+            opts.save_state = argv[++i];
             continue;
         }
         if (arg == "--profile" && i + 1 < argc) {
@@ -736,6 +748,9 @@ int run(int argc, char** argv) {
     if (!opts.load_sram.empty()) {
         app.host->console().bus().load_cartridge_ram(read_file(opts.load_sram));
     }
+    if (!opts.load_state.empty()) {
+        load_console_state(app.host->console(), read_file(opts.load_state));
+    }
 
     app.bitmap_info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
     app.bitmap_info.bmiHeader.biWidth = Vdp::width;
@@ -760,6 +775,11 @@ int run(int argc, char** argv) {
         write_binary_file(opts.save_sram, std::span<const u8>(sram.data(), sram.size()));
         std::cout << "sram saved: " << opts.save_sram.string()
                   << (app.host->console().bus().cartridge_ram_dirty() ? " (dirty)" : " (unchanged)") << "\n";
+    }
+    if (!opts.save_state.empty()) {
+        const auto bytes = save_console_state(app.host->console());
+        write_binary_file(opts.save_state, std::span<const u8>(bytes.data(), bytes.size()));
+        std::cout << "state saved: " << opts.save_state.string() << "\n";
     }
     return 0;
 }

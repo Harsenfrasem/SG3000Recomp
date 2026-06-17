@@ -2,6 +2,7 @@
 #include "sgrecomp/host_runtime.h"
 #include "sgrecomp/joypad.h"
 #include "sgrecomp/psg.h"
+#include "sgrecomp/save_state.h"
 #include "sgrecomp/vdp.h"
 #include "sgrecomp/ym2413.h"
 #include "sgrecomp/z80.h"
@@ -52,6 +53,8 @@ struct Options {
     std::filesystem::path dump_analysis;
     std::filesystem::path load_sram;
     std::filesystem::path save_sram;
+    std::filesystem::path load_state;
+    std::filesystem::path save_state;
     std::filesystem::path output = "recompiled_rom.cpp";
     ConsoleModel model = ConsoleModel::SMS;
     EnhancementConfig enhancements;
@@ -132,6 +135,7 @@ void print_usage() {
               << "                [--dump-vram vram.bin] [--dump-cram cram.bin]\n"
               << "                [--dump-tilemap tilemap.csv] [--dump-sprites sprites.csv]\n"
               << "                [--load-sram save.sav] [--save-sram save.sav] [--dump-sram sram.bin]\n"
+              << "                [--load-state state.sgstate] [--save-state state.sgstate]\n"
               << "                [--dump-coverage pcs.csv] [--disable-sprite-limit] [--reduce-flicker] [--enable-fm]\n"
               << "       sgrecomp <rom.sms|rom.sg> --run-host [--frames n] [--bios bios.sms]\n"
               << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp] [--dump-audio audio.wav]\n"
@@ -232,6 +236,14 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--save-sram" && i + 1 < argc) {
             opts.save_sram = argv[++i];
+            continue;
+        }
+        if (arg == "--load-state" && i + 1 < argc) {
+            opts.load_state = argv[++i];
+            continue;
+        }
+        if (arg == "--save-state" && i + 1 < argc) {
+            opts.save_state = argv[++i];
             continue;
         }
         if (arg == "--model" && i + 1 < argc) {
@@ -1087,6 +1099,16 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
     if (!opts.load_sram.empty()) {
         bus.load_cartridge_ram(read_file(opts.load_sram));
     }
+    if (!opts.load_state.empty()) {
+        const ConsoleState state = deserialize_console_state(read_file(opts.load_state));
+        cpu = state.cpu;
+        bus.load_state(state.bus);
+        vdp.load_state(state.vdp);
+        psg.load_state(state.psg);
+        ym2413.load_state(state.ym2413);
+        joypad.set_player1(state.joypad_player1);
+        joypad.set_player2(state.joypad_player2);
+    }
 
     const auto& image = bus.debug_memory();
     std::bitset<0x10000> visited_pc;
@@ -1200,6 +1222,19 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
             std::cout << "sram saved: " << opts.save_sram.string()
                       << (bus.cartridge_ram_dirty() ? " (dirty)" : " (unchanged)") << "\n";
         }
+        if (!opts.save_state.empty()) {
+            const ConsoleState state{
+                cpu,
+                bus.save_state(),
+                vdp.save_state(),
+                psg.save_state(),
+                ym2413.save_state(),
+                joypad.player1(),
+                joypad.player2(),
+            };
+            write_binary_dump(opts.save_state, serialize_console_state(state));
+            std::cout << "state saved: " << opts.save_state.string() << "\n";
+        }
         if (!opts.dump_coverage.empty()) {
             write_coverage_csv(opts.dump_coverage, pc_counts, image);
             std::cout << "coverage dumped: " << opts.dump_coverage.string() << "\n";
@@ -1265,6 +1300,12 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
         host.load_bios(*bios);
     }
     host.load_rom(rom);
+    if (!opts.load_sram.empty()) {
+        host.console().bus().load_cartridge_ram(read_file(opts.load_sram));
+    }
+    if (!opts.load_state.empty()) {
+        load_console_state(host.console(), read_file(opts.load_state));
+    }
 
     HostFrameResult result{};
     for (std::size_t frame = 0; frame < opts.host_frames; ++frame) {
@@ -1307,6 +1348,16 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
         write_audio_wav(opts.dump_audio, host.audio(), host.config().audio_sample_rate);
         std::cout << "audio dumped: " << opts.dump_audio.string()
                   << " (" << (host.audio().size() / 2) << " stereo samples)\n";
+    }
+    if (!opts.save_sram.empty()) {
+        const auto& sram = host.console().bus().debug_cartridge_ram();
+        write_binary_dump(opts.save_sram, sram);
+        std::cout << "sram saved: " << opts.save_sram.string()
+                  << (host.console().bus().cartridge_ram_dirty() ? " (dirty)" : " (unchanged)") << "\n";
+    }
+    if (!opts.save_state.empty()) {
+        write_binary_dump(opts.save_state, save_console_state(host.console()));
+        std::cout << "state saved: " << opts.save_state.string() << "\n";
     }
 }
 

@@ -1,6 +1,7 @@
 #include "sgrecomp/console.h"
 #include "sgrecomp/game_profile.h"
 #include "sgrecomp/host_runtime.h"
+#include "sgrecomp/save_state.h"
 
 #include <cassert>
 #include <vector>
@@ -1452,6 +1453,33 @@ void test_host_runtime_frame_audio_and_input() {
     assert(host.framebuffer()[0] == 0xFFFF0000);
 }
 
+void test_console_save_state_round_trip_restores_runtime_state() {
+    const std::vector<u8> rom = {
+        0x3E, 0x42,       // ld a,$42
+        0x32, 0x00, 0xC0, // ld ($c000),a
+        0x76,             // halt
+    };
+
+    Console console(ConsoleModel::SMS);
+    console.load_rom(rom);
+    run_until_halt(console);
+    assert(console.bus().read(0xC000) == 0x42);
+
+    const auto bytes = save_console_state(console);
+    console.bus().write(0xC000, 0x99);
+    console.cpu().a = 0x11;
+    assert(console.bus().read(0xC000) == 0x99);
+
+    load_console_state(console, bytes);
+    assert(console.cpu().halted);
+    assert(console.cpu().a == 0x42);
+    assert(console.bus().read(0xC000) == 0x42);
+
+    const auto restored = deserialize_console_state(bytes);
+    assert(restored.cpu.a == 0x42);
+    assert(restored.bus.memory[0xC000] == 0x42);
+}
+
 void test_game_profile_hash_and_parse() {
     const std::vector<u8> rom = {0x00, 0x01, 0x02};
     const std::string hash = rom_hash_fnv1a64(rom);
@@ -1536,6 +1564,7 @@ int main() {
     test_bc_de_indirect_loads();
     test_hl_absolute_load_store();
     test_host_runtime_frame_audio_and_input();
+    test_console_save_state_round_trip_restores_runtime_state();
     test_game_profile_hash_and_parse();
     return 0;
 }

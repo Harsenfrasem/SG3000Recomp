@@ -172,6 +172,32 @@ bool Bus::fm_present() const {
     return ym2413_.present();
 }
 
+BusState Bus::save_state() const {
+    return {
+        memory_,
+        cartridge_ram_,
+        rom_header_removed_,
+        bios_enabled_,
+        cartridge_ram_dirty_,
+        memory_control_,
+        smapper_control_,
+        {smapper_slots_[0], smapper_slots_[1], smapper_slots_[2]},
+    };
+}
+
+void Bus::load_state(const BusState& state) {
+    memory_ = state.memory;
+    cartridge_ram_ = state.cartridge_ram;
+    rom_header_removed_ = state.rom_header_removed;
+    bios_enabled_ = state.bios_enabled && !bios_.empty();
+    cartridge_ram_dirty_ = state.cartridge_ram_dirty;
+    memory_control_ = state.memory_control;
+    smapper_control_ = state.smapper_control;
+    smapper_slots_[0] = state.smapper_slots[0];
+    smapper_slots_[1] = state.smapper_slots[1];
+    smapper_slots_[2] = state.smapper_slots[2];
+}
+
 void Bus::set_io_logging_enabled(bool enabled) {
     io_logging_enabled_ = enabled;
     if (!enabled) {

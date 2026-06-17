@@ -56,7 +56,7 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [ ] Backend SDL2 opcional ou camada equivalente configuravel.
 - [x] Sincronizacao inicial de frame, buffer de audio e input por frame.
 - [ ] Sincronizacao refinada para backend de janela/audio real.
-- [ ] Save RAM em arquivo, save states e debug overlay.
+- [x] Save RAM em arquivo, save states iniciais e debug overlay.
 - [x] Overlay debug simples com FPS, frame, PC, modo runtime e status de audio.
 - [x] Controles de runtime no host: pausa, reset, mute e volume.
 - [x] Load/save SRAM local no host Win32.
@@ -219,7 +219,8 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] HostRuntime headless com framebuffer, input por frame e buffer de audio.
 - [x] Save RAM em arquivo local pelo smoke runner.
 - [x] Save RAM em arquivo local pelo host Win32.
-- [ ] Estado serializavel para save states.
+- [x] Estado serializavel inicial para save states.
+- [ ] Save states com compatibilidade/versionamento longo e validacao de ROM hash.
 - [x] Debug overlay de PC, FPS, frame, modo runtime e audio.
 - [x] Debug overlay com estado de pausa, volume e latencia.
 - [ ] Debug overlay com registradores completos e fallback count.

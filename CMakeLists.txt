@@ -24,6 +24,7 @@ add_library(sgrecomp_runtime STATIC
     src/runtime/host_runtime.cpp
     src/runtime/joypad.cpp
     src/runtime/psg.cpp
+    src/runtime/save_state.cpp
     src/runtime/vdp.cpp
     src/runtime/ym2413.cpp
     src/runtime/z80.cpp

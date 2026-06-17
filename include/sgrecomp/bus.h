@@ -34,6 +34,17 @@ struct BusMemoryAccess {
     u8 value = 0;
 };
 
+struct BusState {
+    std::array<u8, 0x10000> memory{};
+    std::array<u8, 0x8000> cartridge_ram{};
+    bool rom_header_removed = false;
+    bool bios_enabled = false;
+    bool cartridge_ram_dirty = false;
+    u8 memory_control = 0;
+    u8 smapper_control = 0;
+    std::array<u8, 3> smapper_slots{{0, 1, 2}};
+};
+
 enum class ConsoleModel {
     SMS,
     SG3000,
@@ -63,6 +74,8 @@ public:
     const std::vector<BusIoAccess>& logged_io() const { return logged_io_; }
     void set_memory_logging_enabled(bool enabled);
     const std::vector<BusMemoryAccess>& logged_memory() const { return logged_memory_; }
+    BusState save_state() const;
+    void load_state(const BusState& state);
 
     const std::array<u8, 0x10000>& debug_memory() const { return memory_; }
     const std::array<u8, 0x8000>& debug_cartridge_ram() const { return cartridge_ram_; }

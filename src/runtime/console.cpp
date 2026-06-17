@@ -31,6 +31,28 @@ void Console::set_enhancements(const EnhancementConfig& enhancements) {
     bus_.set_fm_present(enhancements_.enable_fm);
 }
 
+ConsoleState Console::save_state() const {
+    return {
+        cpu_,
+        bus_.save_state(),
+        vdp_.save_state(),
+        psg_.save_state(),
+        ym2413_.save_state(),
+        joypad_.player1(),
+        joypad_.player2(),
+    };
+}
+
+void Console::load_state(const ConsoleState& state) {
+    cpu_ = state.cpu;
+    bus_.load_state(state.bus);
+    vdp_.load_state(state.vdp);
+    psg_.load_state(state.psg);
+    ym2413_.load_state(state.ym2413);
+    joypad_.set_player1(state.joypad_player1);
+    joypad_.set_player2(state.joypad_player2);
+}
+
 void Console::press_pause() {
     if (model_ == ConsoleModel::SMS) {
         service_non_maskable_interrupt(cpu_, bus_);

@@ -12,6 +12,16 @@
 
 namespace sgrecomp {
 
+struct ConsoleState {
+    Z80State cpu;
+    BusState bus;
+    VdpState vdp;
+    PsgState psg;
+    Ym2413State ym2413;
+    u8 joypad_player1 = 0;
+    u8 joypad_player2 = 0;
+};
+
 class Console {
 public:
     explicit Console(ConsoleModel model);
@@ -24,6 +34,8 @@ public:
     void run_cycles(u64 cycles);
     void set_enhancements(const EnhancementConfig& enhancements);
     const EnhancementConfig& enhancements() const { return enhancements_; }
+    ConsoleState save_state() const;
+    void load_state(const ConsoleState& state);
 
     Z80State& cpu() { return cpu_; }
     const Z80State& cpu() const { return cpu_; }

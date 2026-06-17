@@ -35,6 +35,13 @@ struct HostFrameResult {
     bool halted = false;
 };
 
+struct HostRuntimeState {
+    ConsoleState console;
+    u64 frame_index = 0;
+    u64 audio_cycle_accumulator = 0;
+    bool previous_pause = false;
+};
+
 class HostRuntime {
 public:
     explicit HostRuntime(ConsoleModel model, HostRuntimeConfig config = {});
@@ -43,6 +50,8 @@ public:
     void load_rom(std::span<const u8> rom);
     void load_bios(std::span<const u8> bios);
     void reset();
+    HostRuntimeState save_state() const;
+    void load_state(const HostRuntimeState& state);
 
     HostFrameResult run_frame(const HostInputState& input = {});
     void clear_audio();

@@ -287,6 +287,42 @@ std::vector<VdpSpriteEntry> Vdp::debug_sprites() const {
     return entries;
 }
 
+VdpState Vdp::save_state() const {
+    return {
+        vram_,
+        cram_,
+        registers_,
+        framebuffer_,
+        scanline_bg_priority_,
+        address_,
+        latch_,
+        code_,
+        pending_control_,
+        status_,
+        scanline_cycles_,
+        scanline_,
+        line_counter_,
+        first_line_,
+    };
+}
+
+void Vdp::load_state(const VdpState& state) {
+    vram_ = state.vram;
+    cram_ = state.cram;
+    registers_ = state.registers;
+    framebuffer_ = state.framebuffer;
+    scanline_bg_priority_ = state.scanline_bg_priority;
+    address_ = static_cast<u16>(state.address & 0x3FFF);
+    latch_ = state.latch;
+    code_ = static_cast<u8>(state.code & 0x03);
+    pending_control_ = state.pending_control;
+    status_ = state.status;
+    scanline_cycles_ = state.scanline_cycles;
+    scanline_ = state.scanline;
+    line_counter_ = state.line_counter;
+    first_line_ = state.first_line;
+}
+
 void Vdp::log_access(VdpAccessKind kind, u16 address, u8 value) {
     if (access_logging_enabled_) {
         logged_accesses_.push_back({current_cycle_, kind, address, value});

@@ -23,6 +23,8 @@ $env:PATH="$env:APPDATA\Python\Python314\Scripts;$env:PATH"
 .\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --run-smoke --steps 300000 --dump-io-log ".\out\io.csv" --dump-tilemap ".\out\tilemap.csv" --dump-sprites ".\out\sprites.csv"
 .\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --run-smoke --steps 300000 --dump-memory-log ".\out\memory.csv" --watch 0xc000-0xdfff --dump-vdp-log ".\out\vdp.csv" --watch-vdp 0x0000-0x03ff --io-port 0xbe
 .\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --run-smoke --steps 300000 --bios ".\local-bios\your-test-bios.sms" --load-sram ".\local-saves\your-test-save.sav" --save-sram ".\local-saves\your-test-save.sav"
+.\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --run-smoke --steps 300000 --save-state ".\local-saves\your-test-state.sgstate"
+.\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --run-smoke --load-state ".\local-saves\your-test-state.sgstate" --steps 300000
 .\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --run-smoke --steps 300000 --bios ".\local-bios\your-test-bios.sms" --dump-coverage ".\out\coverage.csv"
 .\build\zig-debug\sgrecomp.exe ".\local-fm-roms\your-fm-test-rom.sms" --run-smoke --enable-fm --steps 300000 --bios ".\local-bios\your-test-bios.sms" --dump-audio ".\out\fm.wav" --dump-fm-log ".\out\fm-writes.csv"
 .\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --run-smoke --steps 200 --trace
@@ -32,6 +34,7 @@ $env:PATH="$env:APPDATA\Python\Python314\Scripts;$env:PATH"
 
 `--bios` is intended for local smoke testing and disassembly only. Generated C++ still embeds only the ROM image, never the BIOS file.
 ROM files with a generic 512-byte copier header are normalized before loading.
+`--save-state` writes only mutable emulator state, not ROM or BIOS data. Always load the same ROM/BIOS combination before `--load-state`.
 The smoke runner also reports visited PCs, lit framebuffer pixels, the current PSG/FM sample, and can dump the current framebuffer, VRAM, CRAM, SRAM, PC coverage, PSG VGM writes, FM CSV writes, generic I/O access logs, RAM/cart/mapper writes, VDP writes, tilemap entries, and sprite table entries.
 
 FM support status: the runtime now exposes the expected local FM control path and can log writes to `$F0/$F1/$F2`. The current synthesis is still an approximation for plumbing and diagnostics, not a faithful YM2413/OPLL implementation.

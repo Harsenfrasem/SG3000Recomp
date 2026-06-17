@@ -60,6 +60,8 @@ Runtime smoke execution is useful before full video/audio support exists:
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --enable-fm --dump-audio out\fm.wav --dump-fm-log out\fm-writes.csv
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --dump-io-log out\io.csv --dump-tilemap out\tilemap.csv --dump-sprites out\sprites.csv
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --dump-memory-log out\memory.csv --watch 0xc000-0xc0ff --dump-vdp-log out\vdp.csv --watch-vdp 0x0000-0x03ff --io-port 0xbe
+.\build\zig-debug\sgrecomp.exe game.sms --run-smoke --save-state local-saves\game.sgstate
+.\build\zig-debug\sgrecomp.exe game.sms --run-smoke --load-state local-saves\game.sgstate --steps 50000
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --disable-sprite-limit
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --reduce-flicker
 .\build\zig-debug\sgrecomp.exe game.sms --run-host --frames 3 --dump-frame-bmp out\host-frame.bmp --dump-audio out\host-audio.wav
@@ -68,6 +70,7 @@ Runtime smoke execution is useful before full video/audio support exists:
 .\build\zig-debug\sgrecomp_host.exe game.sms --no-overlay
 .\build\zig-debug\sgrecomp_host.exe game.sms --audio-latency-ms 100
 .\build\zig-debug\sgrecomp_host.exe game.sms --load-sram local-saves\game.sav --save-sram local-saves\game.sav
+.\build\zig-debug\sgrecomp_host.exe game.sms --load-state local-saves\game.sgstate --save-state local-saves\game.sgstate
 .\build\zig-debug\sgrecomp_host.exe game.sms --profile config\profiles.example.txt
 .\build\zig-debug\sgrecomp_host.exe game.sms --print-hash
 ```
@@ -79,6 +82,8 @@ Enhancements are off by default. Smoke summaries print the active mode and enhan
 `--dump-frame`, `--dump-frame-bmp`, `--dump-audio`, `--dump-vgm`, `--dump-fm-log`, `--dump-io-log`, `--dump-memory-log`, `--dump-vdp-log`, `--dump-tilemap`, and `--dump-sprites` are local smoke artifacts for visual/audio inspection and reverse engineering. Keep them under ignored directories such as `out/` when testing private ROMs. BMP is convenient for opening a quick frame preview on Windows; PPM remains a simple raw technical frame dump. WAV is useful for listening to the current PSG/FM renderer; VGM is useful for inspecting captured PSG writes with timing; FM, I/O, memory, and VDP CSV logs capture runtime activity; tilemap and sprite CSVs expose VDP tables in a readable form. Use `--watch`, `--watch-vdp`, and `--io-port` to filter noisy logs.
 
 Sprite enhancements currently keep the original overflow status bit. Accurate mode renders the original 8 sprites per scanline, `--reduce-flicker` raises that render limit to 16, and `--disable-sprite-limit` renders all visible sprites on the scanline. `--enable-fm` enables the optional FM path for software/profile testing; the current FM synthesis is diagnostic plumbing and still needs a faithful YM2413/OPLL core.
+
+Save states are local binary snapshots of mutable runtime state. They do not embed ROM or BIOS bytes, so load the same software first and keep `.sgstate` files under ignored local folders such as `local-saves/`.
 
 `--run-host` uses the headless host runtime path. It advances full frames, samples audio at 44.1 kHz, applies joypad state through the runtime API, and exposes the latest framebuffer for a future window backend.
 

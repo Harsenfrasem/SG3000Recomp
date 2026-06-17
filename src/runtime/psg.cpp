@@ -88,4 +88,18 @@ float Psg::volume_amplitude(u8 channel) const {
     return kVolumeTable[volume_[channel] & 0x0F];
 }
 
+PsgState Psg::save_state() const {
+    return {tone_, volume_, counters_, output_, noise_lfsr_, latched_channel_, latched_volume_};
+}
+
+void Psg::load_state(const PsgState& state) {
+    tone_ = state.tone;
+    volume_ = state.volume;
+    counters_ = state.counters;
+    output_ = state.output;
+    noise_lfsr_ = state.noise_lfsr;
+    latched_channel_ = static_cast<u8>(state.latched_channel & 0x03);
+    latched_volume_ = state.latched_volume;
+}
+
 } // namespace sgrecomp

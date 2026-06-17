@@ -26,6 +26,18 @@ void HostRuntime::reset() {
     audio_.clear();
 }
 
+HostRuntimeState HostRuntime::save_state() const {
+    return {console_.save_state(), frame_index_, audio_cycle_accumulator_, previous_pause_};
+}
+
+void HostRuntime::load_state(const HostRuntimeState& state) {
+    console_.load_state(state.console);
+    frame_index_ = state.frame_index;
+    audio_cycle_accumulator_ = state.audio_cycle_accumulator;
+    previous_pause_ = state.previous_pause;
+    audio_.clear();
+}
+
 HostFrameResult HostRuntime::run_frame(const HostInputState& input) {
     apply_input(input);
 

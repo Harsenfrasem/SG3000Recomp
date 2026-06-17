@@ -41,6 +41,8 @@ struct VdpAccess {
     u8 value = 0;
 };
 
+struct VdpState;
+
 class Vdp {
 public:
     static constexpr int width = 256;
@@ -67,6 +69,8 @@ public:
     const std::array<u8, 16>& debug_registers() const { return registers_; }
     std::vector<VdpTileEntry> debug_tilemap() const;
     std::vector<VdpSpriteEntry> debug_sprites() const;
+    VdpState save_state() const;
+    void load_state(const VdpState& state);
 
 private:
     std::array<u8, 16 * 1024> vram_{};
@@ -93,6 +97,23 @@ private:
     void render_sprites(int line);
     u32 cram_color(u8 index) const;
     void log_access(VdpAccessKind kind, u16 address, u8 value);
+};
+
+struct VdpState {
+    std::array<u8, 16 * 1024> vram{};
+    std::array<u8, 32> cram{};
+    std::array<u8, 16> registers{};
+    std::array<u32, Vdp::width * Vdp::height> framebuffer{};
+    std::array<bool, Vdp::width> scanline_bg_priority{};
+    u16 address = 0;
+    u8 latch = 0;
+    u8 code = 0;
+    bool pending_control = false;
+    u8 status = 0;
+    int scanline_cycles = 0;
+    int scanline = 0;
+    int line_counter = 0;
+    bool first_line = true;
 };
 
 } // namespace sgrecomp
