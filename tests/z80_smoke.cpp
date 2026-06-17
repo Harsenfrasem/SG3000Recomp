@@ -625,6 +625,96 @@ void test_vdp_sprite_collision_and_overflow_flags() {
     assert((status & 0x40) != 0);
 }
 
+void test_vdp_background_priority_hides_sprite_pixel() {
+    Vdp vdp;
+    vdp.write_control(0x40);
+    vdp.write_control(0x81); // register 1: display enabled
+    vdp.write_control(0x00);
+    vdp.write_control(0x82); // register 2: name table base $0000
+    vdp.write_control(0x85);
+    vdp.write_control(0x85); // register 5: sprite table base $0200
+
+    vdp.write_control(0x01);
+    vdp.write_control(0xC0);
+    vdp.write_data(0x03); // background color 1: red
+    vdp.write_control(0x11);
+    vdp.write_control(0xC0);
+    vdp.write_data(0x0C); // sprite color 1: green
+
+    vdp.write_control(0x20);
+    vdp.write_control(0x40);
+    vdp.write_data(0x80);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+    vdp.write_control(0x40);
+    vdp.write_control(0x40);
+    vdp.write_data(0x80);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x40);
+    vdp.write_data(0x01);
+    vdp.write_data(0x10); // tile 1 with priority bit
+    vdp.write_control(0x00);
+    vdp.write_control(0x42);
+    vdp.write_data(0xFF); // y=0
+    vdp.write_control(0x80);
+    vdp.write_control(0x42);
+    vdp.write_data(0x00);
+    vdp.write_data(0x02);
+
+    vdp.tick(228);
+    assert(vdp.framebuffer()[0] == 0xFFFF0000);
+}
+
+void test_vdp_sprite_overlays_non_priority_background_pixel() {
+    Vdp vdp;
+    vdp.write_control(0x40);
+    vdp.write_control(0x81); // register 1: display enabled
+    vdp.write_control(0x00);
+    vdp.write_control(0x82); // register 2: name table base $0000
+    vdp.write_control(0x85);
+    vdp.write_control(0x85); // register 5: sprite table base $0200
+
+    vdp.write_control(0x01);
+    vdp.write_control(0xC0);
+    vdp.write_data(0x03);
+    vdp.write_control(0x11);
+    vdp.write_control(0xC0);
+    vdp.write_data(0x0C);
+
+    vdp.write_control(0x20);
+    vdp.write_control(0x40);
+    vdp.write_data(0x80);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+    vdp.write_control(0x40);
+    vdp.write_control(0x40);
+    vdp.write_data(0x80);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x40);
+    vdp.write_data(0x01);
+    vdp.write_data(0x00); // tile 1 without priority
+    vdp.write_control(0x00);
+    vdp.write_control(0x42);
+    vdp.write_data(0xFF);
+    vdp.write_control(0x80);
+    vdp.write_control(0x42);
+    vdp.write_data(0x00);
+    vdp.write_data(0x02);
+
+    vdp.tick(228);
+    assert(vdp.framebuffer()[0] == 0xFF00FF00);
+}
+
 void setup_visible_sprites(Vdp& vdp, int count) {
     vdp.write_control(0x40);
     vdp.write_control(0x81); // register 1: display enabled
@@ -697,6 +787,66 @@ void test_vdp_reduce_flicker_uses_conservative_sprite_limit() {
     unlimited.tick(228);
     assert(unlimited.framebuffer()[0x80] == 0xFF00FF00);
     assert((unlimited.read_status() & 0x40) != 0);
+}
+
+void test_vdp_debug_tilemap_and_sprite_snapshots() {
+    Vdp vdp;
+    vdp.write_control(0x00);
+    vdp.write_control(0x82); // register 2: name table base $0000
+    vdp.write_control(0x85);
+    vdp.write_control(0x85); // register 5: sprite table base $0200
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x40);
+    vdp.write_data(0x23);
+    vdp.write_data(0x0E); // tile $023, palette 1, flip x/y
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x42);
+    vdp.write_data(0x20); // sprite raw y
+
+    vdp.write_control(0x80);
+    vdp.write_control(0x42);
+    vdp.write_data(0x40); // sprite x
+    vdp.write_data(0x07); // sprite tile
+
+    const auto tilemap = vdp.debug_tilemap();
+    assert(tilemap.size() == 1024);
+    assert(tilemap[0].tile == 0x023);
+    assert(tilemap[0].palette1);
+    assert(tilemap[0].flip_x);
+    assert(tilemap[0].flip_y);
+
+    const auto sprites = vdp.debug_sprites();
+    assert(!sprites.empty());
+    assert(sprites[0].raw_y == 0x20);
+    assert(sprites[0].y == 0x21);
+    assert(sprites[0].x == 0x40);
+    assert(sprites[0].tile == 0x07);
+}
+
+void test_bus_io_logging_records_reads_and_writes() {
+    Vdp vdp;
+    Psg psg;
+    Ym2413 ym2413;
+    Joypad joypad;
+    Bus bus(ConsoleModel::SMS, vdp, psg, ym2413, joypad);
+
+    bus.set_io_logging_enabled(true);
+    bus.set_cycle(12);
+    bus.output(0x7F, 0x90);
+    bus.set_cycle(24);
+    (void)bus.input(0xDC);
+
+    const auto& log = bus.logged_io();
+    assert(log.size() == 2);
+    assert(log[0].cycle == 12);
+    assert(log[0].write);
+    assert(log[0].port == 0x7F);
+    assert(log[0].value == 0x90);
+    assert(log[1].cycle == 24);
+    assert(!log[1].write);
+    assert(log[1].port == 0xDC);
 }
 
 void test_console_enhancement_config_propagates_to_runtime_devices() {
@@ -1292,8 +1442,12 @@ int main() {
     test_vdp_basic_sprite_pixel();
     test_vdp_sprite_shift_and_zoom();
     test_vdp_sprite_collision_and_overflow_flags();
+    test_vdp_background_priority_hides_sprite_pixel();
+    test_vdp_sprite_overlays_non_priority_background_pixel();
     test_vdp_sprite_limit_enhancement();
     test_vdp_reduce_flicker_uses_conservative_sprite_limit();
+    test_vdp_debug_tilemap_and_sprite_snapshots();
+    test_bus_io_logging_records_reads_and_writes();
     test_console_enhancement_config_propagates_to_runtime_devices();
     test_psg_tone_generates_sample();
     test_ym2413_audio_control_and_register_writes();

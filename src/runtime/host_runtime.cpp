@@ -64,6 +64,7 @@ void HostRuntime::apply_input(const HostInputState& input) {
 void HostRuntime::run_until_cycle(u64 target_cycle) {
     while (console_.cpu().cycles < target_cycle) {
         const u64 before = console_.cpu().cycles;
+        console_.bus().set_cycle(before);
         console_.psg().set_cycle(before);
         console_.ym2413().set_cycle(before);
         execute_one(console_.cpu(), console_.bus());
@@ -71,6 +72,7 @@ void HostRuntime::run_until_cycle(u64 target_cycle) {
 
         if (console_.vdp().irq_pending()) {
             const u64 irq_before = console_.cpu().cycles;
+            console_.bus().set_cycle(irq_before);
             console_.psg().set_cycle(irq_before);
             console_.ym2413().set_cycle(irq_before);
             if (service_maskable_interrupt(console_.cpu(), console_.bus())) {

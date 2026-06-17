@@ -91,9 +91,9 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 
 - [x] Roadmap de engenharia reversa por hash em `docs/ENHANCED_PORT_ROADMAP.md`.
 - [ ] Inventario local privado por hash, fora do Git.
-- [ ] Watchpoints de RAM, VRAM, CRAM e I/O.
-- [ ] Trace filtrado por PC, banco, porta e tipo de acesso.
-- [ ] Dump legivel de tilemap e sprite table.
+- [x] Log CSV de I/O por porta no smoke runner.
+- [x] Trace filtrado por PC via cobertura e I/O por porta via CSV.
+- [x] Dump legivel de tilemap e sprite table.
 - [ ] Relatorio local por hash com camera, scroll, HUD, entidades e bancos.
 - [ ] Renderer enhanced separado do renderer fiel.
 - [ ] Experimento de viewport expansion por perfil.
@@ -170,12 +170,13 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Sprites 8x8 iniciais com transparencia.
 - [x] Sprites: deslocamento horizontal e zoom inicial.
 - [x] Sprites: colisao e overflow iniciais.
-- [ ] Sprites: prioridade e limite por scanline exato.
+- [x] Sprites: prioridade inicial de background sobre sprite no Mode 4.
+- [ ] Sprites: limite por scanline exato e edge cases de prioridade.
 - [x] Paleta CRAM inicial e framebuffer com background Mode 4 basico.
 - [x] VBlank, line interrupts e status flags iniciais.
 - [ ] Timing NTSC/PAL configuravel.
 - [x] Pause/NMI do SMS conectado ao runtime.
-- [ ] Dump de tilemap/sprite table para engenharia reversa local.
+- [x] Dump de tilemap/sprite table para engenharia reversa local.
 - [ ] Renderer enhanced experimental sem alterar o framebuffer fiel.
 
 ## PSG / Audio
@@ -251,6 +252,7 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Teste do dump WAV do smoke runner.
 - [x] Teste do dump VGM PSG do smoke runner.
 - [x] Teste do controle/log FM no runtime e na CLI.
+- [x] Teste do log I/O e dumps tilemap/sprite no runtime e na CLI.
 - [x] Teste do save SRAM pelo host Win32 com ROM sintetica.
 - [x] Teste de parser/hash de `GameProfile` e perfil aplicado no host.
 - [ ] Testes de regressao com ROMs homebrew permitidas.

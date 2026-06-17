@@ -13,6 +13,13 @@ class Psg;
 class Ym2413;
 class Joypad;
 
+struct BusIoAccess {
+    u64 cycle = 0;
+    bool write = false;
+    u8 port = 0;
+    u8 value = 0;
+};
+
 enum class ConsoleModel {
     SMS,
     SG3000,
@@ -37,6 +44,9 @@ public:
     void output(u8 port, u8 value);
     void set_fm_present(bool present);
     bool fm_present() const;
+    void set_cycle(u64 cycle) { current_cycle_ = cycle; }
+    void set_io_logging_enabled(bool enabled);
+    const std::vector<BusIoAccess>& logged_io() const { return logged_io_; }
 
     const std::array<u8, 0x10000>& debug_memory() const { return memory_; }
     const std::array<u8, 0x8000>& debug_cartridge_ram() const { return cartridge_ram_; }
@@ -57,8 +67,12 @@ private:
     u8 memory_control_ = 0;
     u8 smapper_control_ = 0;
     u8 smapper_slots_[3] = {0, 1, 2};
+    u64 current_cycle_ = 0;
+    bool io_logging_enabled_ = false;
+    std::vector<BusIoAccess> logged_io_;
 
     void refresh_smapper();
+    void log_io(bool write, u8 port, u8 value);
     bool slot2_cartridge_ram_enabled() const;
     static bool has_copier_header(std::span<const u8> rom);
     static u16 mirrored_ram_address(u16 address);

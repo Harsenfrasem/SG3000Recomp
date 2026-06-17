@@ -35,8 +35,11 @@ struct Options {
     std::filesystem::path dump_audio;
     std::filesystem::path dump_vgm;
     std::filesystem::path dump_fm_log;
+    std::filesystem::path dump_io_log;
     std::filesystem::path dump_vram;
     std::filesystem::path dump_cram;
+    std::filesystem::path dump_tilemap;
+    std::filesystem::path dump_sprites;
     std::filesystem::path dump_sram;
     std::filesystem::path dump_coverage;
     std::filesystem::path dump_analysis;
@@ -73,7 +76,9 @@ void print_usage() {
               << "       sgrecomp <rom.sms|rom.sg> --run-smoke [--steps n] [--trace] [--bios bios.sms]\n"
               << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp]\n"
               << "                [--dump-audio audio.wav] [--dump-vgm audio.vgm] [--dump-fm-log fm.csv]\n"
+              << "                [--dump-io-log io.csv]\n"
               << "                [--dump-vram vram.bin] [--dump-cram cram.bin]\n"
+              << "                [--dump-tilemap tilemap.csv] [--dump-sprites sprites.csv]\n"
               << "                [--load-sram save.sav] [--save-sram save.sav] [--dump-sram sram.bin]\n"
               << "                [--dump-coverage pcs.csv] [--disable-sprite-limit] [--reduce-flicker] [--enable-fm]\n"
               << "       sgrecomp <rom.sms|rom.sg> --run-host [--frames n] [--bios bios.sms]\n"
@@ -117,12 +122,24 @@ Options parse_args(int argc, char** argv) {
             opts.dump_fm_log = argv[++i];
             continue;
         }
+        if (arg == "--dump-io-log" && i + 1 < argc) {
+            opts.dump_io_log = argv[++i];
+            continue;
+        }
         if (arg == "--dump-vram" && i + 1 < argc) {
             opts.dump_vram = argv[++i];
             continue;
         }
         if (arg == "--dump-cram" && i + 1 < argc) {
             opts.dump_cram = argv[++i];
+            continue;
+        }
+        if (arg == "--dump-tilemap" && i + 1 < argc) {
+            opts.dump_tilemap = argv[++i];
+            continue;
+        }
+        if (arg == "--dump-sprites" && i + 1 < argc) {
+            opts.dump_sprites = argv[++i];
             continue;
         }
         if (arg == "--dump-sram" && i + 1 < argc) {
@@ -437,6 +454,70 @@ void write_fm_log_csv(const std::filesystem::path& path, const std::vector<Ym241
             << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(write.port)
             << ",0x" << std::setw(2) << static_cast<int>(write.value)
             << std::dec << std::setfill(' ') << "\n";
+    }
+}
+
+void write_io_log_csv(const std::filesystem::path& path, const std::vector<BusIoAccess>& accesses) {
+    if (path.has_parent_path()) {
+        std::filesystem::create_directories(path.parent_path());
+    }
+
+    std::ofstream out(path);
+    if (!out) {
+        throw std::runtime_error("cannot open I/O log output file");
+    }
+
+    out << "cycle,direction,port,value\n";
+    for (const auto& access : accesses) {
+        out << access.cycle << "," << (access.write ? "write" : "read")
+            << ",0x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(access.port)
+            << ",0x" << std::setw(2) << static_cast<int>(access.value)
+            << std::dec << std::setfill(' ') << "\n";
+    }
+}
+
+void write_tilemap_csv(const std::filesystem::path& path, const std::vector<VdpTileEntry>& entries) {
+    if (path.has_parent_path()) {
+        std::filesystem::create_directories(path.parent_path());
+    }
+
+    std::ofstream out(path);
+    if (!out) {
+        throw std::runtime_error("cannot open tilemap output file");
+    }
+
+    out << "x,y,address,tile,palette,flip_x,flip_y,priority\n";
+    for (const auto& entry : entries) {
+        out << static_cast<int>(entry.x) << "," << static_cast<int>(entry.y)
+            << ",0x" << std::hex << std::setw(4) << std::setfill('0') << entry.address
+            << ",0x" << std::setw(3) << entry.tile << std::dec
+            << "," << (entry.palette1 ? 1 : 0)
+            << "," << (entry.flip_x ? 1 : 0)
+            << "," << (entry.flip_y ? 1 : 0)
+            << "," << (entry.priority ? 1 : 0)
+            << std::setfill(' ') << "\n";
+    }
+}
+
+void write_sprites_csv(const std::filesystem::path& path, const std::vector<VdpSpriteEntry>& entries) {
+    if (path.has_parent_path()) {
+        std::filesystem::create_directories(path.parent_path());
+    }
+
+    std::ofstream out(path);
+    if (!out) {
+        throw std::runtime_error("cannot open sprite output file");
+    }
+
+    out << "index,raw_y,x,y,tile,terminator\n";
+    for (const auto& entry : entries) {
+        out << static_cast<int>(entry.index)
+            << ",0x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(entry.raw_y)
+            << std::dec << "," << entry.x
+            << "," << entry.y
+            << ",0x" << std::hex << std::setw(2) << static_cast<int>(entry.tile)
+            << std::dec << "," << (entry.terminator ? 1 : 0)
+            << std::setfill(' ') << "\n";
     }
 }
 
@@ -848,6 +929,7 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
     psg.set_enhancements(opts.enhancements);
     psg.set_write_logging_enabled(!opts.dump_vgm.empty());
     bus.set_fm_present(opts.enhancements.enable_fm || !opts.dump_fm_log.empty());
+    bus.set_io_logging_enabled(!opts.dump_io_log.empty());
     ym2413.set_write_logging_enabled(!opts.dump_fm_log.empty());
     if (bios != nullptr) {
         bus.load_bios(*bios);
@@ -925,6 +1007,11 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
             std::cout << "fm log dumped: " << opts.dump_fm_log.string()
                       << " (" << ym2413.logged_writes().size() << " writes)\n";
         }
+        if (!opts.dump_io_log.empty()) {
+            write_io_log_csv(opts.dump_io_log, bus.logged_io());
+            std::cout << "io log dumped: " << opts.dump_io_log.string()
+                      << " (" << bus.logged_io().size() << " accesses)\n";
+        }
         if (!opts.dump_vram.empty()) {
             write_binary_dump(opts.dump_vram, vdp.debug_vram());
             std::cout << "vram dumped: " << opts.dump_vram.string() << "\n";
@@ -932,6 +1019,18 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
         if (!opts.dump_cram.empty()) {
             write_binary_dump(opts.dump_cram, vdp.debug_cram());
             std::cout << "cram dumped: " << opts.dump_cram.string() << "\n";
+        }
+        if (!opts.dump_tilemap.empty()) {
+            const auto tilemap = vdp.debug_tilemap();
+            write_tilemap_csv(opts.dump_tilemap, tilemap);
+            std::cout << "tilemap dumped: " << opts.dump_tilemap.string()
+                      << " (" << tilemap.size() << " entries)\n";
+        }
+        if (!opts.dump_sprites.empty()) {
+            const auto sprites = vdp.debug_sprites();
+            write_sprites_csv(opts.dump_sprites, sprites);
+            std::cout << "sprites dumped: " << opts.dump_sprites.string()
+                      << " (" << sprites.size() << " entries)\n";
         }
         if (!opts.dump_sram.empty()) {
             write_binary_dump(opts.dump_sram, bus.debug_cartridge_ram());
@@ -959,12 +1058,14 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
         }
         try {
             const u64 cycles_before = cpu.cycles;
+            bus.set_cycle(cycles_before);
             psg.set_cycle(cycles_before);
             ym2413.set_cycle(cycles_before);
             execute_one(cpu, bus);
             tick_devices(static_cast<int>(cpu.cycles - cycles_before));
             if (vdp.irq_pending()) {
                 const u64 irq_before = cpu.cycles;
+                bus.set_cycle(irq_before);
                 psg.set_cycle(irq_before);
                 ym2413.set_cycle(irq_before);
                 if (service_maskable_interrupt(cpu, bus)) {

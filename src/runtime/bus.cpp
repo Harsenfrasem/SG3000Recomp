@@ -91,30 +91,46 @@ void Bus::write(u16 address, u8 value) {
 
 u8 Bus::input(u8 port) {
     if (model_ == ConsoleModel::SMS && port == 0xF2) {
-        return ym2413_.read_audio_control();
+        const u8 value = ym2413_.read_audio_control();
+        log_io(false, port, value);
+        return value;
     }
     if (port == 0x7E) {
-        return vdp_.read_v_counter();
+        const u8 value = vdp_.read_v_counter();
+        log_io(false, port, value);
+        return value;
     }
     if (port == 0x7F) {
-        return vdp_.read_h_counter();
+        const u8 value = vdp_.read_h_counter();
+        log_io(false, port, value);
+        return value;
     }
     if (port == 0xBE || port == 0x98) {
-        return vdp_.read_data();
+        const u8 value = vdp_.read_data();
+        log_io(false, port, value);
+        return value;
     }
     if (port == 0xBF || port == 0x99) {
-        return vdp_.read_status();
+        const u8 value = vdp_.read_status();
+        log_io(false, port, value);
+        return value;
     }
     if (port == 0xDC || port == 0xC0) {
-        return joypad_.read_port_a();
+        const u8 value = joypad_.read_port_a();
+        log_io(false, port, value);
+        return value;
     }
     if (port == 0xDD || port == 0xC1) {
-        return joypad_.read_port_b();
+        const u8 value = joypad_.read_port_b();
+        log_io(false, port, value);
+        return value;
     }
+    log_io(false, port, 0xFF);
     return 0xFF;
 }
 
 void Bus::output(u8 port, u8 value) {
+    log_io(true, port, value);
     if (model_ == ConsoleModel::SMS && port == 0xF0) {
         ym2413_.write_address(value);
         return;
@@ -151,6 +167,13 @@ void Bus::set_fm_present(bool present) {
 
 bool Bus::fm_present() const {
     return ym2413_.present();
+}
+
+void Bus::set_io_logging_enabled(bool enabled) {
+    io_logging_enabled_ = enabled;
+    if (!enabled) {
+        logged_io_.clear();
+    }
 }
 
 void Bus::refresh_smapper() {
@@ -194,6 +217,12 @@ bool Bus::has_copier_header(std::span<const u8> rom) {
 
 u16 Bus::mirrored_ram_address(u16 address) {
     return static_cast<u16>(0xC000 + ((address - 0xC000) & 0x1FFF));
+}
+
+void Bus::log_io(bool write, u8 port, u8 value) {
+    if (io_logging_enabled_) {
+        logged_io_.push_back({current_cycle_, write, port, value});
+    }
 }
 
 } // namespace sgrecomp

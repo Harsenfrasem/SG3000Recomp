@@ -115,6 +115,9 @@ int main() {
     const std::filesystem::path frame_bmp_path = output_dir / "frame_fixture.bmp";
     const std::filesystem::path audio_path = output_dir / "audio_fixture.wav";
     const std::filesystem::path vgm_path = output_dir / "audio_fixture.vgm";
+    const std::filesystem::path io_log_path = output_dir / "io_fixture.csv";
+    const std::filesystem::path tilemap_path = output_dir / "tilemap_fixture.csv";
+    const std::filesystem::path sprites_path = output_dir / "sprites_fixture.csv";
     const std::filesystem::path fm_rom_path = output_dir / "fm_fixture.sms";
     const std::filesystem::path fm_log_path = output_dir / "fm_fixture.csv";
     const std::filesystem::path host_frame_path = output_dir / "host_frame.bmp";
@@ -237,7 +240,10 @@ int main() {
 
     const std::string audio_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(audio_rom_path)
         + " --run-smoke --steps 4096 --dump-frame-bmp " + quote(frame_bmp_path)
-        + " --dump-audio " + quote(audio_path) + " --dump-vgm " + quote(vgm_path);
+        + " --dump-audio " + quote(audio_path) + " --dump-vgm " + quote(vgm_path)
+        + " --dump-io-log " + quote(io_log_path)
+        + " --dump-tilemap " + quote(tilemap_path)
+        + " --dump-sprites " + quote(sprites_path);
     assert(run_command(audio_command) == 0);
     const auto frame_bmp = read_binary(frame_bmp_path);
     assert(frame_bmp.size() > 54);
@@ -262,6 +268,17 @@ int main() {
     assert(vgm[3] == ' ');
     assert(vgm[0x100] == 0x50);
     assert(vgm.back() == 0x66);
+
+    const std::string io_log = read_text(io_log_path);
+    assert(contains(io_log, "cycle,direction,port,value"));
+    assert(contains(io_log, "write,0x7f"));
+
+    const std::string tilemap = read_text(tilemap_path);
+    assert(contains(tilemap, "x,y,address,tile,palette,flip_x,flip_y,priority"));
+    assert(contains(tilemap, "0,0,0x"));
+
+    const std::string sprites = read_text(sprites_path);
+    assert(contains(sprites, "index,raw_y,x,y,tile,terminator"));
 
     const std::vector<unsigned char> fm_rom = {
         0x3E, 0x01, // ld a,$01: enable FM, mute PSG

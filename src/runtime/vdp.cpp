@@ -105,6 +105,7 @@ void Vdp::render_scanline(int line) {
         return;
     }
 
+    scanline_bg_priority_.fill(false);
     const u16 name_base = static_cast<u16>((registers_[2] & 0x0E) << 10);
     const u16 pattern_base = static_cast<u16>((registers_[4] & 0x04) << 11);
     const bool lock_top_horizontal_scroll = (registers_[0] & 0x40) != 0 && line < 16;
@@ -131,6 +132,7 @@ void Vdp::render_scanline(int line) {
         const bool palette1 = (entry & 0x0800) != 0;
         const bool flip_x = (entry & 0x0200) != 0;
         const bool flip_y = (entry & 0x0400) != 0;
+        const bool priority = (entry & 0x1000) != 0;
         const int tile_row = flip_y ? (7 - row) : row;
         const int tile_bit = flip_x ? (7 - bit) : bit;
         const u16 pattern = static_cast<u16>((pattern_base + tile * 32 + tile_row * 4) & 0x3FFF);
@@ -141,6 +143,7 @@ void Vdp::render_scanline(int line) {
             (((vram_[(pattern + 3) & 0x3FFF] >> tile_bit) & 0x01) << 3));
         const u8 palette_index = static_cast<u8>((palette1 ? 16 : 0) + color);
         framebuffer_[line * width + x] = cram_color(palette_index);
+        scanline_bg_priority_[static_cast<std::size_t>(x)] = priority && color != 0;
     }
 
     render_sprites(line);
@@ -206,6 +209,9 @@ void Vdp::render_sprites(int line) {
                     status_ |= 0x20;
                 }
                 sprite_pixels[static_cast<std::size_t>(x)] = true;
+                if (scanline_bg_priority_[static_cast<std::size_t>(x)]) {
+                    continue;
+                }
                 framebuffer_[line * width + x] = cram_color(static_cast<u8>(16 + color));
             }
         }
@@ -218,6 +224,57 @@ u32 Vdp::cram_color(u8 index) const {
     const u8 g = static_cast<u8>(((raw >> 2) & 0x03) * 85);
     const u8 b = static_cast<u8>(((raw >> 4) & 0x03) * 85);
     return kOpaque | (static_cast<u32>(r) << 16) | (static_cast<u32>(g) << 8) | b;
+}
+
+std::vector<VdpTileEntry> Vdp::debug_tilemap() const {
+    const u16 name_base = static_cast<u16>((registers_[2] & 0x0E) << 10);
+    std::vector<VdpTileEntry> entries;
+    entries.reserve(32 * 32);
+
+    for (u8 y = 0; y < 32; ++y) {
+        for (u8 x = 0; x < 32; ++x) {
+            const u16 address = static_cast<u16>((name_base + ((y * 32 + x) * 2)) & 0x3FFF);
+            const u16 entry = make_u16(vram_[address], vram_[(address + 1) & 0x3FFF]);
+            entries.push_back({
+                x,
+                y,
+                address,
+                static_cast<u16>(entry & 0x01FF),
+                (entry & 0x0800) != 0,
+                (entry & 0x0200) != 0,
+                (entry & 0x0400) != 0,
+                (entry & 0x1000) != 0,
+            });
+        }
+    }
+
+    return entries;
+}
+
+std::vector<VdpSpriteEntry> Vdp::debug_sprites() const {
+    const u16 sprite_base = static_cast<u16>((registers_[5] & 0x7E) << 7);
+    const bool shift_sprites_left = (registers_[0] & 0x08) != 0;
+    std::vector<VdpSpriteEntry> entries;
+    entries.reserve(64);
+
+    for (u8 sprite = 0; sprite < 64; ++sprite) {
+        const u8 raw_y = vram_[(sprite_base + sprite) & 0x3FFF];
+        const bool terminator = raw_y == 0xD0;
+        const u16 attribute = static_cast<u16>((sprite_base + 0x80 + sprite * 2) & 0x3FFF);
+        entries.push_back({
+            sprite,
+            raw_y,
+            static_cast<int>(static_cast<u8>(raw_y + 1)),
+            static_cast<int>(vram_[attribute]) - (shift_sprites_left ? 8 : 0),
+            vram_[(attribute + 1) & 0x3FFF],
+            terminator,
+        });
+        if (terminator) {
+            break;
+        }
+    }
+
+    return entries;
 }
 
 } // namespace sgrecomp

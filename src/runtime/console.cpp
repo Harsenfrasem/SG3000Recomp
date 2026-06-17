@@ -41,6 +41,7 @@ void Console::run_cycles(u64 cycles) {
     const u64 target = cpu_.cycles + cycles;
     while (cpu_.cycles < target) {
         const u64 before = cpu_.cycles;
+        bus_.set_cycle(before);
         execute_one(cpu_, bus_);
         const int elapsed = static_cast<int>(cpu_.cycles - before);
         vdp_.tick(elapsed);
@@ -48,6 +49,7 @@ void Console::run_cycles(u64 cycles) {
         ym2413_.tick(elapsed);
         if (vdp_.irq_pending()) {
             const u64 irq_before = cpu_.cycles;
+            bus_.set_cycle(irq_before);
             if (service_maskable_interrupt(cpu_, bus_)) {
                 const int irq_elapsed = static_cast<int>(cpu_.cycles - irq_before);
                 vdp_.tick(irq_elapsed);
