@@ -4,6 +4,24 @@ namespace sgrecomp {
 namespace {
 
 constexpr u32 kOpaque = 0xFF000000;
+constexpr u32 kTmsPalette[16] = {
+    0xFF000000, // transparent maps to black for the framebuffer
+    0xFF000000,
+    0xFF21C842,
+    0xFF5EDC78,
+    0xFF5455ED,
+    0xFF7D76FC,
+    0xFFD4524D,
+    0xFF42EBF5,
+    0xFFFC5554,
+    0xFFFF7978,
+    0xFFD4C154,
+    0xFFE6CE80,
+    0xFF21B03B,
+    0xFFC95BBA,
+    0xFFCCCCCC,
+    0xFFFFFFFF,
+};
 
 } // namespace
 
@@ -135,11 +153,22 @@ void Vdp::render_scanline(int line) {
     scanline_bg_priority_.fill(false);
     if ((registers_[1] & 0x40) == 0) {
         for (int x = 0; x < width; ++x) {
-            framebuffer_[line * width + x] = backdrop_color();
+            framebuffer_[line * width + x] = video_mode_ == VdpVideoMode::TmsGraphics1
+                ? tms_color(registers_[7] & 0x0F)
+                : backdrop_color();
         }
         return;
     }
 
+    if (video_mode_ == VdpVideoMode::TmsGraphics1) {
+        render_tms_graphics1_scanline(line);
+        return;
+    }
+
+    render_mode4_scanline(line);
+}
+
+void Vdp::render_mode4_scanline(int line) {
     const u16 name_base = name_table_base();
     const u16 pattern_base = background_pattern_base();
     const bool lock_top_horizontal_scroll = (registers_[0] & 0x40) != 0 && line < 16;
@@ -177,6 +206,27 @@ void Vdp::render_scanline(int line) {
     }
 
     render_sprites(line);
+}
+
+void Vdp::render_tms_graphics1_scanline(int line) {
+    const u16 name_base = static_cast<u16>((registers_[2] & 0x0F) << 10);
+    const u16 color_base = static_cast<u16>(registers_[3] << 6);
+    const u16 pattern_base = static_cast<u16>((registers_[4] & 0x07) << 11);
+    const int tile_y = line / 8;
+    const int row = line & 0x07;
+
+    for (int x = 0; x < width; ++x) {
+        const int tile_x = x / 8;
+        const int bit = 7 - (x & 0x07);
+        const u16 name_address = static_cast<u16>((name_base + tile_y * 32 + tile_x) & 0x3FFF);
+        const u8 tile = vram_[name_address];
+        const u16 pattern = static_cast<u16>((pattern_base + tile * 8 + row) & 0x3FFF);
+        const u8 colors = vram_[(color_base + (tile / 8)) & 0x3FFF];
+        const u8 foreground = static_cast<u8>(colors >> 4);
+        const u8 background = static_cast<u8>(colors & 0x0F);
+        const bool set = ((vram_[pattern] >> bit) & 0x01) != 0;
+        framebuffer_[line * width + x] = tms_color(set ? foreground : background);
+    }
 }
 
 void Vdp::render_sprites(int line) {
@@ -265,6 +315,10 @@ u32 Vdp::cram_color(u8 index) const {
     const u8 g = static_cast<u8>(((raw >> 2) & 0x03) * 85);
     const u8 b = static_cast<u8>(((raw >> 4) & 0x03) * 85);
     return kOpaque | (static_cast<u32>(r) << 16) | (static_cast<u32>(g) << 8) | b;
+}
+
+u32 Vdp::tms_color(u8 index) const {
+    return kTmsPalette[index & 0x0F];
 }
 
 u8 Vdp::background_color_index(u16 pattern, int bit) const {
@@ -390,6 +444,7 @@ VdpState Vdp::save_state() const {
         first_line_,
         line_irq_pending_,
         timing_,
+        video_mode_,
     };
 }
 
@@ -410,6 +465,7 @@ void Vdp::load_state(const VdpState& state) {
     first_line_ = state.first_line;
     line_irq_pending_ = state.line_irq_pending;
     set_timing(state.timing);
+    video_mode_ = state.video_mode;
 }
 
 void Vdp::log_access(VdpAccessKind kind, u16 address, u8 value) {

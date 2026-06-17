@@ -572,6 +572,37 @@ void test_vdp_backdrop_uses_register7_color() {
     assert(vdp.framebuffer()[Vdp::width] == 0xFF00FF00);
 }
 
+void test_sg3000_vdp_tms_graphics1_background_pixel() {
+    Console console(ConsoleModel::SG3000);
+    Vdp& vdp = console.vdp();
+    assert(vdp.video_mode() == VdpVideoMode::TmsGraphics1);
+
+    vdp.write_control(0x40);
+    vdp.write_control(0x81); // display enabled
+    vdp.write_control(0x02);
+    vdp.write_control(0x82); // name table at $0800
+    vdp.write_control(0x80);
+    vdp.write_control(0x83); // color table at $2000
+    vdp.write_control(0x00);
+    vdp.write_control(0x84); // pattern table at $0000
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x40); // pattern 0 row 0: first pixel set
+    vdp.write_data(0x80);
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x48); // name table first tile
+    vdp.write_data(0x00);
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x60); // color table group 0: white on black
+    vdp.write_data(0xF1);
+
+    vdp.tick(228);
+    assert(vdp.framebuffer()[0] == 0xFFFFFFFF);
+    assert(vdp.framebuffer()[1] == 0xFF000000);
+}
+
 void test_vdp_name_table_register_masks_low_bit() {
     Vdp vdp;
     vdp.write_control(0x40);
@@ -2087,6 +2118,7 @@ void test_console_save_state_round_trip_restores_runtime_state() {
     assert(restored.bus.memory_control == 0x08);
     assert(restored.vdp.timing.cpu_cycles_per_scanline == 200);
     assert(restored.vdp.timing.scanlines_per_frame == 313);
+    assert(restored.vdp.video_mode == VdpVideoMode::SmsMode4);
     const auto image = deserialize_console_state_image(bytes);
     assert(image.metadata.present);
     assert(image.metadata.model == ConsoleModel::SMS);
@@ -2152,6 +2184,7 @@ int main() {
     test_vdp_mode4_background_pixel();
     test_vdp_display_disabled_uses_backdrop_color();
     test_vdp_backdrop_uses_register7_color();
+    test_sg3000_vdp_tms_graphics1_background_pixel();
     test_vdp_name_table_register_masks_low_bit();
     test_vdp_scroll_lock_and_left_blank();
     test_vdp_left_column_blank_masks_sprites();

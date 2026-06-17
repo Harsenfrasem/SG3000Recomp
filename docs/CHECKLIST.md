@@ -199,6 +199,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 ## VDP
 
 - [x] VRAM, CRAM, registradores e portas iniciais.
+- [x] TMS9918/SG-3000 Graphics I inicial: background tilemap 1bpp, color table e paleta TMS.
 - [ ] TMS9918/SG-3000 modes.
 - [ ] SMS Mode 4 tile renderer completo.
 - [x] Mode 4: hscroll/vscroll basicos, lock de topo, lock de direita por coluna de tela e coluna esquerda em branco.

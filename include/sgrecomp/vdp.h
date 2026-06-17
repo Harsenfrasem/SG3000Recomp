@@ -34,6 +34,11 @@ enum class VdpAccessKind {
     Register,
 };
 
+enum class VdpVideoMode {
+    SmsMode4,
+    TmsGraphics1,
+};
+
 struct VdpAccess {
     u64 cycle = 0;
     VdpAccessKind kind = VdpAccessKind::Vram;
@@ -80,6 +85,8 @@ public:
     int scanline() const { return scanline_; }
     void set_timing(const VdpTimingConfig& timing);
     const VdpTimingConfig& timing() const { return timing_; }
+    void set_video_mode(VdpVideoMode mode) { video_mode_ = mode; }
+    VdpVideoMode video_mode() const { return video_mode_; }
     void set_cycle(u64 cycle) { current_cycle_ = cycle; }
     void set_access_logging_enabled(bool enabled);
     const std::vector<VdpAccess>& logged_accesses() const { return logged_accesses_; }
@@ -113,6 +120,7 @@ private:
     bool first_line_ = true;
     bool line_irq_pending_ = false;
     VdpTimingConfig timing_{};
+    VdpVideoMode video_mode_ = VdpVideoMode::SmsMode4;
     u64 current_cycle_ = 0;
     bool access_logging_enabled_ = false;
     std::vector<VdpAccess> logged_accesses_;
@@ -120,9 +128,12 @@ private:
 
     void advance_scanline();
     void render_scanline(int line);
+    void render_mode4_scanline(int line);
+    void render_tms_graphics1_scanline(int line);
     void render_sprites(int line);
     u8 background_color_index(u16 pattern, int bit) const;
     u32 cram_color(u8 index) const;
+    u32 tms_color(u8 index) const;
     u8 backdrop_color_index() const;
     u32 backdrop_color() const;
     bool left_column_blank_enabled() const;
@@ -149,6 +160,7 @@ struct VdpState {
     bool first_line = true;
     bool line_irq_pending = false;
     VdpTimingConfig timing{};
+    VdpVideoMode video_mode = VdpVideoMode::SmsMode4;
 };
 
 } // namespace sgrecomp

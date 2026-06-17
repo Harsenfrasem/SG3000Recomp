@@ -3,10 +3,17 @@
 namespace sgrecomp {
 
 Console::Console(ConsoleModel model)
-    : bus_(model, vdp_, psg_, ym2413_, joypad_), model_(model) {}
+    : bus_(model, vdp_, psg_, ym2413_, joypad_), model_(model) {
+    if (model_ == ConsoleModel::SG3000) {
+        vdp_.set_video_mode(VdpVideoMode::TmsGraphics1);
+    }
+}
 
 Console::Console(ConsoleModel model, const EnhancementConfig& enhancements)
     : bus_(model, vdp_, psg_, ym2413_, joypad_), model_(model), enhancements_(enhancements) {
+    if (model_ == ConsoleModel::SG3000) {
+        vdp_.set_video_mode(VdpVideoMode::TmsGraphics1);
+    }
     vdp_.set_enhancements(enhancements_);
     psg_.set_enhancements(enhancements_);
     bus_.set_fm_present(enhancements_.enable_fm);
