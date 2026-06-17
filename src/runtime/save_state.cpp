@@ -8,7 +8,7 @@ namespace sgrecomp {
 namespace {
 
 constexpr u32 kMagic = 0x53534753; // SGSS
-constexpr u16 kVersion = 2;
+constexpr u16 kVersion = 3;
 
 class Writer {
 public:
@@ -217,6 +217,7 @@ void write_state(Writer& out, const ConsoleState& state, const SaveStateMetadata
     out.i32v(state.vdp.scanline);
     out.i32v(state.vdp.line_counter);
     out.boolv(state.vdp.first_line);
+    out.boolv(state.vdp.line_irq_pending);
     out.array_bytes(state.psg.tone);
     out.array_bytes(state.psg.volume);
     out.array_bytes(state.psg.counters);
@@ -271,6 +272,9 @@ SaveStateImage read_image(Reader& in) {
     state.vdp.scanline = in.i32v();
     state.vdp.line_counter = in.i32v();
     state.vdp.first_line = in.boolv();
+    if (version >= 3) {
+        state.vdp.line_irq_pending = in.boolv();
+    }
     in.array_bytes(state.psg.tone);
     in.array_bytes(state.psg.volume);
     in.array_bytes(state.psg.counters);

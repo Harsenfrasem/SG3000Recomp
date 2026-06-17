@@ -87,6 +87,7 @@ private:
     int scanline_ = 0;
     int line_counter_ = 0;
     bool first_line_ = true;
+    bool line_irq_pending_ = false;
     u64 current_cycle_ = 0;
     bool access_logging_enabled_ = false;
     std::vector<VdpAccess> logged_accesses_;
@@ -121,6 +122,7 @@ struct VdpState {
     int scanline = 0;
     int line_counter = 0;
     bool first_line = true;
+    bool line_irq_pending = false;
 };
 
 } // namespace sgrecomp

@@ -13,6 +13,8 @@ void run_until_halt(Console& console, u64 max_cycles = 4096) {
     assert(console.cpu().halted);
 }
 
+void setup_visible_sprites(Vdp& vdp, int count);
+
 void test_basic_program() {
     const std::vector<u8> rom = {
         0x3E, 0x12,       // ld a,$12
@@ -366,6 +368,51 @@ void test_vdp_line_interrupt_im1() {
 
     assert(console.cpu().halted);
     assert(console.cpu().a == 0x44);
+}
+
+void test_vdp_data_port_clears_pending_control_latch() {
+    Vdp vdp;
+    vdp.write_control(0x12);
+    vdp.write_data(0xAA);
+    vdp.write_control(0x81);
+    assert(vdp.debug_registers()[1] == 0x00);
+
+    (void)vdp.read_status();
+    vdp.write_control(0x40);
+    vdp.write_control(0x81);
+    assert(vdp.debug_registers()[1] == 0x40);
+
+    (void)vdp.read_status();
+    vdp.write_control(0x34);
+    (void)vdp.read_data();
+    vdp.write_control(0x82);
+    assert(vdp.debug_registers()[2] == 0x00);
+}
+
+void test_vdp_line_irq_is_not_status_overflow_bit() {
+    Vdp vdp;
+    vdp.write_control(0x10);
+    vdp.write_control(0x80); // register 0: line IRQ enable
+    vdp.write_control(0x00);
+    vdp.write_control(0x8A); // register 10: line counter 0
+
+    vdp.tick(228);
+    assert(!vdp.irq_pending());
+    vdp.tick(228);
+    assert(vdp.irq_pending());
+    assert((vdp.read_status() & 0x40) == 0);
+    assert(!vdp.irq_pending());
+}
+
+void test_vdp_sprite_overflow_status_does_not_raise_line_irq() {
+    Vdp vdp;
+    vdp.write_control(0x10);
+    vdp.write_control(0x80); // register 0: line IRQ enabled
+    setup_visible_sprites(vdp, 9);
+
+    vdp.tick(228);
+    assert((vdp.read_status() & 0x40) != 0);
+    assert(!vdp.irq_pending());
 }
 
 void test_pause_triggers_nmi() {
@@ -1803,6 +1850,9 @@ int main() {
     test_ed_port_register_io();
     test_vblank_interrupt_im1();
     test_vdp_line_interrupt_im1();
+    test_vdp_data_port_clears_pending_control_latch();
+    test_vdp_line_irq_is_not_status_overflow_bit();
+    test_vdp_sprite_overflow_status_does_not_raise_line_irq();
     test_pause_triggers_nmi();
     test_two_player_joypad_ports();
     test_vdp_mode4_background_pixel();

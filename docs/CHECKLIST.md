@@ -179,6 +179,7 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [ ] Sprites: limite por scanline exato e edge cases de prioridade.
 - [x] Paleta CRAM inicial, backdrop/display disabled e framebuffer com background Mode 4 basico.
 - [x] VBlank, line interrupts e status flags iniciais.
+- [x] VDP: line IRQ separado dos bits de status, overflow/collision preservados e latch de controle resetado por acesso a dados/status.
 - [ ] Timing NTSC/PAL configuravel.
 - [x] Pause/NMI do SMS conectado ao runtime.
 - [x] Dump de tilemap/sprite table para engenharia reversa local.

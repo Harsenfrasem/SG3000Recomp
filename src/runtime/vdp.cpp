@@ -10,12 +10,14 @@ constexpr u32 kOpaque = 0xFF000000;
 u8 Vdp::read_data() {
     const u8 value = vram_[address_ & 0x3FFF];
     address_ = static_cast<u16>((address_ + 1) & 0x3FFF);
+    pending_control_ = false;
     return value;
 }
 
 u8 Vdp::read_status() {
     const u8 value = status_;
     status_ = 0;
+    line_irq_pending_ = false;
     pending_control_ = false;
     return value;
 }
@@ -32,6 +34,7 @@ u8 Vdp::read_h_counter() const {
 }
 
 void Vdp::write_data(u8 value) {
+    pending_control_ = false;
     if (code_ == 3) {
         cram_[address_ & 0x1F] = value;
         log_access(VdpAccessKind::Cram, static_cast<u16>(address_ & 0x1F), value);
@@ -72,7 +75,7 @@ void Vdp::tick(int cpu_cycles) {
 
 bool Vdp::irq_pending() const {
     const bool frame_irq = (status_ & 0x80) != 0 && (registers_[1] & 0x20) != 0;
-    const bool line_irq = (status_ & 0x40) != 0 && (registers_[0] & 0x10) != 0;
+    const bool line_irq = line_irq_pending_ && (registers_[0] & 0x10) != 0;
     return frame_irq || line_irq;
 }
 
@@ -91,7 +94,7 @@ void Vdp::advance_scanline() {
             first_line_ = false;
         } else if (line_counter_ == 0) {
             line_counter_ = registers_[10];
-            status_ |= 0x40;
+            line_irq_pending_ = true;
         } else {
             --line_counter_;
         }
@@ -349,6 +352,7 @@ VdpState Vdp::save_state() const {
         scanline_,
         line_counter_,
         first_line_,
+        line_irq_pending_,
     };
 }
 
@@ -367,6 +371,7 @@ void Vdp::load_state(const VdpState& state) {
     scanline_ = state.scanline;
     line_counter_ = state.line_counter;
     first_line_ = state.first_line;
+    line_irq_pending_ = state.line_irq_pending;
 }
 
 void Vdp::log_access(VdpAccessKind kind, u16 address, u8 value) {
