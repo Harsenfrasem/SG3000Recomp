@@ -61,6 +61,12 @@ void write_binary(const std::filesystem::path& path, const std::vector<unsigned 
     out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
 }
 
+void write_text(const std::filesystem::path& path, const std::string& text) {
+    std::ofstream out(path);
+    assert(out);
+    out << text;
+}
+
 bool contains(const std::string& haystack, const std::string& needle) {
     return haystack.find(needle) != std::string::npos;
 }
@@ -134,6 +140,8 @@ int main() {
     const std::filesystem::path fm_log_path = output_dir / "fm_fixture.csv";
     const std::filesystem::path host_frame_path = output_dir / "host_frame.bmp";
     const std::filesystem::path host_audio_path = output_dir / "host_audio.wav";
+    const std::filesystem::path host_config_path = output_dir / "host_config.toml";
+    const std::filesystem::path host_config_audio_path = output_dir / "host_config_audio.wav";
     const std::filesystem::path host_sram_rom_path = output_dir / "host_sram_fixture.sms";
     const std::filesystem::path host_sram_path = output_dir / "host_save.sav";
     const std::filesystem::path host_profile_path = output_dir / "host_profiles.txt";
@@ -485,6 +493,31 @@ int main() {
         | (static_cast<unsigned>(host_wav_bytes[26]) << 16)
         | (static_cast<unsigned>(host_wav_bytes[27]) << 24);
     assert(sample_rate == 22050);
+
+    write_text(host_config_path,
+        "[target]\n"
+        "model = \"sms\"\n"
+        "mapper = \"plain\"\n"
+        "\n"
+        "[recompiler]\n"
+        "fallback = true\n"
+        "emit_disassembly_comments = true\n"
+        "max_static_bytes = \"0xC000\"\n"
+        "\n"
+        "[runtime]\n"
+        "region = \"pal\"\n"
+        "audio_sample_rate = 32000\n"
+        "enable_fm = false\n");
+    const std::string host_config_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(audio_rom_path)
+        + " --config " + quote(host_config_path)
+        + " --run-host --frames 1 --dump-audio " + quote(host_config_audio_path);
+    assert(run_command(host_config_command) == 0);
+    const auto host_config_wav_bytes = read_binary(host_config_audio_path);
+    const unsigned config_sample_rate = static_cast<unsigned>(host_config_wav_bytes[24])
+        | (static_cast<unsigned>(host_config_wav_bytes[25]) << 8)
+        | (static_cast<unsigned>(host_config_wav_bytes[26]) << 16)
+        | (static_cast<unsigned>(host_config_wav_bytes[27]) << 24);
+    assert(config_sample_rate == 32000);
 
 #ifdef SGRECOMP_HOST_PATH
     std::vector<unsigned char> host_sram_rom(0x10000, 0x00);

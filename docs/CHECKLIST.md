@@ -139,7 +139,8 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Relatorio de analise: blocos, sucessores, opcodes levantados e fallback usado.
 - [x] Relatorio de analise: deteccao heuristica de tabelas de ponteiros little-endian.
 - [x] Relatorio de analise: acessos estaticos a I/O e writes diretos de mapper.
-- [ ] Config TOML real para opcoes de alvo.
+- [x] Config TOML inicial via `--config` para modelo, mapper, limite estatico, video/audio e enhancements basicos.
+- [ ] Config TOML completo para opcoes de alvo, perfis, paths locais ignoraveis e validacao de schema.
 
 ## CPU Z80
 
@@ -314,6 +315,6 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Checklist de continuidade.
 - [x] Roadmap de engenharia reversa/enhanced ports.
 - [ ] Guia de criacao de port por ROM.
-- [ ] Especificacao de config TOML.
+- [x] Especificacao inicial de config TOML em `config/example.toml` e README.
 - [x] Guia de build/toolchain.
 - [ ] Guia de contribuicao e estilo de codigo.

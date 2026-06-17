@@ -73,10 +73,40 @@ struct Options {
     bool force_state = false;
     std::size_t max_steps = 200000;
     std::size_t host_frames = 1;
+    std::optional<std::size_t> max_static_bytes;
     u32 audio_sample_rate = 44100;
 };
 
+std::string trim_ascii(std::string value) {
+    const auto first = std::find_if_not(value.begin(), value.end(), [](unsigned char c) {
+        return std::isspace(c) != 0;
+    });
+    const auto last = std::find_if_not(value.rbegin(), value.rend(), [](unsigned char c) {
+        return std::isspace(c) != 0;
+    }).base();
+    if (first >= last) {
+        return {};
+    }
+    return {first, last};
+}
+
+std::string lower_ascii(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    return value;
+}
+
+std::string strip_quotes(std::string value) {
+    value = trim_ascii(std::move(value));
+    if (value.size() >= 2 && value.front() == '"' && value.back() == '"') {
+        return value.substr(1, value.size() - 2);
+    }
+    return value;
+}
+
 u32 parse_number(std::string text) {
+    text = strip_quotes(std::move(text));
     std::size_t consumed = 0;
     const unsigned long value = std::stoul(text, &consumed, 0);
     if (consumed != text.size()) {
@@ -99,9 +129,7 @@ AddressRange parse_range(const std::string& text) {
 }
 
 CartridgeMapper parse_mapper(std::string text) {
-    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char ch) {
-        return static_cast<char>(std::tolower(ch));
-    });
+    text = lower_ascii(strip_quotes(std::move(text)));
     if (text == "auto") {
         return CartridgeMapper::Auto;
     }
@@ -124,9 +152,7 @@ CartridgeMapper parse_mapper(std::string text) {
 }
 
 HostVideoStandard parse_video_standard(std::string text) {
-    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) {
-        return static_cast<char>(std::tolower(c));
-    });
+    text = lower_ascii(strip_quotes(std::move(text)));
     if (text == "ntsc") {
         return HostVideoStandard::Ntsc;
     }
@@ -134,6 +160,28 @@ HostVideoStandard parse_video_standard(std::string text) {
         return HostVideoStandard::Pal;
     }
     throw std::runtime_error("unknown video standard: " + text);
+}
+
+ConsoleModel parse_console_model(std::string text) {
+    text = lower_ascii(strip_quotes(std::move(text)));
+    if (text == "sms") {
+        return ConsoleModel::SMS;
+    }
+    if (text == "sg3000" || text == "sg-3000") {
+        return ConsoleModel::SG3000;
+    }
+    throw std::runtime_error("unknown model: " + text);
+}
+
+bool parse_config_bool(std::string text) {
+    text = lower_ascii(strip_quotes(std::move(text)));
+    if (text == "true" || text == "yes" || text == "on" || text == "1") {
+        return true;
+    }
+    if (text == "false" || text == "no" || text == "off" || text == "0") {
+        return false;
+    }
+    throw std::runtime_error("invalid boolean in config: " + text);
 }
 
 bool range_matches(const std::vector<AddressRange>& filters, u32 value) {
@@ -170,8 +218,81 @@ std::vector<u8> normalize_rom_payload(std::vector<u8> rom) {
     return rom;
 }
 
+void apply_config_file(Options& opts, const std::filesystem::path& path) {
+    std::ifstream file(path);
+    if (!file) {
+        throw std::runtime_error("cannot open config file");
+    }
+
+    std::string section;
+    std::string line;
+    while (std::getline(file, line)) {
+        const auto comment = line.find('#');
+        if (comment != std::string::npos) {
+            line.erase(comment);
+        }
+        line = trim_ascii(std::move(line));
+        if (line.empty()) {
+            continue;
+        }
+        if (line.front() == '[' && line.back() == ']') {
+            section = lower_ascii(trim_ascii(line.substr(1, line.size() - 2)));
+            continue;
+        }
+
+        const auto equals = line.find('=');
+        if (equals == std::string::npos) {
+            throw std::runtime_error("invalid config line: " + line);
+        }
+        const std::string key = lower_ascii(trim_ascii(line.substr(0, equals)));
+        const std::string value = trim_ascii(line.substr(equals + 1));
+
+        if (section == "target") {
+            if (key == "model") {
+                opts.model = parse_console_model(value);
+            } else if (key == "mapper") {
+                opts.mapper = parse_mapper(value);
+            } else if (key == "name" || key == "entry") {
+                continue;
+            } else {
+                throw std::runtime_error("unknown target config key: " + key);
+            }
+        } else if (section == "recompiler") {
+            if (key == "max_static_bytes") {
+                opts.max_static_bytes = parse_number(value);
+            } else if (key == "fallback" || key == "emit_disassembly_comments") {
+                (void)parse_config_bool(value);
+            } else {
+                throw std::runtime_error("unknown recompiler config key: " + key);
+            }
+        } else if (section == "runtime") {
+            if (key == "region" || key == "video_standard") {
+                opts.video_standard = parse_video_standard(value);
+            } else if (key == "audio_sample_rate") {
+                opts.audio_sample_rate = static_cast<u32>(std::clamp(static_cast<int>(parse_number(value)), 8000, 96000));
+            } else if (key == "enable_fm") {
+                opts.enhancements.enable_fm = parse_config_bool(value);
+            } else if (key == "disable_sprite_limit") {
+                opts.enhancements.disable_sprite_limit = parse_config_bool(value);
+                if (opts.enhancements.disable_sprite_limit) {
+                    opts.enhancements.mode = RuntimeMode::Enhanced;
+                }
+            } else if (key == "reduce_flicker") {
+                opts.enhancements.reduce_flicker = parse_config_bool(value);
+                if (opts.enhancements.reduce_flicker) {
+                    opts.enhancements.mode = RuntimeMode::Enhanced;
+                }
+            } else {
+                throw std::runtime_error("unknown runtime config key: " + key);
+            }
+        } else {
+            throw std::runtime_error("config key outside supported section: " + key);
+        }
+    }
+}
+
 void print_usage() {
-    std::cout << "usage: sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--model sms|sg3000] [--mapper auto|plain|smapper|cmapper|kmapper|k8k] [--disasm] [--bios bios.sms]\n"
+    std::cout << "usage: sgrecomp <rom.sms|rom.sg> [--config config.toml] [-o generated.cpp] [--model sms|sg3000] [--mapper auto|plain|smapper|cmapper|kmapper|k8k] [--disasm] [--bios bios.sms]\n"
               << "       sgrecomp <rom.sms|rom.sg> --run-smoke [--steps n] [--trace] [--bios bios.sms] [--mapper auto|plain|smapper|cmapper|kmapper|k8k]\n"
               << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp]\n"
               << "                [--dump-audio audio.wav] [--dump-vgm audio.vgm] [--dump-fm-log fm.csv]\n"
@@ -197,6 +318,10 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "-o" && i + 1 < argc) {
             opts.output = argv[++i];
+            continue;
+        }
+        if (arg == "--config" && i + 1 < argc) {
+            apply_config_file(opts, argv[++i]);
             continue;
         }
         if (arg == "--bios" && i + 1 < argc) {
@@ -300,14 +425,7 @@ Options parse_args(int argc, char** argv) {
             continue;
         }
         if (arg == "--model" && i + 1 < argc) {
-            const std::string model = argv[++i];
-            if (model == "sms") {
-                opts.model = ConsoleModel::SMS;
-            } else if (model == "sg3000" || model == "sg-3000") {
-                opts.model = ConsoleModel::SG3000;
-            } else {
-                throw std::runtime_error("unknown model: " + model);
-            }
+            opts.model = parse_console_model(argv[++i]);
             continue;
         }
         if (arg == "--disasm") {
@@ -2302,7 +2420,8 @@ int main(int argc, char** argv) {
             ? std::optional<std::vector<u8>>{}
             : std::optional<std::vector<u8>>{read_file(opts.bios)};
         const auto image = image_for_decode(opts.model, opts.mapper, rom, opts.disassemble_only && bios ? &*bios : nullptr);
-        const std::size_t limit = std::min<std::size_t>(rom.size(), 0xC000);
+        const std::size_t configured_limit = std::min<std::size_t>(opts.max_static_bytes.value_or(0xC000), 0xC000);
+        const std::size_t limit = std::min<std::size_t>(rom.size(), configured_limit);
         if (!opts.dump_analysis.empty()) {
             const auto entry_points = default_entry_points(limit);
             const auto blocks = discover_basic_blocks(image, limit, entry_points);
