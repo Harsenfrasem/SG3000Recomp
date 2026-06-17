@@ -3,6 +3,7 @@
 #include "sgrecomp/joypad.h"
 #include "sgrecomp/psg.h"
 #include "sgrecomp/vdp.h"
+#include "sgrecomp/ym2413.h"
 #include "sgrecomp/z80.h"
 
 #include <array>
@@ -33,6 +34,7 @@ struct Options {
     std::filesystem::path dump_frame_bmp;
     std::filesystem::path dump_audio;
     std::filesystem::path dump_vgm;
+    std::filesystem::path dump_fm_log;
     std::filesystem::path dump_vram;
     std::filesystem::path dump_cram;
     std::filesystem::path dump_sram;
@@ -70,10 +72,10 @@ void print_usage() {
     std::cout << "usage: sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--model sms|sg3000] [--disasm] [--bios bios.sms]\n"
               << "       sgrecomp <rom.sms|rom.sg> --run-smoke [--steps n] [--trace] [--bios bios.sms]\n"
               << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp]\n"
-              << "                [--dump-audio audio.wav] [--dump-vgm audio.vgm]\n"
+              << "                [--dump-audio audio.wav] [--dump-vgm audio.vgm] [--dump-fm-log fm.csv]\n"
               << "                [--dump-vram vram.bin] [--dump-cram cram.bin]\n"
               << "                [--load-sram save.sav] [--save-sram save.sav] [--dump-sram sram.bin]\n"
-              << "                [--dump-coverage pcs.csv] [--disable-sprite-limit] [--reduce-flicker]\n"
+              << "                [--dump-coverage pcs.csv] [--disable-sprite-limit] [--reduce-flicker] [--enable-fm]\n"
               << "       sgrecomp <rom.sms|rom.sg> --run-host [--frames n] [--bios bios.sms]\n"
               << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp] [--dump-audio audio.wav]\n"
               << "       sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--dump-analysis analysis.txt]\n";
@@ -109,6 +111,10 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--dump-vgm" && i + 1 < argc) {
             opts.dump_vgm = argv[++i];
+            continue;
+        }
+        if (arg == "--dump-fm-log" && i + 1 < argc) {
+            opts.dump_fm_log = argv[++i];
             continue;
         }
         if (arg == "--dump-vram" && i + 1 < argc) {
@@ -180,6 +186,10 @@ Options parse_args(int argc, char** argv) {
             opts.enhancements.reduce_flicker = true;
             continue;
         }
+        if (arg == "--enable-fm") {
+            opts.enhancements.enable_fm = true;
+            continue;
+        }
         if (arg == "--steps" && i + 1 < argc) {
             opts.max_steps = static_cast<std::size_t>(std::stoull(argv[++i]));
             continue;
@@ -199,8 +209,9 @@ Options parse_args(int argc, char** argv) {
 std::array<u8, 0x10000> image_for_decode(ConsoleModel model, const std::vector<u8>& rom, const std::vector<u8>* bios = nullptr) {
     Vdp vdp;
     Psg psg;
+    Ym2413 ym2413;
     Joypad joypad;
-    Bus bus(model, vdp, psg, joypad);
+    Bus bus(model, vdp, psg, ym2413, joypad);
     if (bios != nullptr) {
         bus.load_bios(*bios);
     }
@@ -408,6 +419,25 @@ void write_psg_vgm(const std::filesystem::path& path, const std::vector<PsgWrite
         throw std::runtime_error("cannot open VGM output file");
     }
     out.write(reinterpret_cast<const char*>(file.data()), static_cast<std::streamsize>(file.size()));
+}
+
+void write_fm_log_csv(const std::filesystem::path& path, const std::vector<Ym2413Write>& writes) {
+    if (path.has_parent_path()) {
+        std::filesystem::create_directories(path.parent_path());
+    }
+
+    std::ofstream out(path);
+    if (!out) {
+        throw std::runtime_error("cannot open FM log output file");
+    }
+
+    out << "cycle,port,value\n";
+    for (const auto& write : writes) {
+        out << write.cycle << ",0x"
+            << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(write.port)
+            << ",0x" << std::setw(2) << static_cast<int>(write.value)
+            << std::dec << std::setfill(' ') << "\n";
+    }
 }
 
 template <typename Container>
@@ -810,12 +840,15 @@ void write_analysis_report(
 void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector<u8>* bios, std::size_t max_steps, bool trace, const Options& opts) {
     Vdp vdp;
     Psg psg;
+    Ym2413 ym2413;
     Joypad joypad;
-    Bus bus(model, vdp, psg, joypad);
+    Bus bus(model, vdp, psg, ym2413, joypad);
     Z80State cpu;
     vdp.set_enhancements(opts.enhancements);
     psg.set_enhancements(opts.enhancements);
     psg.set_write_logging_enabled(!opts.dump_vgm.empty());
+    bus.set_fm_present(opts.enhancements.enable_fm || !opts.dump_fm_log.empty());
+    ym2413.set_write_logging_enabled(!opts.dump_fm_log.empty());
     if (bios != nullptr) {
         bus.load_bios(*bios);
     }
@@ -834,11 +867,14 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
     const auto tick_devices = [&](int elapsed) {
         vdp.tick(elapsed);
         psg.tick(elapsed);
+        ym2413.tick(elapsed);
         if (!opts.dump_audio.empty()) {
             audio_cycle_accumulator += elapsed;
             while (audio_cycle_accumulator >= cpu_cycles_per_audio_sample) {
                 audio_cycle_accumulator -= cpu_cycles_per_audio_sample;
-                const auto sample = psg.sample();
+                const auto psg_sample = ym2413.psg_enabled() ? psg.sample() : std::array<float, 2>{0.0F, 0.0F};
+                const auto fm_sample = ym2413.sample();
+                const std::array<float, 2> sample{psg_sample[0] + fm_sample[0], psg_sample[1] + fm_sample[1]};
                 for (float channel : sample) {
                     const float clipped = std::clamp(channel, -1.0F, 1.0F);
                     audio_samples.push_back(static_cast<s16>(clipped * 32767.0F));
@@ -852,15 +888,20 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
             return (pixel & 0x00FFFFFF) != 0;
         });
         const auto audio = psg.sample();
+        const auto fm_audio = ym2413.sample();
         std::cout << "visited pcs: " << visited_pc.count()
                   << "\nframebuffer lit pixels: " << lit_pixels
                   << "\npsg sample: " << std::fixed << std::setprecision(4)
                   << audio[0] << "," << audio[1]
+                  << "\nfm present: " << (ym2413.present() ? "yes" : "no")
+                  << ", fm enabled: " << (ym2413.fm_enabled() ? "yes" : "no")
+                  << ", fm sample: " << fm_audio[0] << "," << fm_audio[1]
                   << "\nenhancements: mode="
                   << (opts.enhancements.mode == RuntimeMode::Enhanced ? "enhanced"
                       : opts.enhancements.mode == RuntimeMode::Hybrid ? "hybrid" : "accurate")
                   << ", disable_sprite_limit=" << (opts.enhancements.disable_sprite_limit ? "on" : "off")
-                  << ", reduce_flicker=" << (opts.enhancements.reduce_flicker ? "on" : "off") << "\n";
+                  << ", reduce_flicker=" << (opts.enhancements.reduce_flicker ? "on" : "off")
+                  << ", enable_fm=" << (opts.enhancements.enable_fm ? "on" : "off") << "\n";
         if (!opts.dump_frame.empty()) {
             write_frame_ppm(opts.dump_frame, framebuffer);
             std::cout << "frame dumped: " << opts.dump_frame.string() << "\n";
@@ -878,6 +919,11 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
             write_psg_vgm(opts.dump_vgm, psg.logged_writes(), cpu.cycles);
             std::cout << "vgm dumped: " << opts.dump_vgm.string()
                       << " (" << psg.logged_writes().size() << " psg writes)\n";
+        }
+        if (!opts.dump_fm_log.empty()) {
+            write_fm_log_csv(opts.dump_fm_log, ym2413.logged_writes());
+            std::cout << "fm log dumped: " << opts.dump_fm_log.string()
+                      << " (" << ym2413.logged_writes().size() << " writes)\n";
         }
         if (!opts.dump_vram.empty()) {
             write_binary_dump(opts.dump_vram, vdp.debug_vram());
@@ -914,12 +960,14 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
         try {
             const u64 cycles_before = cpu.cycles;
             psg.set_cycle(cycles_before);
+            ym2413.set_cycle(cycles_before);
             execute_one(cpu, bus);
             tick_devices(static_cast<int>(cpu.cycles - cycles_before));
             if (vdp.irq_pending()) {
                 const u64 irq_before = cpu.cycles;
+                psg.set_cycle(irq_before);
+                ym2413.set_cycle(irq_before);
                 if (service_maskable_interrupt(cpu, bus)) {
-                    psg.set_cycle(irq_before);
                     tick_devices(static_cast<int>(cpu.cycles - irq_before));
                 }
             }
@@ -966,6 +1014,7 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
         return (pixel & 0x00FFFFFF) != 0;
     });
     const auto sample = host.console().psg().sample();
+    const auto fm_sample = host.console().ym2413().sample();
 
     std::cout << "host frames: " << opts.host_frames
               << "\nframe index: " << result.frame_index
@@ -974,11 +1023,15 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
               << "\naudio samples: " << result.stereo_samples
               << "\npsg sample: " << std::fixed << std::setprecision(4)
               << sample[0] << "," << sample[1]
+              << "\nfm present: " << (host.console().ym2413().present() ? "yes" : "no")
+              << ", fm enabled: " << (host.console().ym2413().fm_enabled() ? "yes" : "no")
+              << ", fm sample: " << fm_sample[0] << "," << fm_sample[1]
               << "\nenhancements: mode="
               << (opts.enhancements.mode == RuntimeMode::Enhanced ? "enhanced"
                   : opts.enhancements.mode == RuntimeMode::Hybrid ? "hybrid" : "accurate")
               << ", disable_sprite_limit=" << (opts.enhancements.disable_sprite_limit ? "on" : "off")
-              << ", reduce_flicker=" << (opts.enhancements.reduce_flicker ? "on" : "off") << "\n";
+              << ", reduce_flicker=" << (opts.enhancements.reduce_flicker ? "on" : "off")
+              << ", enable_fm=" << (opts.enhancements.enable_fm ? "on" : "off") << "\n";
 
     if (!opts.dump_frame.empty()) {
         write_frame_ppm(opts.dump_frame, framebuffer);

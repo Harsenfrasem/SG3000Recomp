@@ -3,12 +3,13 @@
 namespace sgrecomp {
 
 Console::Console(ConsoleModel model)
-    : bus_(model, vdp_, psg_, joypad_), model_(model) {}
+    : bus_(model, vdp_, psg_, ym2413_, joypad_), model_(model) {}
 
 Console::Console(ConsoleModel model, const EnhancementConfig& enhancements)
-    : bus_(model, vdp_, psg_, joypad_), model_(model), enhancements_(enhancements) {
+    : bus_(model, vdp_, psg_, ym2413_, joypad_), model_(model), enhancements_(enhancements) {
     vdp_.set_enhancements(enhancements_);
     psg_.set_enhancements(enhancements_);
+    bus_.set_fm_present(enhancements_.enable_fm);
 }
 
 void Console::load_rom(std::span<const u8> rom) {
@@ -27,6 +28,7 @@ void Console::set_enhancements(const EnhancementConfig& enhancements) {
     enhancements_ = enhancements;
     vdp_.set_enhancements(enhancements_);
     psg_.set_enhancements(enhancements_);
+    bus_.set_fm_present(enhancements_.enable_fm);
 }
 
 void Console::press_pause() {
@@ -43,12 +45,14 @@ void Console::run_cycles(u64 cycles) {
         const int elapsed = static_cast<int>(cpu_.cycles - before);
         vdp_.tick(elapsed);
         psg_.tick(elapsed);
+        ym2413_.tick(elapsed);
         if (vdp_.irq_pending()) {
             const u64 irq_before = cpu_.cycles;
             if (service_maskable_interrupt(cpu_, bus_)) {
                 const int irq_elapsed = static_cast<int>(cpu_.cycles - irq_before);
                 vdp_.tick(irq_elapsed);
                 psg_.tick(irq_elapsed);
+                ym2413_.tick(irq_elapsed);
             }
         }
     }

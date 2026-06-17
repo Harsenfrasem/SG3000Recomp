@@ -15,6 +15,7 @@ out/
 generated_*.cpp
 recompiled_rom.cpp
 local-roms/
+local-fm-roms/
 local-bios/
 local-saves/
 *.sms

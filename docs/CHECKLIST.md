@@ -28,7 +28,7 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 
 - [x] Estrutura publica `EnhancementConfig` no runtime.
 - [x] Modo padrao `accurate`, sem melhorias ativadas por acidente.
-- [ ] Conectar config ao futuro host runtime.
+- [x] Conectar config ao host runtime.
 - [x] Conectar config inicial ao `Console` e `Vdp`.
 - [x] Conectar config inicial ao `Psg`.
 - [ ] Carregamento de config TOML/JSON por alvo sem guardar caminhos locais.
@@ -67,7 +67,11 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] `GameProfile` para configurar compatibilidade e enhancements por jogo.
 - [x] Identificacao de jogo por hash sem incluir ROM/BIOS no repositorio.
 - [x] Carregamento de perfis locais no host por `--profile`.
-- [ ] FM opcional para jogos com suporte conhecido.
+- [x] Flag `enable_fm` em `EnhancementConfig`, CLI, host e perfis.
+- [x] Portas FM iniciais: endereco `$F0`, dados `$F1` e controle/deteccao `$F2`.
+- [x] Smoke runner com log CSV local de escritas FM.
+- [ ] FM opcional fiel para jogos com suporte conhecido.
+- [ ] Substituir sintetizador FM aproximado por nucleo YM2413/OPLL validado.
 - [ ] Experimento de FM enhancement para PSG-only com perfis manuais.
 - [ ] Fallback obrigatorio para PSG original.
 - [ ] Documentar limites: FM sintetico nao deve ser tratado como fidelidade historica.
@@ -182,6 +186,8 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Tabela de volume/log attenuation inicial.
 - [x] Dump WAV local pelo smoke runner.
 - [x] Dump VGM local de writes PSG pelo smoke runner.
+- [x] Infraestrutura inicial YM2413/OPLL: portas, audio control, logging e mix no host.
+- [ ] YM2413/OPLL fiel: instrumentos, envelopes, rhythm mode, LFO e tabelas validadas.
 - [ ] Mixer estereo e sample rate configuravel.
 - [x] Buffer de audio para host backend headless.
 - [x] Saida Win32 waveOut inicial no host.
@@ -230,8 +236,9 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] `disable_sprite_limit`.
 - [x] `reduce_flicker`.
 - [x] Perfis por jogo por hash local.
-- [ ] Audio FM opcional.
-- [ ] Relatorio/debug mostrando enhancements ativos.
+- [x] Audio FM opcional inicial por `enable_fm`.
+- [x] Relatorio/debug mostrando enhancements ativos no smoke/host.
+- [ ] Audio FM fiel validado contra referencias.
 
 ## Testes
 
@@ -243,6 +250,7 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Teste do relatorio de analise estatica do gerador.
 - [x] Teste do dump WAV do smoke runner.
 - [x] Teste do dump VGM PSG do smoke runner.
+- [x] Teste do controle/log FM no runtime e na CLI.
 - [x] Teste do save SRAM pelo host Win32 com ROM sintetica.
 - [x] Teste de parser/hash de `GameProfile` e perfil aplicado no host.
 - [ ] Testes de regressao com ROMs homebrew permitidas.

@@ -10,6 +10,7 @@ namespace sgrecomp {
 
 class Vdp;
 class Psg;
+class Ym2413;
 class Joypad;
 
 enum class ConsoleModel {
@@ -19,7 +20,7 @@ enum class ConsoleModel {
 
 class Bus {
 public:
-    Bus(ConsoleModel model, Vdp& vdp, Psg& psg, Joypad& joypad);
+    Bus(ConsoleModel model, Vdp& vdp, Psg& psg, Ym2413& ym2413, Joypad& joypad);
 
     void load_rom(std::span<const u8> rom);
     void load_bios(std::span<const u8> bios);
@@ -34,6 +35,8 @@ public:
     void write(u16 address, u8 value);
     u8 input(u8 port);
     void output(u8 port, u8 value);
+    void set_fm_present(bool present);
+    bool fm_present() const;
 
     const std::array<u8, 0x10000>& debug_memory() const { return memory_; }
     const std::array<u8, 0x8000>& debug_cartridge_ram() const { return cartridge_ram_; }
@@ -42,6 +45,7 @@ private:
     ConsoleModel model_;
     Vdp& vdp_;
     Psg& psg_;
+    Ym2413& ym2413_;
     Joypad& joypad_;
     std::array<u8, 0x10000> memory_{};
     std::array<u8, 0x8000> cartridge_ram_{};

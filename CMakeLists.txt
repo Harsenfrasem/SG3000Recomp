@@ -25,6 +25,7 @@ add_library(sgrecomp_runtime STATIC
     src/runtime/joypad.cpp
     src/runtime/psg.cpp
     src/runtime/vdp.cpp
+    src/runtime/ym2413.cpp
     src/runtime/z80.cpp
 )
 

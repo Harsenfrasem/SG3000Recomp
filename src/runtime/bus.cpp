@@ -3,13 +3,14 @@
 #include "sgrecomp/joypad.h"
 #include "sgrecomp/psg.h"
 #include "sgrecomp/vdp.h"
+#include "sgrecomp/ym2413.h"
 
 #include <algorithm>
 
 namespace sgrecomp {
 
-Bus::Bus(ConsoleModel model, Vdp& vdp, Psg& psg, Joypad& joypad)
-    : model_(model), vdp_(vdp), psg_(psg), joypad_(joypad) {}
+Bus::Bus(ConsoleModel model, Vdp& vdp, Psg& psg, Ym2413& ym2413, Joypad& joypad)
+    : model_(model), vdp_(vdp), psg_(psg), ym2413_(ym2413), joypad_(joypad) {}
 
 void Bus::load_rom(std::span<const u8> rom) {
     rom_header_removed_ = has_copier_header(rom);
@@ -89,6 +90,9 @@ void Bus::write(u16 address, u8 value) {
 }
 
 u8 Bus::input(u8 port) {
+    if (model_ == ConsoleModel::SMS && port == 0xF2) {
+        return ym2413_.read_audio_control();
+    }
     if (port == 0x7E) {
         return vdp_.read_v_counter();
     }
@@ -111,6 +115,18 @@ u8 Bus::input(u8 port) {
 }
 
 void Bus::output(u8 port, u8 value) {
+    if (model_ == ConsoleModel::SMS && port == 0xF0) {
+        ym2413_.write_address(value);
+        return;
+    }
+    if (model_ == ConsoleModel::SMS && port == 0xF1) {
+        ym2413_.write_data(value);
+        return;
+    }
+    if (model_ == ConsoleModel::SMS && port == 0xF2) {
+        ym2413_.write_audio_control(value);
+        return;
+    }
     if (model_ == ConsoleModel::SMS && port == 0x3E) {
         memory_control_ = value;
         set_bios_enabled((value & 0x08) == 0);
@@ -127,6 +143,14 @@ void Bus::output(u8 port, u8 value) {
     if (port == 0x7E || port == 0x7F) {
         psg_.write(value);
     }
+}
+
+void Bus::set_fm_present(bool present) {
+    ym2413_.set_present(model_ == ConsoleModel::SMS && present);
+}
+
+bool Bus::fm_present() const {
+    return ym2413_.present();
 }
 
 void Bus::refresh_smapper() {

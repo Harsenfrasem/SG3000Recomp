@@ -5,6 +5,7 @@
 #include "sgrecomp/joypad.h"
 #include "sgrecomp/psg.h"
 #include "sgrecomp/vdp.h"
+#include "sgrecomp/ym2413.h"
 #include "sgrecomp/z80.h"
 
 #include <span>
@@ -32,12 +33,15 @@ public:
     const Vdp& vdp() const { return vdp_; }
     Psg& psg() { return psg_; }
     const Psg& psg() const { return psg_; }
+    Ym2413& ym2413() { return ym2413_; }
+    const Ym2413& ym2413() const { return ym2413_; }
     Joypad& joypad() { return joypad_; }
     const Joypad& joypad() const { return joypad_; }
 
 private:
     Vdp vdp_;
     Psg psg_;
+    Ym2413 ym2413_;
     Joypad joypad_;
     Bus bus_;
     Z80State cpu_;

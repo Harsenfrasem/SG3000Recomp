@@ -115,6 +115,8 @@ int main() {
     const std::filesystem::path frame_bmp_path = output_dir / "frame_fixture.bmp";
     const std::filesystem::path audio_path = output_dir / "audio_fixture.wav";
     const std::filesystem::path vgm_path = output_dir / "audio_fixture.vgm";
+    const std::filesystem::path fm_rom_path = output_dir / "fm_fixture.sms";
+    const std::filesystem::path fm_log_path = output_dir / "fm_fixture.csv";
     const std::filesystem::path host_frame_path = output_dir / "host_frame.bmp";
     const std::filesystem::path host_audio_path = output_dir / "host_audio.wav";
     const std::filesystem::path host_sram_rom_path = output_dir / "host_sram_fixture.sms";
@@ -260,6 +262,26 @@ int main() {
     assert(vgm[3] == ' ');
     assert(vgm[0x100] == 0x50);
     assert(vgm.back() == 0x66);
+
+    const std::vector<unsigned char> fm_rom = {
+        0x3E, 0x01, // ld a,$01: enable FM, mute PSG
+        0xD3, 0xF2, // out ($f2),a
+        0x3E, 0x20, // ld a,$20: channel 0 key/block/fnum high
+        0xD3, 0xF0, // out ($f0),a
+        0x3E, 0x11, // ld a,$11
+        0xD3, 0xF1, // out ($f1),a
+        0x76,       // halt
+    };
+    write_binary(fm_rom_path, fm_rom);
+
+    const std::string fm_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(fm_rom_path)
+        + " --run-smoke --enable-fm --steps 64 --dump-fm-log " + quote(fm_log_path);
+    assert(run_command(fm_command) == 0);
+    const std::string fm_log = read_text(fm_log_path);
+    assert(contains(fm_log, "cycle,port,value"));
+    assert(contains(fm_log, "0xf2,0x01"));
+    assert(contains(fm_log, "0xf0,0x20"));
+    assert(contains(fm_log, "0xf1,0x11"));
 
     const std::string host_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(audio_rom_path)
         + " --run-host --frames 2 --dump-frame-bmp " + quote(host_frame_path)

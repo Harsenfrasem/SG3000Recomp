@@ -160,6 +160,9 @@ GameProfileDatabase GameProfileDatabase::parse(std::string_view text) {
                 current.enhancements.mode = RuntimeMode::Enhanced;
             }
             current.has_enhancements = true;
+        } else if (key == "enable_fm") {
+            current.enhancements.enable_fm = parse_bool(value);
+            current.has_enhancements = true;
         } else if (key == "audio_latency_ms") {
             current.audio_latency_ms = std::clamp(std::stoi(strip_quotes(value)), 10, 300);
             current.has_audio_latency_ms = true;

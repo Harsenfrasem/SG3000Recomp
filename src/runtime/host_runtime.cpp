@@ -65,12 +65,14 @@ void HostRuntime::run_until_cycle(u64 target_cycle) {
     while (console_.cpu().cycles < target_cycle) {
         const u64 before = console_.cpu().cycles;
         console_.psg().set_cycle(before);
+        console_.ym2413().set_cycle(before);
         execute_one(console_.cpu(), console_.bus());
         tick_devices(static_cast<int>(console_.cpu().cycles - before));
 
         if (console_.vdp().irq_pending()) {
             const u64 irq_before = console_.cpu().cycles;
             console_.psg().set_cycle(irq_before);
+            console_.ym2413().set_cycle(irq_before);
             if (service_maskable_interrupt(console_.cpu(), console_.bus())) {
                 tick_devices(static_cast<int>(console_.cpu().cycles - irq_before));
             }
@@ -84,6 +86,7 @@ void HostRuntime::tick_devices(int elapsed_cycles) {
     }
     console_.vdp().tick(elapsed_cycles);
     console_.psg().tick(elapsed_cycles);
+    console_.ym2413().tick(elapsed_cycles);
     append_audio_samples(elapsed_cycles);
 }
 
@@ -91,8 +94,10 @@ void HostRuntime::append_audio_samples(int elapsed_cycles) {
     audio_cycle_accumulator_ += static_cast<u64>(elapsed_cycles) * config_.audio_sample_rate;
     while (audio_cycle_accumulator_ >= config_.cpu_clock_hz) {
         audio_cycle_accumulator_ -= config_.cpu_clock_hz;
-        const auto sample = console_.psg().sample();
-        for (float channel : sample) {
+        const auto psg = console_.ym2413().psg_enabled() ? console_.psg().sample() : std::array<float, 2>{0.0F, 0.0F};
+        const auto fm = console_.ym2413().sample();
+        const std::array<float, 2> mixed{psg[0] + fm[0], psg[1] + fm[1]};
+        for (float channel : mixed) {
             const float clipped = std::clamp(channel, -1.0F, 1.0F);
             audio_.push_back(static_cast<s16>(clipped * 32767.0F));
         }

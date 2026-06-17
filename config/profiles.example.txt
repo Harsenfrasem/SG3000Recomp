@@ -8,4 +8,5 @@ model = "sms"
 mode = "accurate"
 disable_sprite_limit = false
 reduce_flicker = false
+enable_fm = false
 audio_latency_ms = 80

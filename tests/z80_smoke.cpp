@@ -704,11 +704,13 @@ void test_console_enhancement_config_propagates_to_runtime_devices() {
     assert(console.enhancements().mode == RuntimeMode::Accurate);
     assert(!console.vdp().enhancements().disable_sprite_limit);
     assert(!console.psg().enhancements().disable_sprite_limit);
+    assert(!console.ym2413().present());
 
     EnhancementConfig config;
     config.mode = RuntimeMode::Enhanced;
     config.disable_sprite_limit = true;
     config.reduce_flicker = true;
+    config.enable_fm = true;
     console.set_enhancements(config);
 
     assert(console.enhancements().mode == RuntimeMode::Enhanced);
@@ -716,6 +718,7 @@ void test_console_enhancement_config_propagates_to_runtime_devices() {
     assert(console.vdp().enhancements().reduce_flicker);
     assert(console.psg().enhancements().disable_sprite_limit);
     assert(console.psg().enhancements().reduce_flicker);
+    assert(console.ym2413().present());
 }
 
 void test_psg_tone_generates_sample() {
@@ -730,6 +733,39 @@ void test_psg_tone_generates_sample() {
 
     assert(before[0] != after[0]);
     assert(after[0] == after[1]);
+}
+
+void test_ym2413_audio_control_and_register_writes() {
+    EnhancementConfig config;
+    config.enable_fm = true;
+    Console console(ConsoleModel::SMS, config);
+
+    assert(console.ym2413().present());
+    assert(console.bus().input(0xF2) == 0x00);
+    console.bus().output(0xF2, 0x01);
+    assert(console.ym2413().fm_enabled());
+    assert(!console.ym2413().psg_enabled());
+
+    console.bus().output(0xF0, 0x20);
+    console.bus().output(0xF1, 0x11);
+    assert(console.ym2413().selected_register() == 0x20);
+    assert(console.ym2413().debug_registers()[0x20] == 0x11);
+
+    console.bus().output(0xF0, 0x10);
+    console.bus().output(0xF1, 0x80);
+    console.bus().output(0xF0, 0x30);
+    console.bus().output(0xF1, 0x00);
+    console.ym2413().tick(4096);
+    const auto sample = console.ym2413().sample();
+    assert(sample[0] == sample[1]);
+}
+
+void test_ym2413_absent_audio_control_probe() {
+    Console console(ConsoleModel::SMS);
+    assert(!console.ym2413().present());
+    assert(console.bus().input(0xF2) == 0x02);
+    console.bus().output(0xF2, 0x01);
+    assert(!console.ym2413().fm_enabled());
 }
 
 void test_misc_jumps_and_flags() {
@@ -1216,6 +1252,7 @@ void test_game_profile_hash_and_parse() {
         "model = \"sg3000\"\n"
         "mode = \"enhanced\"\n"
         "disable_sprite_limit = true\n"
+        "enable_fm = true\n"
         "audio_latency_ms = 120\n");
     const GameProfile* profile = profiles.find_by_hash(hash);
     assert(profile != nullptr);
@@ -1225,6 +1262,7 @@ void test_game_profile_hash_and_parse() {
     assert(profile->has_enhancements);
     assert(profile->enhancements.mode == RuntimeMode::Enhanced);
     assert(profile->enhancements.disable_sprite_limit);
+    assert(profile->enhancements.enable_fm);
     assert(profile->has_audio_latency_ms);
     assert(profile->audio_latency_ms == 120);
 }
@@ -1258,6 +1296,8 @@ int main() {
     test_vdp_reduce_flicker_uses_conservative_sprite_limit();
     test_console_enhancement_config_propagates_to_runtime_devices();
     test_psg_tone_generates_sample();
+    test_ym2413_audio_control_and_register_writes();
+    test_ym2413_absent_audio_control_probe();
     test_misc_jumps_and_flags();
     test_v_counter_port();
     test_index_register_basics();

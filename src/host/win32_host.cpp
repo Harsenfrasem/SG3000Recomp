@@ -394,6 +394,10 @@ Options parse_args(int argc, char** argv) {
             opts.enhancements.reduce_flicker = true;
             continue;
         }
+        if (arg == "--enable-fm") {
+            opts.enhancements.enable_fm = true;
+            continue;
+        }
         if (opts.rom.empty()) {
             opts.rom = arg;
             continue;
