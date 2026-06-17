@@ -117,6 +117,8 @@ int main() {
     const std::filesystem::path vgm_path = output_dir / "audio_fixture.vgm";
     const std::filesystem::path host_frame_path = output_dir / "host_frame.bmp";
     const std::filesystem::path host_audio_path = output_dir / "host_audio.wav";
+    const std::filesystem::path host_sram_rom_path = output_dir / "host_sram_fixture.sms";
+    const std::filesystem::path host_sram_path = output_dir / "host_save.sav";
     const std::filesystem::path object_path = output_dir / "generated_fixture.obj";
 
     const std::vector<unsigned char> rom = {
@@ -271,4 +273,28 @@ int main() {
     assert(host_wav.size() > 44);
     assert(host_wav.substr(0, 4) == "RIFF");
     assert(host_wav.substr(8, 4) == "WAVE");
+
+#ifdef SGRECOMP_HOST_PATH
+    std::vector<unsigned char> host_sram_rom(0x10000, 0x00);
+    host_sram_rom[0x0000] = 0x3E; // ld a,$08: enable cartridge RAM bank 0
+    host_sram_rom[0x0001] = 0x08;
+    host_sram_rom[0x0002] = 0x32; // ld ($fffc),a
+    host_sram_rom[0x0003] = 0xFC;
+    host_sram_rom[0x0004] = 0xFF;
+    host_sram_rom[0x0005] = 0x3E; // ld a,$5a
+    host_sram_rom[0x0006] = 0x5A;
+    host_sram_rom[0x0007] = 0x32; // ld ($8000),a
+    host_sram_rom[0x0008] = 0x00;
+    host_sram_rom[0x0009] = 0x80;
+    host_sram_rom[0x000A] = 0x76; // halt
+    write_binary(host_sram_rom_path, host_sram_rom);
+
+    const std::string host_sram_command = quote_arg(SGRECOMP_HOST_PATH) + " " + quote(host_sram_rom_path)
+        + " --mute --no-overlay --quit-after-frames 1 --save-sram " + quote(host_sram_path);
+    assert(run_command(host_sram_command) == 0);
+
+    const auto host_sram = read_binary(host_sram_path);
+    assert(host_sram.size() == 0x8000);
+    assert(host_sram[0] == 0x5A);
+#endif
 }

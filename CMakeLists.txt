@@ -129,6 +129,12 @@ if(SGRECOMP_BUILD_TESTS)
             SGRECOMP_CXX_COMPILER_ID="${CMAKE_CXX_COMPILER_ID}"
         )
 
+        if(TARGET sgrecomp_host)
+            target_compile_definitions(recompiler_tool_smoke PRIVATE
+                SGRECOMP_HOST_PATH="$<TARGET_FILE:sgrecomp_host>"
+            )
+        endif()
+
         if(MSVC)
             target_compile_options(recompiler_tool_smoke PRIVATE /W4 /permissive-)
         else()

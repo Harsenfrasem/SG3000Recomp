@@ -33,12 +33,15 @@ using namespace sgrecomp;
 struct Options {
     std::filesystem::path rom;
     std::filesystem::path bios;
+    std::filesystem::path load_sram;
+    std::filesystem::path save_sram;
     ConsoleModel model = ConsoleModel::SMS;
     EnhancementConfig enhancements;
     int scale = 3;
     bool audio = true;
     bool overlay = true;
     int audio_latency_ms = 80;
+    std::size_t quit_after_frames = 0;
 };
 
 class Win32Audio {
@@ -275,6 +278,7 @@ struct AppState {
     bool overlay_enabled = true;
     double fps = 0.0;
     u64 rendered_frames = 0;
+    std::size_t quit_after_frames = 0;
     std::chrono::steady_clock::time_point fps_window_start = std::chrono::steady_clock::now();
     u64 fps_window_frames = 0;
 };
@@ -294,9 +298,23 @@ std::vector<u8> normalize_rom_payload(std::vector<u8> rom) {
     return rom;
 }
 
+void write_binary_file(const std::filesystem::path& path, std::span<const u8> bytes) {
+    if (path.has_parent_path()) {
+        std::filesystem::create_directories(path.parent_path());
+    }
+
+    std::ofstream file(path, std::ios::binary);
+    if (!file) {
+        throw std::runtime_error("cannot open output file");
+    }
+    file.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+}
+
 void print_usage() {
     std::cout << "usage: sgrecomp_host <rom.sms|rom.sg> [--bios bios.sms] [--model sms|sg3000]\n"
               << "                    [--scale n] [--mute] [--no-overlay] [--audio-latency-ms n]\n"
+              << "                    [--load-sram save.sav] [--save-sram save.sav]\n"
+              << "                    [--quit-after-frames n]\n"
               << "                    [--disable-sprite-limit] [--reduce-flicker]\n";
 }
 
@@ -310,6 +328,14 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--bios" && i + 1 < argc) {
             opts.bios = argv[++i];
+            continue;
+        }
+        if (arg == "--load-sram" && i + 1 < argc) {
+            opts.load_sram = argv[++i];
+            continue;
+        }
+        if (arg == "--save-sram" && i + 1 < argc) {
+            opts.save_sram = argv[++i];
             continue;
         }
         if (arg == "--model" && i + 1 < argc) {
@@ -337,6 +363,10 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--audio-latency-ms" && i + 1 < argc) {
             opts.audio_latency_ms = std::clamp(std::stoi(argv[++i]), 10, 300);
+            continue;
+        }
+        if (arg == "--quit-after-frames" && i + 1 < argc) {
+            opts.quit_after_frames = static_cast<std::size_t>(std::stoull(argv[++i]));
             continue;
         }
         if (arg == "--disable-sprite-limit") {
@@ -607,6 +637,11 @@ void run_message_loop(HWND hwnd, AppState& app) {
             app.last_frame = app.host->run_frame(app.input);
             ++app.rendered_frames;
             ++app.fps_window_frames;
+            if (app.quit_after_frames != 0 && app.rendered_frames >= app.quit_after_frames) {
+                app.running = false;
+                DestroyWindow(hwnd);
+                continue;
+            }
             if (app.audio) {
                 app.audio->submit(app.host->audio());
             }
@@ -642,10 +677,14 @@ int run(int argc, char** argv) {
     AppState app;
     app.host = std::make_unique<HostRuntime>(opts.model, opts.enhancements);
     app.overlay_enabled = opts.overlay;
+    app.quit_after_frames = opts.quit_after_frames;
     if (bios) {
         app.host->load_bios(*bios);
     }
     app.host->load_rom(rom);
+    if (!opts.load_sram.empty()) {
+        app.host->console().bus().load_cartridge_ram(read_file(opts.load_sram));
+    }
 
     app.bitmap_info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
     app.bitmap_info.bmiHeader.biWidth = Vdp::width;
@@ -665,6 +704,12 @@ int run(int argc, char** argv) {
     HINSTANCE instance = GetModuleHandle(nullptr);
     HWND hwnd = create_main_window(instance, app, opts.scale);
     run_message_loop(hwnd, app);
+    if (!opts.save_sram.empty()) {
+        const auto& sram = app.host->console().bus().debug_cartridge_ram();
+        write_binary_file(opts.save_sram, std::span<const u8>(sram.data(), sram.size()));
+        std::cout << "sram saved: " << opts.save_sram.string()
+                  << (app.host->console().bus().cartridge_ram_dirty() ? " (dirty)" : " (unchanged)") << "\n";
+    }
     return 0;
 }
 

@@ -59,6 +59,7 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [ ] Save RAM em arquivo, save states e debug overlay.
 - [x] Overlay debug simples com FPS, frame, PC, modo runtime e status de audio.
 - [x] Controles de runtime no host: pausa, reset, mute e volume.
+- [x] Load/save SRAM local no host Win32.
 - [ ] Modo de execucao interpretado, recompilado e hibrido no host.
 
 ### 5. Audio FM opcional e perfis por jogo
@@ -191,6 +192,7 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Backend Win32 inicial para desenvolvimento no Windows.
 - [x] HostRuntime headless com framebuffer, input por frame e buffer de audio.
 - [x] Save RAM em arquivo local pelo smoke runner.
+- [x] Save RAM em arquivo local pelo host Win32.
 - [ ] Estado serializavel para save states.
 - [x] Debug overlay de PC, FPS, frame, modo runtime e audio.
 - [x] Debug overlay com estado de pausa, volume e latencia.
@@ -225,6 +227,7 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Teste do relatorio de analise estatica do gerador.
 - [x] Teste do dump WAV do smoke runner.
 - [x] Teste do dump VGM PSG do smoke runner.
+- [x] Teste do save SRAM pelo host Win32 com ROM sintetica.
 - [ ] Testes de regressao com ROMs homebrew permitidas.
 - [x] Smoke runner testado com ROMs locais privadas, sem imagens versionadas.
 
