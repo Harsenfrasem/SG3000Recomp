@@ -171,11 +171,12 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [ ] SMS Mode 4 tile renderer completo.
 - [x] Mode 4: hscroll/vscroll basicos, locks de topo/direita e coluna esquerda em branco.
 - [x] Sprites 8x8 iniciais com transparencia.
-- [x] Sprites: deslocamento horizontal e zoom inicial.
+- [x] Sprites: deslocamento horizontal, zoom inicial e wrap vertical.
+- [x] Sprites: base de pattern via registrador 6 e 8x16 usando tile par/impar.
 - [x] Sprites: colisao e overflow iniciais.
 - [x] Sprites: prioridade inicial de background sobre sprite no Mode 4.
 - [ ] Sprites: limite por scanline exato e edge cases de prioridade.
-- [x] Paleta CRAM inicial e framebuffer com background Mode 4 basico.
+- [x] Paleta CRAM inicial, backdrop/display disabled e framebuffer com background Mode 4 basico.
 - [x] VBlank, line interrupts e status flags iniciais.
 - [ ] Timing NTSC/PAL configuravel.
 - [x] Pause/NMI do SMS conectado ao runtime.

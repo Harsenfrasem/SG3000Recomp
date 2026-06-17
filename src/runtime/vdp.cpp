@@ -111,11 +111,14 @@ void Vdp::advance_scanline() {
 }
 
 void Vdp::render_scanline(int line) {
+    scanline_bg_priority_.fill(false);
     if ((registers_[1] & 0x40) == 0) {
+        for (int x = 0; x < width; ++x) {
+            framebuffer_[line * width + x] = cram_color(16);
+        }
         return;
     }
 
-    scanline_bg_priority_.fill(false);
     const u16 name_base = static_cast<u16>((registers_[2] & 0x0E) << 10);
     const u16 pattern_base = static_cast<u16>((registers_[4] & 0x04) << 11);
     const bool lock_top_horizontal_scroll = (registers_[0] & 0x40) != 0 && line < 16;
@@ -161,6 +164,7 @@ void Vdp::render_scanline(int line) {
 
 void Vdp::render_sprites(int line) {
     const u16 sprite_base = static_cast<u16>((registers_[5] & 0x7E) << 7);
+    const u16 sprite_pattern_base = static_cast<u16>((registers_[6] & 0x04) << 11);
     const bool tall_sprites = (registers_[1] & 0x02) != 0;
     const bool zoomed_sprites = (registers_[1] & 0x01) != 0;
     const bool shift_sprites_left = (registers_[0] & 0x08) != 0;
@@ -178,7 +182,10 @@ void Vdp::render_sprites(int line) {
             break;
         }
 
-        const int sprite_y = static_cast<u8>(raw_y + 1);
+        int sprite_y = static_cast<int>(raw_y) + 1;
+        if (sprite_y >= 0xE0) {
+            sprite_y -= 0x100;
+        }
         if (line < sprite_y || line >= sprite_y + sprite_height) {
             continue;
         }
@@ -197,8 +204,12 @@ void Vdp::render_sprites(int line) {
             tile = static_cast<u8>(tile & 0xFE);
         }
 
-        const int row = (line - sprite_y) / (zoomed_sprites ? 2 : 1);
-        const u16 pattern = static_cast<u16>((tile * 32 + row * 4) & 0x3FFF);
+        int row = (line - sprite_y) / (zoomed_sprites ? 2 : 1);
+        if (tall_sprites && row >= 8) {
+            tile = static_cast<u8>(tile + 1);
+            row -= 8;
+        }
+        const u16 pattern = static_cast<u16>((sprite_pattern_base + tile * 32 + row * 4) & 0x3FFF);
         for (int px = 0; px < 8; ++px) {
             const int bit = 7 - px;
             const u8 color = static_cast<u8>(
@@ -271,10 +282,14 @@ std::vector<VdpSpriteEntry> Vdp::debug_sprites() const {
         const u8 raw_y = vram_[(sprite_base + sprite) & 0x3FFF];
         const bool terminator = raw_y == 0xD0;
         const u16 attribute = static_cast<u16>((sprite_base + 0x80 + sprite * 2) & 0x3FFF);
+        int sprite_y = static_cast<int>(raw_y) + 1;
+        if (sprite_y >= 0xE0) {
+            sprite_y -= 0x100;
+        }
         entries.push_back({
             sprite,
             raw_y,
-            static_cast<int>(static_cast<u8>(raw_y + 1)),
+            sprite_y,
             static_cast<int>(vram_[attribute]) - (shift_sprites_left ? 8 : 0),
             vram_[(attribute + 1) & 0x3FFF],
             terminator,
