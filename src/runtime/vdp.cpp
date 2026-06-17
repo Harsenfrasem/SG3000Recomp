@@ -227,6 +227,8 @@ void Vdp::render_tms_graphics1_scanline(int line) {
         const bool set = ((vram_[pattern] >> bit) & 0x01) != 0;
         framebuffer_[line * width + x] = tms_color(set ? foreground : background);
     }
+
+    render_tms_sprites(line);
 }
 
 void Vdp::render_sprites(int line) {
@@ -304,6 +306,82 @@ void Vdp::render_sprites(int line) {
                     continue;
                 }
                 framebuffer_[line * width + x] = cram_color(static_cast<u8>(16 + color));
+            }
+        }
+    }
+}
+
+void Vdp::render_tms_sprites(int line) {
+    const u16 sprite_base = static_cast<u16>((registers_[5] & 0x7F) << 7);
+    const u16 sprite_pattern = static_cast<u16>((registers_[6] & 0x07) << 11);
+    const bool tall_sprites = (registers_[1] & 0x02) != 0;
+    const bool zoomed_sprites = (registers_[1] & 0x01) != 0;
+    const int base_sprite_height = tall_sprites ? 16 : 8;
+    const int sprite_height = zoomed_sprites ? base_sprite_height * 2 : base_sprite_height;
+    const int sprite_limit = enhancements_.disable_sprite_limit
+        ? 32
+        : (enhancements_.reduce_flicker ? 8 : 4);
+    std::array<bool, width> sprite_pixels{};
+    int visible_sprites = 0;
+
+    for (int sprite = 0; sprite < 32; ++sprite) {
+        const u16 attribute = static_cast<u16>((sprite_base + sprite * 4) & 0x3FFF);
+        const u8 raw_y = vram_[attribute];
+        if (raw_y == 0xD0) {
+            break;
+        }
+
+        int sprite_y = static_cast<int>(raw_y) + 1;
+        if (sprite_y >= 0xE0) {
+            sprite_y -= 0x100;
+        }
+        if (line < sprite_y || line >= sprite_y + sprite_height) {
+            continue;
+        }
+        ++visible_sprites;
+        if (visible_sprites > 4) {
+            status_ |= 0x40;
+            if (visible_sprites > sprite_limit) {
+                continue;
+            }
+        }
+
+        int sprite_x = vram_[(attribute + 1) & 0x3FFF];
+        u8 tile = vram_[(attribute + 2) & 0x3FFF];
+        const u8 color_byte = vram_[(attribute + 3) & 0x3FFF];
+        const u8 color = static_cast<u8>(color_byte & 0x0F);
+        if (color == 0) {
+            continue;
+        }
+        if ((color_byte & 0x80) != 0) {
+            sprite_x -= 32;
+        }
+        if (tall_sprites) {
+            tile = static_cast<u8>(tile & 0xFC);
+        }
+
+        int row = (line - sprite_y) / (zoomed_sprites ? 2 : 1);
+        if (tall_sprites) {
+            tile = static_cast<u8>(tile + (row / 8));
+            row &= 0x07;
+        }
+        const u16 pattern = static_cast<u16>((sprite_pattern + tile * 8 + row) & 0x3FFF);
+        for (int px = 0; px < 8; ++px) {
+            const int bit = 7 - px;
+            if (((vram_[pattern] >> bit) & 0x01) == 0) {
+                continue;
+            }
+            const int pixel_width = zoomed_sprites ? 2 : 1;
+            for (int zx = 0; zx < pixel_width; ++zx) {
+                const int x = sprite_x + px * pixel_width + zx;
+                if (x < 0 || x >= width) {
+                    continue;
+                }
+                if (sprite_pixels[static_cast<std::size_t>(x)]) {
+                    status_ |= 0x20;
+                }
+                sprite_pixels[static_cast<std::size_t>(x)] = true;
+                framebuffer_[line * width + x] = tms_color(color);
             }
         }
     }

@@ -603,6 +603,34 @@ void test_sg3000_vdp_tms_graphics1_background_pixel() {
     assert(vdp.framebuffer()[1] == 0xFF000000);
 }
 
+void test_sg3000_vdp_tms_sprite_pixel() {
+    Console console(ConsoleModel::SG3000);
+    Vdp& vdp = console.vdp();
+
+    vdp.write_control(0x40);
+    vdp.write_control(0x81); // display enabled
+    vdp.write_control(0x36);
+    vdp.write_control(0x85); // sprite attribute table at $1b00
+    vdp.write_control(0x00);
+    vdp.write_control(0x86); // sprite pattern table at $0000
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x40); // sprite pattern 0 row 0
+    vdp.write_data(0x80);
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x5B); // sprite attribute table
+    vdp.write_data(0x00); // y = 1
+    vdp.write_data(0x00); // x = 0
+    vdp.write_data(0x00); // tile 0
+    vdp.write_data(0x0F); // white
+    vdp.write_data(0xD0); // terminator
+
+    vdp.tick(228 * 2);
+    assert(vdp.framebuffer()[Vdp::width] == 0xFFFFFFFF);
+    assert(vdp.framebuffer()[Vdp::width + 1] == 0xFF000000);
+}
+
 void test_vdp_name_table_register_masks_low_bit() {
     Vdp vdp;
     vdp.write_control(0x40);
@@ -2185,6 +2213,7 @@ int main() {
     test_vdp_display_disabled_uses_backdrop_color();
     test_vdp_backdrop_uses_register7_color();
     test_sg3000_vdp_tms_graphics1_background_pixel();
+    test_sg3000_vdp_tms_sprite_pixel();
     test_vdp_name_table_register_masks_low_bit();
     test_vdp_scroll_lock_and_left_blank();
     test_vdp_left_column_blank_masks_sprites();

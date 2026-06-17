@@ -97,7 +97,7 @@ On Windows, `sgrecomp_host` opens the first native video/input/audio host window
 
 The SMS memory-control port (`0x3E`) is modeled for the core boot/runtime cases: BIOS overlay enable, cartridge mapping enable, and work-RAM enable are tracked in the bus state, save states, I/O logs, and host overlay. Peripheral/region-specific bits remain compatibility work.
 
-SG-3000 consoles select an initial TMS9918-style Graphics I renderer path. It currently covers background tiles through the TMS name, pattern, color tables, and palette; sprites and the other legacy TMS modes are still roadmap items.
+SG-3000 consoles select an initial TMS9918-style Graphics I renderer path. It currently covers background tiles through the TMS name, pattern, color tables, palette, and basic TMS sprites; the other legacy TMS modes remain roadmap items.
 
 Generated code exposes:
 
