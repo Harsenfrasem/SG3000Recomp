@@ -83,6 +83,19 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [ ] Tela de logs/status com FPS, backend ativo, modelo, fallback/recompiler e avisos de compatibilidade.
 - [ ] Empacotamento Windows com instalador ou pasta portable.
 
+### 7. Engenharia reversa e enhanced ports por jogo
+
+- [x] Roadmap de engenharia reversa por hash em `docs/ENHANCED_PORT_ROADMAP.md`.
+- [ ] Inventario local privado por hash, fora do Git.
+- [ ] Watchpoints de RAM, VRAM, CRAM e I/O.
+- [ ] Trace filtrado por PC, banco, porta e tipo de acesso.
+- [ ] Dump legivel de tilemap e sprite table.
+- [ ] Relatorio local por hash com camera, scroll, HUD, entidades e bancos.
+- [ ] Renderer enhanced separado do renderer fiel.
+- [ ] Experimento de viewport expansion por perfil.
+- [ ] Hooks por PC/banco para modo hybrid/recompiled.
+- [ ] Fallback obrigatorio para 256x192 fiel.
+
 ## Recompilador
 
 - [x] CLI `sgrecomp` com entrada ROM, saida C++ e modo disassembly.
@@ -158,6 +171,8 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] VBlank, line interrupts e status flags iniciais.
 - [ ] Timing NTSC/PAL configuravel.
 - [x] Pause/NMI do SMS conectado ao runtime.
+- [ ] Dump de tilemap/sprite table para engenharia reversa local.
+- [ ] Renderer enhanced experimental sem alterar o framebuffer fiel.
 
 ## PSG / Audio
 
@@ -239,6 +254,7 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Arquitetura inicial.
 - [x] Status inicial do Z80.
 - [x] Checklist de continuidade.
+- [x] Roadmap de engenharia reversa/enhanced ports.
 - [ ] Guia de criacao de port por ROM.
 - [ ] Especificacao de config TOML.
 - [x] Guia de build/toolchain.
