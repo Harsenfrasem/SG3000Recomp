@@ -59,6 +59,7 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Save RAM em arquivo, save states iniciais e debug overlay.
 - [x] Overlay debug simples com FPS, frame, PC, modo runtime e status de audio.
 - [x] Overlay debug mostra mapper ativo e bancos principais.
+- [x] Overlay debug mostra scanline/status/IRQ do VDP.
 - [x] Controles de runtime no host: pausa, reset, mute e volume.
 - [x] Load/save SRAM local no host Win32.
 - [ ] Modo de execucao interpretado, recompilado e hibrido no host.

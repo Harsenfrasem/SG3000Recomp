@@ -1299,6 +1299,32 @@ void test_vdp_access_logging_records_register_vram_and_cram_writes() {
     assert(log[2].value == 0x03);
 }
 
+void test_vdp_debug_snapshot_reports_timing_and_status() {
+    Vdp vdp;
+    auto snapshot = vdp.debug_snapshot();
+    assert(snapshot.scanline == 0);
+    assert(!snapshot.display_enabled);
+    assert(!snapshot.frame_irq_pending);
+
+    vdp.write_control(0x60);
+    vdp.write_control(0x81); // display + frame IRQ enabled
+    snapshot = vdp.debug_snapshot();
+    assert(snapshot.display_enabled);
+    assert(snapshot.frame_irq_enabled);
+
+    vdp.tick(228 * Vdp::height);
+    snapshot = vdp.debug_snapshot();
+    assert(snapshot.scanline == Vdp::height);
+    assert(snapshot.frame_irq_pending);
+    assert((snapshot.status & 0x80) != 0);
+    assert(vdp.irq_pending());
+
+    (void)vdp.read_status();
+    snapshot = vdp.debug_snapshot();
+    assert(!snapshot.frame_irq_pending);
+    assert(!vdp.irq_pending());
+}
+
 void test_console_enhancement_config_propagates_to_runtime_devices() {
     Console console(ConsoleModel::SMS);
     assert(console.enhancements().mode == RuntimeMode::Accurate);
@@ -2052,6 +2078,7 @@ int main() {
     test_bus_mirrors_vdp_psg_and_counter_ports();
     test_bus_memory_logging_records_ram_mapper_and_cartridge_ram();
     test_vdp_access_logging_records_register_vram_and_cram_writes();
+    test_vdp_debug_snapshot_reports_timing_and_status();
     test_console_enhancement_config_propagates_to_runtime_devices();
     test_psg_tone_generates_sample();
     test_ym2413_audio_control_and_register_writes();

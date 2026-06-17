@@ -281,6 +281,22 @@ u16 Vdp::sprite_pattern_base() const {
     return static_cast<u16>((registers_[6] & 0x04) << 11);
 }
 
+VdpDebugSnapshot Vdp::debug_snapshot() const {
+    return {
+        scanline_,
+        scanline_cycles_,
+        line_counter_,
+        status_,
+        (registers_[1] & 0x40) != 0,
+        (registers_[1] & 0x20) != 0,
+        (registers_[0] & 0x10) != 0,
+        (status_ & 0x80) != 0,
+        line_irq_pending_,
+        (status_ & 0x40) != 0,
+        (status_ & 0x20) != 0,
+    };
+}
+
 std::vector<VdpTileEntry> Vdp::debug_tilemap() const {
     const u16 name_base = name_table_base();
     std::vector<VdpTileEntry> entries;

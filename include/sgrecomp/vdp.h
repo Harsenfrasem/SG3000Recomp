@@ -41,6 +41,20 @@ struct VdpAccess {
     u8 value = 0;
 };
 
+struct VdpDebugSnapshot {
+    int scanline = 0;
+    int scanline_cycles = 0;
+    int line_counter = 0;
+    u8 status = 0;
+    bool display_enabled = false;
+    bool frame_irq_enabled = false;
+    bool line_irq_enabled = false;
+    bool frame_irq_pending = false;
+    bool line_irq_pending = false;
+    bool sprite_overflow = false;
+    bool sprite_collision = false;
+};
+
 struct VdpState;
 
 class Vdp {
@@ -67,6 +81,7 @@ public:
     const std::array<u8, 16 * 1024>& debug_vram() const { return vram_; }
     const std::array<u8, 32>& debug_cram() const { return cram_; }
     const std::array<u8, 16>& debug_registers() const { return registers_; }
+    VdpDebugSnapshot debug_snapshot() const;
     std::vector<VdpTileEntry> debug_tilemap() const;
     std::vector<VdpSpriteEntry> debug_sprites() const;
     VdpState save_state() const;

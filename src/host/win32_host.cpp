@@ -558,6 +558,14 @@ std::string overlay_text(const AppState& app) {
         out << " slot2 " << static_cast<int>(mapper.kmapper_slot2);
     }
     out << "\n";
+    const auto vdp = app.host->console().vdp().debug_snapshot();
+    out << "vdp line " << vdp.scanline
+        << "+" << vdp.scanline_cycles
+        << " status $" << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
+        << static_cast<int>(vdp.status) << std::dec
+        << " display " << (vdp.display_enabled ? "on" : "off")
+        << " irq " << (vdp.frame_irq_pending ? "vblank" : "-")
+        << "/" << (vdp.line_irq_pending ? "line" : "-") << "\n";
 
     if (app.audio) {
         app.audio->cleanup_completed_buffers();
@@ -583,7 +591,7 @@ void draw_overlay(HDC dc, const AppState& app) {
     }
 
     const std::string text = overlay_text(app);
-    RECT background{8, 8, 520, 104};
+    RECT background{8, 8, 560, 124};
     HBRUSH brush = CreateSolidBrush(RGB(0, 0, 0));
     FillRect(dc, &background, brush);
     DeleteObject(brush);
