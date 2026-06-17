@@ -62,6 +62,7 @@ struct Options {
     ConsoleModel model = ConsoleModel::SMS;
     CartridgeMapper mapper = CartridgeMapper::Auto;
     EnhancementConfig enhancements;
+    HostVideoStandard video_standard = HostVideoStandard::Ntsc;
     std::vector<AddressRange> memory_filters;
     std::vector<AddressRange> vdp_filters;
     std::vector<u8> io_port_filters;
@@ -121,6 +122,19 @@ CartridgeMapper parse_mapper(std::string text) {
     throw std::runtime_error("unknown mapper: " + text);
 }
 
+HostVideoStandard parse_video_standard(std::string text) {
+    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    if (text == "ntsc") {
+        return HostVideoStandard::Ntsc;
+    }
+    if (text == "pal") {
+        return HostVideoStandard::Pal;
+    }
+    throw std::runtime_error("unknown video standard: " + text);
+}
+
 bool range_matches(const std::vector<AddressRange>& filters, u32 value) {
     if (filters.empty()) {
         return true;
@@ -167,7 +181,7 @@ void print_usage() {
               << "                [--load-sram save.sav] [--save-sram save.sav] [--dump-sram sram.bin]\n"
               << "                [--load-state state.sgstate] [--save-state state.sgstate] [--force-state]\n"
               << "                [--dump-coverage pcs.csv] [--disable-sprite-limit] [--reduce-flicker] [--enable-fm]\n"
-              << "       sgrecomp <rom.sms|rom.sg> --run-host [--frames n] [--bios bios.sms]\n"
+              << "       sgrecomp <rom.sms|rom.sg> --run-host [--frames n] [--bios bios.sms] [--video-standard ntsc|pal]\n"
               << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp] [--dump-audio audio.wav]\n"
               << "       sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--dump-analysis analysis.txt]\n";
 }
@@ -305,6 +319,10 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--run-host") {
             opts.run_host = true;
+            continue;
+        }
+        if (arg == "--video-standard" && i + 1 < argc) {
+            opts.video_standard = parse_video_standard(argv[++i]);
             continue;
         }
         if (arg == "--frames" && i + 1 < argc) {
@@ -1540,7 +1558,8 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
 }
 
 void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<u8>* bios, const Options& opts) {
-    HostRuntime host(model, opts.enhancements);
+    const HostRuntimeConfig host_config = host_runtime_config_for_video_standard(opts.video_standard);
+    HostRuntime host(model, opts.enhancements, host_config);
     host.console().bus().set_mapper(opts.mapper);
     if (bios != nullptr) {
         host.load_bios(*bios);
@@ -1573,6 +1592,9 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
     std::cout << "host frames: " << opts.host_frames
               << "\nframe index: " << result.frame_index
               << "\ncycles: " << result.start_cycle << "-" << result.end_cycle
+              << "\nvideo standard: " << host_video_standard_name(opts.video_standard)
+              << " (" << host.config().cpu_cycles_per_scanline << "x"
+              << host.config().scanlines_per_frame << " cycles/frame)"
               << "\nframebuffer lit pixels: " << lit_pixels
               << "\naudio samples: " << result.stereo_samples
               << "\npsg sample: " << std::fixed << std::setprecision(4)

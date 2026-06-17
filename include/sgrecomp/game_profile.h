@@ -2,6 +2,7 @@
 
 #include "sgrecomp/bus.h"
 #include "sgrecomp/enhancements.h"
+#include "sgrecomp/host_runtime.h"
 #include "sgrecomp/types.h"
 
 #include <filesystem>
@@ -21,6 +22,8 @@ struct GameProfile {
     EnhancementConfig enhancements;
     bool has_audio_latency_ms = false;
     int audio_latency_ms = 0;
+    bool has_video_standard = false;
+    HostVideoStandard video_standard = HostVideoStandard::Ntsc;
 };
 
 class GameProfileDatabase {

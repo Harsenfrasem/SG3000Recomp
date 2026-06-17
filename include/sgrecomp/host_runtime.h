@@ -6,9 +6,33 @@
 #include <array>
 #include <cstddef>
 #include <span>
+#include <string_view>
 #include <vector>
 
 namespace sgrecomp {
+
+enum class HostVideoStandard {
+    Ntsc,
+    Pal,
+};
+
+inline HostVideoStandard host_video_standard_from_name(std::string_view name) {
+    if (name == "ntsc" || name == "NTSC") {
+        return HostVideoStandard::Ntsc;
+    }
+    if (name == "pal" || name == "PAL") {
+        return HostVideoStandard::Pal;
+    }
+    return HostVideoStandard::Ntsc;
+}
+
+inline const char* host_video_standard_name(HostVideoStandard standard) {
+    switch (standard) {
+    case HostVideoStandard::Ntsc: return "ntsc";
+    case HostVideoStandard::Pal: return "pal";
+    }
+    return "ntsc";
+}
 
 struct HostRuntimeConfig {
     u32 cpu_clock_hz = 3579545;
@@ -20,6 +44,14 @@ struct HostRuntimeConfig {
         return static_cast<u64>(cpu_cycles_per_scanline) * static_cast<u64>(scanlines_per_frame);
     }
 };
+
+inline HostRuntimeConfig host_runtime_config_for_video_standard(HostVideoStandard standard) {
+    HostRuntimeConfig config;
+    if (standard == HostVideoStandard::Pal) {
+        config.scanlines_per_frame = 313;
+    }
+    return config;
+}
 
 struct HostInputState {
     u8 player1 = 0;

@@ -2051,7 +2051,8 @@ void test_game_profile_hash_and_parse() {
         "mode = \"enhanced\"\n"
         "disable_sprite_limit = true\n"
         "enable_fm = true\n"
-        "audio_latency_ms = 120\n");
+        "audio_latency_ms = 120\n"
+        "video_standard = \"pal\"\n");
     const GameProfile* profile = profiles.find_by_hash(hash);
     assert(profile != nullptr);
     assert(profile->name == "local test");
@@ -2063,6 +2064,10 @@ void test_game_profile_hash_and_parse() {
     assert(profile->enhancements.enable_fm);
     assert(profile->has_audio_latency_ms);
     assert(profile->audio_latency_ms == 120);
+    assert(profile->has_video_standard);
+    assert(profile->video_standard == HostVideoStandard::Pal);
+    const auto host_config = host_runtime_config_for_video_standard(profile->video_standard);
+    assert(host_config.scanlines_per_frame == 313);
 }
 
 int main() {

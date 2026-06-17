@@ -166,6 +166,13 @@ GameProfileDatabase GameProfileDatabase::parse(std::string_view text) {
         } else if (key == "audio_latency_ms") {
             current.audio_latency_ms = std::clamp(std::stoi(strip_quotes(value)), 10, 300);
             current.has_audio_latency_ms = true;
+        } else if (key == "video_standard" || key == "region") {
+            const std::string standard = lower_ascii(strip_quotes(value));
+            if (standard != "ntsc" && standard != "pal") {
+                throw std::runtime_error("invalid video standard in profile: " + value);
+            }
+            current.video_standard = host_video_standard_from_name(standard);
+            current.has_video_standard = true;
         } else {
             throw std::runtime_error("unknown profile key: " + key);
         }

@@ -212,7 +212,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] VBlank, line interrupts e status flags iniciais.
 - [x] VDP: line IRQ separado dos bits de status, overflow/collision preservados e latch de controle resetado por acesso a dados/status.
 - [x] Timing de VDP configuravel pelo HostRuntime, salvo em save state e exposto no overlay/debug snapshot.
-- [ ] Timing NTSC/PAL configuravel.
+- [x] Timing NTSC/PAL configuravel por HostRuntime, CLI headless, host Win32 e perfis locais.
 - [x] Pause/NMI do SMS conectado ao runtime.
 - [x] Dump de tilemap/sprite table para engenharia reversa local.
 - [ ] Renderer enhanced experimental sem alterar o framebuffer fiel.

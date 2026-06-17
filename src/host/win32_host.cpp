@@ -45,6 +45,7 @@ struct Options {
     ConsoleModel model = ConsoleModel::SMS;
     CartridgeMapper mapper = CartridgeMapper::Auto;
     EnhancementConfig enhancements;
+    HostVideoStandard video_standard = HostVideoStandard::Ntsc;
     int scale = 3;
     bool audio = true;
     bool overlay = true;
@@ -335,6 +336,19 @@ CartridgeMapper parse_mapper(std::string text) {
     throw std::runtime_error("unknown mapper: " + text);
 }
 
+HostVideoStandard parse_video_standard(std::string text) {
+    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    if (text == "ntsc") {
+        return HostVideoStandard::Ntsc;
+    }
+    if (text == "pal") {
+        return HostVideoStandard::Pal;
+    }
+    throw std::runtime_error("unknown video standard: " + text);
+}
+
 void write_binary_file(const std::filesystem::path& path, std::span<const u8> bytes) {
     if (path.has_parent_path()) {
         std::filesystem::create_directories(path.parent_path());
@@ -349,6 +363,7 @@ void write_binary_file(const std::filesystem::path& path, std::span<const u8> by
 
 void print_usage() {
     std::cout << "usage: sgrecomp_host <rom.sms|rom.sg> [--bios bios.sms] [--model sms|sg3000] [--mapper auto|plain|smapper|cmapper|kmapper|k8k]\n"
+              << "                    [--video-standard ntsc|pal]\n"
               << "                    [--scale n] [--mute] [--no-overlay] [--audio-latency-ms n]\n"
               << "                    [--load-sram save.sav] [--save-sram save.sav]\n"
               << "                    [--load-state state.sgstate] [--save-state state.sgstate] [--force-state]\n"
@@ -407,6 +422,10 @@ Options parse_args(int argc, char** argv) {
             } else {
                 throw std::runtime_error("unknown model: " + model);
             }
+            continue;
+        }
+        if (arg == "--video-standard" && i + 1 < argc) {
+            opts.video_standard = parse_video_standard(argv[++i]);
             continue;
         }
         if (arg == "--scale" && i + 1 < argc) {
@@ -807,6 +826,9 @@ int run(int argc, char** argv) {
             if (profile->has_audio_latency_ms) {
                 opts.audio_latency_ms = profile->audio_latency_ms;
             }
+            if (profile->has_video_standard) {
+                opts.video_standard = profile->video_standard;
+            }
             std::cout << "profile matched: " << profile_name << "\n";
         } else {
             std::cout << "profile matched: none (" << rom_hash << ")\n";
@@ -817,7 +839,8 @@ int run(int argc, char** argv) {
         : std::optional<std::vector<u8>>{read_file(opts.bios)};
 
     AppState app;
-    app.host = std::make_unique<HostRuntime>(opts.model, opts.enhancements);
+    const HostRuntimeConfig host_config = host_runtime_config_for_video_standard(opts.video_standard);
+    app.host = std::make_unique<HostRuntime>(opts.model, opts.enhancements, host_config);
     app.host->console().bus().set_mapper(opts.mapper);
     app.overlay_enabled = opts.overlay;
     app.quit_after_frames = opts.quit_after_frames;
