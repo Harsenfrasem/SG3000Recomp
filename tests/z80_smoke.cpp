@@ -1,4 +1,5 @@
 #include "sgrecomp/console.h"
+#include "sgrecomp/host_runtime.h"
 
 #include <cassert>
 #include <vector>
@@ -1147,6 +1148,61 @@ void test_hl_absolute_load_store() {
     assert(console.bus().read(0xC001) == 0x12);
 }
 
+void setup_host_visible_pixel(Vdp& vdp) {
+    vdp.write_control(0x00);
+    vdp.write_control(0x80);
+    vdp.write_control(0x40);
+    vdp.write_control(0x81);
+    vdp.write_control(0x0E);
+    vdp.write_control(0x82);
+
+    vdp.write_control(0x01);
+    vdp.write_control(0xC0);
+    vdp.write_data(0x03);
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x40);
+    vdp.write_data(0x80);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x78);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+}
+
+void test_host_runtime_frame_audio_and_input() {
+    const std::vector<u8> rom = {
+        0xDB, 0xDC,       // in a,($dc)
+        0x32, 0x00, 0xC0, // ld ($c000),a
+        0x3E, 0x80,       // ld a,$80
+        0xD3, 0x7F,       // out ($7f),a
+        0x3E, 0x00,       // ld a,$00
+        0xD3, 0x7F,       // out ($7f),a
+        0x3E, 0x90,       // ld a,$90
+        0xD3, 0x7F,       // out ($7f),a
+        0x18, 0xFE,       // jr -2
+    };
+
+    HostRuntime host(ConsoleModel::SMS);
+    host.load_rom(rom);
+    setup_host_visible_pixel(host.console().vdp());
+
+    HostInputState input;
+    input.player1 = static_cast<u8>(Joypad::Up | Joypad::Button1);
+    const HostFrameResult frame = host.run_frame(input);
+
+    assert(frame.frame_index == 0);
+    assert(frame.end_cycle >= host.config().cycles_per_frame());
+    assert(frame.stereo_samples > 700);
+    assert(host.audio().size() == frame.stereo_samples * 2);
+    assert((host.console().bus().read(0xC000) & 0x01) == 0);
+    assert((host.console().bus().read(0xC000) & 0x10) == 0);
+    assert(host.framebuffer()[0] == 0xFFFF0000);
+}
+
 int main() {
     test_basic_program();
     test_djnz_loop();
@@ -1195,5 +1251,6 @@ int main() {
     test_ei_delay_and_nmi_service();
     test_bc_de_indirect_loads();
     test_hl_absolute_load_store();
+    test_host_runtime_frame_audio_and_input();
     return 0;
 }

@@ -1,4 +1,5 @@
 #include "sgrecomp/bus.h"
+#include "sgrecomp/host_runtime.h"
 #include "sgrecomp/joypad.h"
 #include "sgrecomp/psg.h"
 #include "sgrecomp/vdp.h"
@@ -44,8 +45,10 @@ struct Options {
     EnhancementConfig enhancements;
     bool disassemble_only = false;
     bool run_smoke = false;
+    bool run_host = false;
     bool trace = false;
     std::size_t max_steps = 200000;
+    std::size_t host_frames = 1;
 };
 
 std::vector<u8> read_file(const std::filesystem::path& path) {
@@ -71,6 +74,8 @@ void print_usage() {
               << "                [--dump-vram vram.bin] [--dump-cram cram.bin]\n"
               << "                [--load-sram save.sav] [--save-sram save.sav] [--dump-sram sram.bin]\n"
               << "                [--dump-coverage pcs.csv] [--disable-sprite-limit] [--reduce-flicker]\n"
+              << "       sgrecomp <rom.sms|rom.sg> --run-host [--frames n] [--bios bios.sms]\n"
+              << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp] [--dump-audio audio.wav]\n"
               << "       sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--dump-analysis analysis.txt]\n";
 }
 
@@ -151,6 +156,14 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--run-smoke") {
             opts.run_smoke = true;
+            continue;
+        }
+        if (arg == "--run-host") {
+            opts.run_host = true;
+            continue;
+        }
+        if (arg == "--frames" && i + 1 < argc) {
+            opts.host_frames = static_cast<std::size_t>(std::stoull(argv[++i]));
             continue;
         }
         if (arg == "--trace") {
@@ -936,6 +949,52 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
     print_runtime_summary();
 }
 
+void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<u8>* bios, const Options& opts) {
+    HostRuntime host(model, opts.enhancements);
+    if (bios != nullptr) {
+        host.load_bios(*bios);
+    }
+    host.load_rom(rom);
+
+    HostFrameResult result{};
+    for (std::size_t frame = 0; frame < opts.host_frames; ++frame) {
+        result = host.run_frame();
+    }
+
+    const auto& framebuffer = host.framebuffer();
+    const auto lit_pixels = std::count_if(framebuffer.begin(), framebuffer.end(), [](u32 pixel) {
+        return (pixel & 0x00FFFFFF) != 0;
+    });
+    const auto sample = host.console().psg().sample();
+
+    std::cout << "host frames: " << opts.host_frames
+              << "\nframe index: " << result.frame_index
+              << "\ncycles: " << result.start_cycle << "-" << result.end_cycle
+              << "\nframebuffer lit pixels: " << lit_pixels
+              << "\naudio samples: " << result.stereo_samples
+              << "\npsg sample: " << std::fixed << std::setprecision(4)
+              << sample[0] << "," << sample[1]
+              << "\nenhancements: mode="
+              << (opts.enhancements.mode == RuntimeMode::Enhanced ? "enhanced"
+                  : opts.enhancements.mode == RuntimeMode::Hybrid ? "hybrid" : "accurate")
+              << ", disable_sprite_limit=" << (opts.enhancements.disable_sprite_limit ? "on" : "off")
+              << ", reduce_flicker=" << (opts.enhancements.reduce_flicker ? "on" : "off") << "\n";
+
+    if (!opts.dump_frame.empty()) {
+        write_frame_ppm(opts.dump_frame, framebuffer);
+        std::cout << "frame dumped: " << opts.dump_frame.string() << "\n";
+    }
+    if (!opts.dump_frame_bmp.empty()) {
+        write_frame_bmp(opts.dump_frame_bmp, framebuffer);
+        std::cout << "bmp frame dumped: " << opts.dump_frame_bmp.string() << "\n";
+    }
+    if (!opts.dump_audio.empty()) {
+        write_audio_wav(opts.dump_audio, host.audio(), host.config().audio_sample_rate);
+        std::cout << "audio dumped: " << opts.dump_audio.string()
+                  << " (" << (host.audio().size() / 2) << " stereo samples)\n";
+    }
+}
+
 const char* reg_lvalue(u8 index) {
     static constexpr const char* names[] = {"cpu.b", "cpu.c", "cpu.d", "cpu.e", "cpu.h", "cpu.l", "", "cpu.a"};
     return names[index & 0x07];
@@ -1566,6 +1625,8 @@ int main(int argc, char** argv) {
             disassemble(image, limit);
         } else if (opts.run_smoke) {
             run_smoke(opts.model, rom, bios ? &*bios : nullptr, opts.max_steps, opts.trace, opts);
+        } else if (opts.run_host) {
+            run_host(opts.model, rom, bios ? &*bios : nullptr, opts);
         } else {
             generate_cpp(opts.output, image, limit);
             std::cout << "generated " << opts.output.string() << "\n";

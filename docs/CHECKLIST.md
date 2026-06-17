@@ -47,9 +47,11 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Proximo bloco: retorno visual/audio demonstravel antes do host completo.
 - [x] Smoke runner com dump local de frame, audio WAV e log VGM PSG.
 - [x] Smoke runner com frame BMP local para preview visual rapido.
-- [ ] Loop host de video, audio e input.
+- [x] Loop host headless de frame, audio e input.
+- [ ] Loop host de janela, video e audio.
 - [ ] Backend SDL2 opcional ou camada equivalente configuravel.
-- [ ] Sincronizacao de frame, audio buffer e input polling.
+- [x] Sincronizacao inicial de frame, buffer de audio e input por frame.
+- [ ] Sincronizacao refinada para backend de janela/audio real.
 - [ ] Save RAM em arquivo, save states e debug overlay.
 - [ ] Modo de execucao interpretado, recompilado e hibrido no host.
 
@@ -147,7 +149,8 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Dump WAV local pelo smoke runner.
 - [x] Dump VGM local de writes PSG pelo smoke runner.
 - [ ] Mixer estereo e sample rate configuravel.
-- [ ] Buffer de audio para host backend.
+- [x] Buffer de audio para host backend headless.
+- [ ] Mixer estereo e sample rate configuravel no host.
 
 ## Entrada
 
@@ -161,6 +164,7 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 
 - [ ] Loop host de janela, video e audio.
 - [ ] Backend SDL2 opcional.
+- [x] HostRuntime headless com framebuffer, input por frame e buffer de audio.
 - [x] Save RAM em arquivo local pelo smoke runner.
 - [ ] Estado serializavel para save states.
 - [ ] Debug overlay de PC, registradores, FPS e fallback count.

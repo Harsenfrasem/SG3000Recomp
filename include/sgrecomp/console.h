@@ -25,10 +25,15 @@ public:
     const EnhancementConfig& enhancements() const { return enhancements_; }
 
     Z80State& cpu() { return cpu_; }
+    const Z80State& cpu() const { return cpu_; }
     Bus& bus() { return bus_; }
+    const Bus& bus() const { return bus_; }
     Vdp& vdp() { return vdp_; }
+    const Vdp& vdp() const { return vdp_; }
     Psg& psg() { return psg_; }
+    const Psg& psg() const { return psg_; }
     Joypad& joypad() { return joypad_; }
+    const Joypad& joypad() const { return joypad_; }
 
 private:
     Vdp vdp_;

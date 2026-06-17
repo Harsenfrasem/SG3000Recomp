@@ -1,0 +1,102 @@
+#include "sgrecomp/host_runtime.h"
+
+#include <algorithm>
+
+namespace sgrecomp {
+
+HostRuntime::HostRuntime(ConsoleModel model, HostRuntimeConfig config)
+    : console_(model), config_(config) {}
+
+HostRuntime::HostRuntime(ConsoleModel model, const EnhancementConfig& enhancements, HostRuntimeConfig config)
+    : console_(model, enhancements), config_(config) {}
+
+void HostRuntime::load_rom(std::span<const u8> rom) {
+    console_.load_rom(rom);
+}
+
+void HostRuntime::load_bios(std::span<const u8> bios) {
+    console_.load_bios(bios);
+}
+
+void HostRuntime::reset() {
+    console_.reset();
+    frame_index_ = 0;
+    audio_cycle_accumulator_ = 0;
+    previous_pause_ = false;
+    audio_.clear();
+}
+
+HostFrameResult HostRuntime::run_frame(const HostInputState& input) {
+    apply_input(input);
+
+    const u64 start_cycle = console_.cpu().cycles;
+    const u64 target_cycle = start_cycle + config_.cycles_per_frame();
+    run_until_cycle(target_cycle);
+
+    const HostFrameResult result{
+        frame_index_,
+        start_cycle,
+        console_.cpu().cycles,
+        audio_.size() / 2,
+        console_.cpu().halted,
+    };
+    ++frame_index_;
+    return result;
+}
+
+void HostRuntime::clear_audio() {
+    audio_.clear();
+}
+
+const std::array<u32, Vdp::width * Vdp::height>& HostRuntime::framebuffer() const {
+    return console_.vdp().framebuffer();
+}
+
+void HostRuntime::apply_input(const HostInputState& input) {
+    console_.joypad().set_player1(input.player1);
+    console_.joypad().set_player2(input.player2);
+    if (input.pause && !previous_pause_) {
+        console_.press_pause();
+    }
+    previous_pause_ = input.pause;
+}
+
+void HostRuntime::run_until_cycle(u64 target_cycle) {
+    while (console_.cpu().cycles < target_cycle) {
+        const u64 before = console_.cpu().cycles;
+        console_.psg().set_cycle(before);
+        execute_one(console_.cpu(), console_.bus());
+        tick_devices(static_cast<int>(console_.cpu().cycles - before));
+
+        if (console_.vdp().irq_pending()) {
+            const u64 irq_before = console_.cpu().cycles;
+            console_.psg().set_cycle(irq_before);
+            if (service_maskable_interrupt(console_.cpu(), console_.bus())) {
+                tick_devices(static_cast<int>(console_.cpu().cycles - irq_before));
+            }
+        }
+    }
+}
+
+void HostRuntime::tick_devices(int elapsed_cycles) {
+    if (elapsed_cycles <= 0) {
+        return;
+    }
+    console_.vdp().tick(elapsed_cycles);
+    console_.psg().tick(elapsed_cycles);
+    append_audio_samples(elapsed_cycles);
+}
+
+void HostRuntime::append_audio_samples(int elapsed_cycles) {
+    audio_cycle_accumulator_ += static_cast<u64>(elapsed_cycles) * config_.audio_sample_rate;
+    while (audio_cycle_accumulator_ >= config_.cpu_clock_hz) {
+        audio_cycle_accumulator_ -= config_.cpu_clock_hz;
+        const auto sample = console_.psg().sample();
+        for (float channel : sample) {
+            const float clipped = std::clamp(channel, -1.0F, 1.0F);
+            audio_.push_back(static_cast<s16>(clipped * 32767.0F));
+        }
+    }
+}
+
+} // namespace sgrecomp

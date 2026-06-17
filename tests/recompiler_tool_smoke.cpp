@@ -115,6 +115,8 @@ int main() {
     const std::filesystem::path frame_bmp_path = output_dir / "frame_fixture.bmp";
     const std::filesystem::path audio_path = output_dir / "audio_fixture.wav";
     const std::filesystem::path vgm_path = output_dir / "audio_fixture.vgm";
+    const std::filesystem::path host_frame_path = output_dir / "host_frame.bmp";
+    const std::filesystem::path host_audio_path = output_dir / "host_audio.wav";
     const std::filesystem::path object_path = output_dir / "generated_fixture.obj";
 
     const std::vector<unsigned char> rom = {
@@ -254,4 +256,19 @@ int main() {
     assert(vgm[3] == ' ');
     assert(vgm[0x100] == 0x50);
     assert(vgm.back() == 0x66);
+
+    const std::string host_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(audio_rom_path)
+        + " --run-host --frames 2 --dump-frame-bmp " + quote(host_frame_path)
+        + " --dump-audio " + quote(host_audio_path);
+    assert(run_command(host_command) == 0);
+
+    const auto host_frame = read_binary(host_frame_path);
+    assert(host_frame.size() > 54);
+    assert(host_frame[0] == 'B');
+    assert(host_frame[1] == 'M');
+
+    const std::string host_wav = read_text(host_audio_path);
+    assert(host_wav.size() > 44);
+    assert(host_wav.substr(0, 4) == "RIFF");
+    assert(host_wav.substr(8, 4) == "WAVE");
 }

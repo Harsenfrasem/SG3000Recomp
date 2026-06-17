@@ -59,6 +59,7 @@ Runtime smoke execution is useful before full video/audio support exists:
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --dump-frame out\frame.ppm --dump-frame-bmp out\frame.bmp --dump-audio out\audio.wav --dump-vgm out\audio.vgm
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --disable-sprite-limit
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --reduce-flicker
+.\build\zig-debug\sgrecomp.exe game.sms --run-host --frames 3 --dump-frame-bmp out\host-frame.bmp --dump-audio out\host-audio.wav
 ```
 
 If execution reaches an unsupported opcode, the tool prints the instruction, PC, registers, interrupt state, and cycle count.
@@ -68,6 +69,8 @@ Enhancements are off by default. Smoke summaries print the active mode and enhan
 `--dump-frame`, `--dump-frame-bmp`, `--dump-audio`, and `--dump-vgm` are local smoke artifacts for visual/audio inspection. Keep them under ignored directories such as `out/` when testing private ROMs. BMP is convenient for opening a quick frame preview on Windows; PPM remains a simple raw technical frame dump. WAV is useful for listening to the current PSG renderer; VGM is useful for inspecting captured PSG writes with timing.
 
 Sprite enhancements currently keep the original overflow status bit. Accurate mode renders the original 8 sprites per scanline, `--reduce-flicker` raises that render limit to 16, and `--disable-sprite-limit` renders all visible sprites on the scanline.
+
+`--run-host` uses the headless host runtime path. It advances full frames, samples audio at 44.1 kHz, applies joypad state through the runtime API, and exposes the latest framebuffer for a future window backend.
 
 Generated code exposes:
 
