@@ -5,8 +5,10 @@
 #include "sgrecomp/host_runtime.h"
 
 #include <windows.h>
+#include <mmsystem.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdlib>
 #include <cstdint>
@@ -17,6 +19,7 @@
 #include <iterator>
 #include <memory>
 #include <optional>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -31,10 +34,88 @@ struct Options {
     ConsoleModel model = ConsoleModel::SMS;
     EnhancementConfig enhancements;
     int scale = 3;
+    bool audio = true;
+};
+
+class Win32Audio {
+public:
+    Win32Audio() = default;
+    Win32Audio(const Win32Audio&) = delete;
+    Win32Audio& operator=(const Win32Audio&) = delete;
+
+    ~Win32Audio() {
+        close();
+    }
+
+    bool open(u32 sample_rate) {
+        WAVEFORMATEX format{};
+        format.wFormatTag = WAVE_FORMAT_PCM;
+        format.nChannels = 2;
+        format.nSamplesPerSec = sample_rate;
+        format.wBitsPerSample = 16;
+        format.nBlockAlign = static_cast<WORD>((format.nChannels * format.wBitsPerSample) / 8);
+        format.nAvgBytesPerSec = format.nSamplesPerSec * format.nBlockAlign;
+
+        if (waveOutOpen(&device_, WAVE_MAPPER, &format, 0, 0, CALLBACK_NULL) != MMSYSERR_NOERROR) {
+            device_ = nullptr;
+            return false;
+        }
+        return true;
+    }
+
+    void submit(std::span<const s16> interleaved_stereo) {
+        if (device_ == nullptr || interleaved_stereo.empty()) {
+            return;
+        }
+
+        for (auto& buffer : buffers_) {
+            if (buffer.prepared && (buffer.header.dwFlags & WHDR_DONE) != 0) {
+                waveOutUnprepareHeader(device_, &buffer.header, sizeof(buffer.header));
+                buffer.prepared = false;
+            }
+            if (!buffer.prepared) {
+                buffer.samples.assign(interleaved_stereo.begin(), interleaved_stereo.end());
+                buffer.header = {};
+                buffer.header.lpData = reinterpret_cast<LPSTR>(buffer.samples.data());
+                buffer.header.dwBufferLength = static_cast<DWORD>(buffer.samples.size() * sizeof(s16));
+                if (waveOutPrepareHeader(device_, &buffer.header, sizeof(buffer.header)) == MMSYSERR_NOERROR) {
+                    buffer.prepared = true;
+                    waveOutWrite(device_, &buffer.header, sizeof(buffer.header));
+                }
+                return;
+            }
+        }
+    }
+
+    void close() {
+        if (device_ == nullptr) {
+            return;
+        }
+        waveOutReset(device_);
+        for (auto& buffer : buffers_) {
+            if (buffer.prepared) {
+                waveOutUnprepareHeader(device_, &buffer.header, sizeof(buffer.header));
+                buffer.prepared = false;
+            }
+        }
+        waveOutClose(device_);
+        device_ = nullptr;
+    }
+
+private:
+    struct AudioBuffer {
+        WAVEHDR header{};
+        std::vector<s16> samples;
+        bool prepared = false;
+    };
+
+    HWAVEOUT device_ = nullptr;
+    std::array<AudioBuffer, 4> buffers_{};
 };
 
 struct AppState {
     std::unique_ptr<HostRuntime> host;
+    std::unique_ptr<Win32Audio> audio;
     HostInputState input;
     BITMAPINFO bitmap_info{};
     bool running = true;
@@ -57,7 +138,7 @@ std::vector<u8> normalize_rom_payload(std::vector<u8> rom) {
 
 void print_usage() {
     std::cout << "usage: sgrecomp_host <rom.sms|rom.sg> [--bios bios.sms] [--model sms|sg3000]\n"
-              << "                    [--scale n] [--disable-sprite-limit] [--reduce-flicker]\n";
+              << "                    [--scale n] [--mute] [--disable-sprite-limit] [--reduce-flicker]\n";
 }
 
 Options parse_args(int argc, char** argv) {
@@ -85,6 +166,10 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--scale" && i + 1 < argc) {
             opts.scale = std::max(1, std::stoi(argv[++i]));
+            continue;
+        }
+        if (arg == "--mute") {
+            opts.audio = false;
             continue;
         }
         if (arg == "--disable-sprite-limit") {
@@ -260,6 +345,9 @@ void run_message_loop(HWND hwnd, AppState& app) {
         const auto now = clock::now();
         if (now >= next_frame) {
             app.host->run_frame(app.input);
+            if (app.audio) {
+                app.audio->submit(app.host->audio());
+            }
             app.host->clear_audio();
             InvalidateRect(hwnd, nullptr, FALSE);
             UpdateWindow(hwnd);
@@ -293,6 +381,14 @@ int run(int argc, char** argv) {
     app.bitmap_info.bmiHeader.biPlanes = 1;
     app.bitmap_info.bmiHeader.biBitCount = 32;
     app.bitmap_info.bmiHeader.biCompression = BI_RGB;
+
+    if (opts.audio) {
+        app.audio = std::make_unique<Win32Audio>();
+        if (!app.audio->open(app.host->config().audio_sample_rate)) {
+            std::cerr << "sgrecomp_host: audio device unavailable, continuing muted\n";
+            app.audio.reset();
+        }
+    }
 
     HINSTANCE instance = GetModuleHandle(nullptr);
     HWND hwnd = create_main_window(instance, app, opts.scale);

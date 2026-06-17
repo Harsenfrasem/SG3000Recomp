@@ -73,7 +73,7 @@ if(SGRECOMP_BUILD_HOST AND WIN32)
         src/host/win32_host.cpp
     )
 
-    target_link_libraries(sgrecomp_host PRIVATE sgrecomp_runtime user32 gdi32)
+    target_link_libraries(sgrecomp_host PRIVATE sgrecomp_runtime user32 gdi32 winmm)
 
     if(MSVC)
         target_compile_options(sgrecomp_host PRIVATE /W4 /permissive-)
