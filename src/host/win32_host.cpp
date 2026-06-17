@@ -52,6 +52,7 @@ struct Options {
     bool print_hash = false;
     bool force_state = false;
     int audio_latency_ms = 80;
+    u32 audio_sample_rate = 44100;
     std::size_t quit_after_frames = 0;
 };
 
@@ -364,7 +365,7 @@ void write_binary_file(const std::filesystem::path& path, std::span<const u8> by
 void print_usage() {
     std::cout << "usage: sgrecomp_host <rom.sms|rom.sg> [--bios bios.sms] [--model sms|sg3000] [--mapper auto|plain|smapper|cmapper|kmapper|k8k]\n"
               << "                    [--video-standard ntsc|pal]\n"
-              << "                    [--scale n] [--mute] [--no-overlay] [--audio-latency-ms n]\n"
+              << "                    [--scale n] [--mute] [--no-overlay] [--audio-latency-ms n] [--audio-sample-rate hz]\n"
               << "                    [--load-sram save.sav] [--save-sram save.sav]\n"
               << "                    [--load-state state.sgstate] [--save-state state.sgstate] [--force-state]\n"
               << "                    [--profile profiles.txt]\n"
@@ -446,6 +447,10 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--audio-latency-ms" && i + 1 < argc) {
             opts.audio_latency_ms = std::clamp(std::stoi(argv[++i]), 10, 300);
+            continue;
+        }
+        if (arg == "--audio-sample-rate" && i + 1 < argc) {
+            opts.audio_sample_rate = static_cast<u32>(std::clamp(std::stoi(argv[++i]), 8000, 96000));
             continue;
         }
         if (arg == "--quit-after-frames" && i + 1 < argc) {
@@ -831,6 +836,9 @@ int run(int argc, char** argv) {
             if (profile->has_audio_latency_ms) {
                 opts.audio_latency_ms = profile->audio_latency_ms;
             }
+            if (profile->has_audio_sample_rate) {
+                opts.audio_sample_rate = profile->audio_sample_rate;
+            }
             if (profile->has_video_standard) {
                 opts.video_standard = profile->video_standard;
             }
@@ -845,7 +853,9 @@ int run(int argc, char** argv) {
 
     AppState app;
     const HostRuntimeConfig host_config = host_runtime_config_for_video_standard(opts.video_standard);
-    app.host = std::make_unique<HostRuntime>(opts.model, opts.enhancements, host_config);
+    HostRuntimeConfig runtime_config = host_config;
+    runtime_config.audio_sample_rate = opts.audio_sample_rate;
+    app.host = std::make_unique<HostRuntime>(opts.model, opts.enhancements, runtime_config);
     app.host->console().bus().set_mapper(opts.mapper);
     app.overlay_enabled = opts.overlay;
     app.quit_after_frames = opts.quit_after_frames;

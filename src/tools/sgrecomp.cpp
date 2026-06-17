@@ -73,6 +73,7 @@ struct Options {
     bool force_state = false;
     std::size_t max_steps = 200000;
     std::size_t host_frames = 1;
+    u32 audio_sample_rate = 44100;
 };
 
 u32 parse_number(std::string text) {
@@ -181,7 +182,7 @@ void print_usage() {
               << "                [--load-sram save.sav] [--save-sram save.sav] [--dump-sram sram.bin]\n"
               << "                [--load-state state.sgstate] [--save-state state.sgstate] [--force-state]\n"
               << "                [--dump-coverage pcs.csv] [--disable-sprite-limit] [--reduce-flicker] [--enable-fm]\n"
-              << "       sgrecomp <rom.sms|rom.sg> --run-host [--frames n] [--bios bios.sms] [--video-standard ntsc|pal]\n"
+              << "       sgrecomp <rom.sms|rom.sg> --run-host [--frames n] [--bios bios.sms] [--video-standard ntsc|pal] [--audio-sample-rate hz]\n"
               << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp] [--dump-audio audio.wav]\n"
               << "       sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--dump-analysis analysis.txt]\n";
 }
@@ -327,6 +328,10 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--frames" && i + 1 < argc) {
             opts.host_frames = static_cast<std::size_t>(std::stoull(argv[++i]));
+            continue;
+        }
+        if (arg == "--audio-sample-rate" && i + 1 < argc) {
+            opts.audio_sample_rate = static_cast<u32>(std::clamp(std::stoi(argv[++i]), 8000, 96000));
             continue;
         }
         if (arg == "--trace") {
@@ -1559,7 +1564,9 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
 
 void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<u8>* bios, const Options& opts) {
     const HostRuntimeConfig host_config = host_runtime_config_for_video_standard(opts.video_standard);
-    HostRuntime host(model, opts.enhancements, host_config);
+    HostRuntimeConfig runtime_config = host_config;
+    runtime_config.audio_sample_rate = opts.audio_sample_rate;
+    HostRuntime host(model, opts.enhancements, runtime_config);
     host.console().bus().set_mapper(opts.mapper);
     if (bios != nullptr) {
         host.load_bios(*bios);
@@ -1595,6 +1602,7 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
               << "\nvideo standard: " << host_video_standard_name(opts.video_standard)
               << " (" << host.config().cpu_cycles_per_scanline << "x"
               << host.config().scanlines_per_frame << " cycles/frame)"
+              << "\naudio sample rate: " << host.config().audio_sample_rate
               << "\nframebuffer lit pixels: " << lit_pixels
               << "\naudio samples: " << result.stereo_samples
               << "\npsg sample: " << std::fixed << std::setprecision(4)

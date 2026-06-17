@@ -236,6 +236,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Saida Win32 waveOut inicial no host.
 - [x] Contadores de fila, underrun e buffers descartados no host.
 - [x] Volume, mute e latencia configuravel no host Win32.
+- [x] Sample rate configuravel no HostRuntime, CLI headless, host Win32, WAV dumps e perfis locais.
 - [ ] Mixer estereo e sample rate configuravel no host.
 
 ## Entrada

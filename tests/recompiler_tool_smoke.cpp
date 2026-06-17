@@ -465,7 +465,7 @@ int main() {
 
     const std::string host_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(audio_rom_path)
         + " --run-host --frames 2 --dump-frame-bmp " + quote(host_frame_path)
-        + " --dump-audio " + quote(host_audio_path);
+        + " --audio-sample-rate 22050 --dump-audio " + quote(host_audio_path);
     assert(run_command(host_command) == 0);
 
     const auto host_frame = read_binary(host_frame_path);
@@ -477,6 +477,12 @@ int main() {
     assert(host_wav.size() > 44);
     assert(host_wav.substr(0, 4) == "RIFF");
     assert(host_wav.substr(8, 4) == "WAVE");
+    const auto host_wav_bytes = read_binary(host_audio_path);
+    const unsigned sample_rate = static_cast<unsigned>(host_wav_bytes[24])
+        | (static_cast<unsigned>(host_wav_bytes[25]) << 8)
+        | (static_cast<unsigned>(host_wav_bytes[26]) << 16)
+        | (static_cast<unsigned>(host_wav_bytes[27]) << 24);
+    assert(sample_rate == 22050);
 
 #ifdef SGRECOMP_HOST_PATH
     std::vector<unsigned char> host_sram_rom(0x10000, 0x00);

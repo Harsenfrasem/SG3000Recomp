@@ -166,6 +166,9 @@ GameProfileDatabase GameProfileDatabase::parse(std::string_view text) {
         } else if (key == "audio_latency_ms") {
             current.audio_latency_ms = std::clamp(std::stoi(strip_quotes(value)), 10, 300);
             current.has_audio_latency_ms = true;
+        } else if (key == "audio_sample_rate") {
+            current.audio_sample_rate = static_cast<u32>(std::clamp(std::stoi(strip_quotes(value)), 8000, 96000));
+            current.has_audio_sample_rate = true;
         } else if (key == "video_standard" || key == "region") {
             const std::string standard = lower_ascii(strip_quotes(value));
             if (standard != "ntsc" && standard != "pal") {

@@ -1407,11 +1407,13 @@ void test_host_runtime_config_sets_vdp_timing() {
     HostRuntimeConfig config;
     config.cpu_cycles_per_scanline = 200;
     config.scanlines_per_frame = 313;
+    config.audio_sample_rate = 22050;
     HostRuntime host(ConsoleModel::SMS, config);
     const auto snapshot = host.console().vdp().debug_snapshot();
     assert(snapshot.cpu_cycles_per_scanline == 200);
     assert(snapshot.scanlines_per_frame == 313);
     assert(host.config().cycles_per_frame() == 62600);
+    assert(host.config().audio_sample_rate == 22050);
 }
 
 void test_console_enhancement_config_propagates_to_runtime_devices() {
@@ -2168,6 +2170,7 @@ void test_game_profile_hash_and_parse() {
         "disable_sprite_limit = true\n"
         "enable_fm = true\n"
         "audio_latency_ms = 120\n"
+        "audio_sample_rate = 48000\n"
         "video_standard = \"pal\"\n");
     const GameProfile* profile = profiles.find_by_hash(hash);
     assert(profile != nullptr);
@@ -2180,6 +2183,8 @@ void test_game_profile_hash_and_parse() {
     assert(profile->enhancements.enable_fm);
     assert(profile->has_audio_latency_ms);
     assert(profile->audio_latency_ms == 120);
+    assert(profile->has_audio_sample_rate);
+    assert(profile->audio_sample_rate == 48000);
     assert(profile->has_video_standard);
     assert(profile->video_standard == HostVideoStandard::Pal);
     const auto host_config = host_runtime_config_for_video_standard(profile->video_standard);

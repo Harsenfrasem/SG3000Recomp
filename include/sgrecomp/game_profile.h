@@ -22,6 +22,8 @@ struct GameProfile {
     EnhancementConfig enhancements;
     bool has_audio_latency_ms = false;
     int audio_latency_ms = 0;
+    bool has_audio_sample_rate = false;
+    u32 audio_sample_rate = 44100;
     bool has_video_standard = false;
     HostVideoStandard video_standard = HostVideoStandard::Ntsc;
 };
