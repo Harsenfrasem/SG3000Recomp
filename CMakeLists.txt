@@ -9,6 +9,7 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 option(SGRECOMP_BUILD_TOOLS "Build SG3000Recomp command line tools" ON)
+option(SGRECOMP_BUILD_HOST "Build SG3000Recomp host executables" ON)
 option(SGRECOMP_BUILD_TESTS "Build SG3000Recomp tests" ON)
 option(SGRECOMP_WARNINGS_AS_ERRORS "Treat warnings as errors" OFF)
 
@@ -63,6 +64,28 @@ if(SGRECOMP_BUILD_TOOLS)
             target_compile_options(sgrecomp PRIVATE /WX)
         else()
             target_compile_options(sgrecomp PRIVATE -Werror)
+        endif()
+    endif()
+endif()
+
+if(SGRECOMP_BUILD_HOST AND WIN32)
+    add_executable(sgrecomp_host
+        src/host/win32_host.cpp
+    )
+
+    target_link_libraries(sgrecomp_host PRIVATE sgrecomp_runtime user32 gdi32)
+
+    if(MSVC)
+        target_compile_options(sgrecomp_host PRIVATE /W4 /permissive-)
+    else()
+        target_compile_options(sgrecomp_host PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+
+    if(SGRECOMP_WARNINGS_AS_ERRORS)
+        if(MSVC)
+            target_compile_options(sgrecomp_host PRIVATE /WX)
+        else()
+            target_compile_options(sgrecomp_host PRIVATE -Werror)
         endif()
     endif()
 endif()
@@ -122,6 +145,10 @@ if(SGRECOMP_BUILD_TESTS)
 
         add_test(NAME recompiler_tool_smoke COMMAND recompiler_tool_smoke)
     endif()
+
+    if(TARGET sgrecomp_host)
+        add_test(NAME win32_host_help COMMAND sgrecomp_host --help)
+    endif()
 endif()
 
 install(TARGETS sgrecomp_runtime
@@ -133,6 +160,10 @@ install(TARGETS sgrecomp_runtime
 
 if(TARGET sgrecomp)
     install(TARGETS sgrecomp RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+endif()
+
+if(TARGET sgrecomp_host)
+    install(TARGETS sgrecomp_host RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 endif()
 
 install(DIRECTORY include/ DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
