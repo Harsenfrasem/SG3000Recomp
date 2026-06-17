@@ -548,12 +548,26 @@ const char* runtime_mode_name(RuntimeMode mode) {
 
 std::string overlay_text(const AppState& app) {
     const auto& config = app.host->console().enhancements();
+    const auto& cpu = app.host->console().cpu();
     std::ostringstream out;
     out << std::fixed << std::setprecision(1)
         << "FPS " << app.fps
         << "  frame " << app.last_frame.frame_index
         << "  PC $" << std::hex << std::uppercase << std::setw(4) << std::setfill('0')
-        << static_cast<int>(app.host->console().cpu().pc) << std::dec << "\n"
+        << static_cast<int>(cpu.pc) << std::dec << "\n"
+        << "AF $" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << cpu.af()
+        << " BC $" << std::setw(4) << cpu.bc()
+        << " DE $" << std::setw(4) << cpu.de()
+        << " HL $" << std::setw(4) << cpu.hl()
+        << " SP $" << std::setw(4) << cpu.sp << std::dec << "\n"
+        << "IX $" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << make_u16(cpu.ixl, cpu.ixh)
+        << " IY $" << std::setw(4) << make_u16(cpu.iyl, cpu.iyh)
+        << " I $" << std::setw(2) << static_cast<int>(cpu.i)
+        << " R $" << std::setw(2) << static_cast<int>(cpu.r)
+        << std::dec << " IM " << static_cast<int>(cpu.interrupt_mode)
+        << " IFF " << (cpu.iff1 ? "1" : "0") << "/" << (cpu.iff2 ? "1" : "0")
+        << " cycles " << cpu.cycles
+        << (cpu.halted ? " halted" : "") << "\n"
         << "mode " << runtime_mode_name(config.mode)
         << "  sprite_limit " << (config.disable_sprite_limit ? "off" : "on")
         << "  reduce_flicker " << (config.reduce_flicker ? "on" : "off")
@@ -622,14 +636,14 @@ void draw_overlay(HDC dc, const AppState& app) {
     }
 
     const std::string text = overlay_text(app);
-    RECT background{8, 8, 560, 124};
+    RECT background{8, 8, 680, 164};
     HBRUSH brush = CreateSolidBrush(RGB(0, 0, 0));
     FillRect(dc, &background, brush);
     DeleteObject(brush);
 
     SetBkMode(dc, TRANSPARENT);
     SetTextColor(dc, RGB(220, 240, 220));
-    RECT text_rect{14, 12, 382, 82};
+    RECT text_rect{14, 12, 660, 154};
     DrawTextA(dc, text.c_str(), -1, &text_rect, DT_LEFT | DT_TOP | DT_NOCLIP);
 }
 

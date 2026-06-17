@@ -267,7 +267,8 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Debug overlay de PC, FPS, frame, modo runtime e audio.
 - [x] Debug overlay com estado de pausa, volume e latencia.
 - [x] Debug overlay com timing de scanline/frame do VDP.
-- [ ] Debug overlay com registradores completos e fallback count.
+- [x] Debug overlay com registradores completos de CPU, flags de interrupcao, cycles e halt.
+- [ ] Debug overlay com fallback count/recompiler stats em tempo real.
 
 ## GUI
 
