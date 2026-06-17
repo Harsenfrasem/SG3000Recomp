@@ -1,4 +1,5 @@
 #include "sgrecomp/console.h"
+#include "sgrecomp/game_profile.h"
 #include "sgrecomp/host_runtime.h"
 
 #include <cassert>
@@ -1203,6 +1204,31 @@ void test_host_runtime_frame_audio_and_input() {
     assert(host.framebuffer()[0] == 0xFFFF0000);
 }
 
+void test_game_profile_hash_and_parse() {
+    const std::vector<u8> rom = {0x00, 0x01, 0x02};
+    const std::string hash = rom_hash_fnv1a64(rom);
+    assert(hash == "fnv1a64:d949aa186c0c4928");
+
+    const auto profiles = GameProfileDatabase::parse(
+        "[profile]\n"
+        "name = \"local test\"\n"
+        "hash = \"fnv1a64:d949aa186c0c4928\"\n"
+        "model = \"sg3000\"\n"
+        "mode = \"enhanced\"\n"
+        "disable_sprite_limit = true\n"
+        "audio_latency_ms = 120\n");
+    const GameProfile* profile = profiles.find_by_hash(hash);
+    assert(profile != nullptr);
+    assert(profile->name == "local test");
+    assert(profile->has_model);
+    assert(profile->model == ConsoleModel::SG3000);
+    assert(profile->has_enhancements);
+    assert(profile->enhancements.mode == RuntimeMode::Enhanced);
+    assert(profile->enhancements.disable_sprite_limit);
+    assert(profile->has_audio_latency_ms);
+    assert(profile->audio_latency_ms == 120);
+}
+
 int main() {
     test_basic_program();
     test_djnz_loop();
@@ -1252,5 +1278,6 @@ int main() {
     test_bc_de_indirect_loads();
     test_hl_absolute_load_store();
     test_host_runtime_frame_audio_and_input();
+    test_game_profile_hash_and_parse();
     return 0;
 }

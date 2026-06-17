@@ -2,6 +2,7 @@
 #define WIN32_LEAN_AND_MEAN
 
 #include "sgrecomp/enhancements.h"
+#include "sgrecomp/game_profile.h"
 #include "sgrecomp/host_runtime.h"
 
 #include <windows.h>
@@ -35,11 +36,13 @@ struct Options {
     std::filesystem::path bios;
     std::filesystem::path load_sram;
     std::filesystem::path save_sram;
+    std::filesystem::path profile;
     ConsoleModel model = ConsoleModel::SMS;
     EnhancementConfig enhancements;
     int scale = 3;
     bool audio = true;
     bool overlay = true;
+    bool print_hash = false;
     int audio_latency_ms = 80;
     std::size_t quit_after_frames = 0;
 };
@@ -272,6 +275,8 @@ struct AppState {
     std::unique_ptr<Win32Audio> audio;
     HostInputState input;
     HostFrameResult last_frame;
+    std::string rom_hash;
+    std::string profile_name;
     BITMAPINFO bitmap_info{};
     bool running = true;
     bool emulation_paused = false;
@@ -314,6 +319,8 @@ void print_usage() {
     std::cout << "usage: sgrecomp_host <rom.sms|rom.sg> [--bios bios.sms] [--model sms|sg3000]\n"
               << "                    [--scale n] [--mute] [--no-overlay] [--audio-latency-ms n]\n"
               << "                    [--load-sram save.sav] [--save-sram save.sav]\n"
+              << "                    [--profile profiles.txt]\n"
+              << "                    [--print-hash]\n"
               << "                    [--quit-after-frames n]\n"
               << "                    [--disable-sprite-limit] [--reduce-flicker]\n";
 }
@@ -338,6 +345,10 @@ Options parse_args(int argc, char** argv) {
             opts.save_sram = argv[++i];
             continue;
         }
+        if (arg == "--profile" && i + 1 < argc) {
+            opts.profile = argv[++i];
+            continue;
+        }
         if (arg == "--model" && i + 1 < argc) {
             const std::string model = argv[++i];
             if (model == "sms") {
@@ -359,6 +370,10 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--no-overlay") {
             opts.overlay = false;
+            continue;
+        }
+        if (arg == "--print-hash") {
+            opts.print_hash = true;
             continue;
         }
         if (arg == "--audio-latency-ms" && i + 1 < argc) {
@@ -466,6 +481,12 @@ std::string overlay_text(const AppState& app) {
         << "  sprite_limit " << (config.disable_sprite_limit ? "off" : "on")
         << "  reduce_flicker " << (config.reduce_flicker ? "on" : "off")
         << "  " << (app.emulation_paused ? "paused" : "running") << "\n";
+    if (!app.profile_name.empty()) {
+        out << "profile " << app.profile_name << "  ";
+    } else {
+        out << "profile none  ";
+    }
+    out << app.rom_hash << "\n";
 
     if (app.audio) {
         app.audio->cleanup_completed_buffers();
@@ -668,8 +689,32 @@ void run_message_loop(HWND hwnd, AppState& app) {
 }
 
 int run(int argc, char** argv) {
-    const Options opts = parse_args(argc, argv);
+    Options opts = parse_args(argc, argv);
     auto rom = normalize_rom_payload(read_file(opts.rom));
+    const std::string rom_hash = rom_hash_fnv1a64(rom);
+    if (opts.print_hash) {
+        std::cout << rom_hash << "\n";
+        return 0;
+    }
+    std::string profile_name;
+    if (!opts.profile.empty()) {
+        const auto profiles = GameProfileDatabase::load(opts.profile);
+        if (const GameProfile* profile = profiles.find_by_hash(rom_hash)) {
+            profile_name = profile->name.empty() ? profile->hash : profile->name;
+            if (profile->has_model) {
+                opts.model = profile->model;
+            }
+            if (profile->has_enhancements) {
+                opts.enhancements = profile->enhancements;
+            }
+            if (profile->has_audio_latency_ms) {
+                opts.audio_latency_ms = profile->audio_latency_ms;
+            }
+            std::cout << "profile matched: " << profile_name << "\n";
+        } else {
+            std::cout << "profile matched: none (" << rom_hash << ")\n";
+        }
+    }
     const std::optional<std::vector<u8>> bios = opts.bios.empty()
         ? std::optional<std::vector<u8>>{}
         : std::optional<std::vector<u8>>{read_file(opts.bios)};
@@ -678,6 +723,8 @@ int run(int argc, char** argv) {
     app.host = std::make_unique<HostRuntime>(opts.model, opts.enhancements);
     app.overlay_enabled = opts.overlay;
     app.quit_after_frames = opts.quit_after_frames;
+    app.rom_hash = rom_hash;
+    app.profile_name = profile_name;
     if (bios) {
         app.host->load_bios(*bios);
     }

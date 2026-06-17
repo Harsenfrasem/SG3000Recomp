@@ -1,0 +1,11 @@
+# Local game profile example.
+# Keep real user profiles outside the repository when they include private names or local choices.
+
+[profile]
+name = "example local profile"
+hash = "fnv1a64:0000000000000000"
+model = "sms"
+mode = "accurate"
+disable_sprite_limit = false
+reduce_flicker = false
+audio_latency_ms = 80

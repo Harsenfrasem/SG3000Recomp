@@ -20,6 +20,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_library(sgrecomp_runtime STATIC
     src/runtime/bus.cpp
     src/runtime/console.cpp
+    src/runtime/game_profile.cpp
     src/runtime/host_runtime.cpp
     src/runtime/joypad.cpp
     src/runtime/psg.cpp

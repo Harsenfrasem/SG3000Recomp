@@ -64,8 +64,9 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 
 ### 5. Audio FM opcional e perfis por jogo
 
-- [ ] `GameProfile` para configurar compatibilidade e enhancements por jogo.
-- [ ] Identificacao de jogo por hash/header sem incluir ROM/BIOS no repositorio.
+- [x] `GameProfile` para configurar compatibilidade e enhancements por jogo.
+- [x] Identificacao de jogo por hash sem incluir ROM/BIOS no repositorio.
+- [x] Carregamento de perfis locais no host por `--profile`.
 - [ ] FM opcional para jogos com suporte conhecido.
 - [ ] Experimento de FM enhancement para PSG-only com perfis manuais.
 - [ ] Fallback obrigatorio para PSG original.
@@ -213,7 +214,7 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Modo fiel como padrao imutavel.
 - [x] `disable_sprite_limit`.
 - [x] `reduce_flicker`.
-- [ ] Perfis por jogo.
+- [x] Perfis por jogo por hash local.
 - [ ] Audio FM opcional.
 - [ ] Relatorio/debug mostrando enhancements ativos.
 
@@ -228,6 +229,7 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Teste do dump WAV do smoke runner.
 - [x] Teste do dump VGM PSG do smoke runner.
 - [x] Teste do save SRAM pelo host Win32 com ROM sintetica.
+- [x] Teste de parser/hash de `GameProfile` e perfil aplicado no host.
 - [ ] Testes de regressao com ROMs homebrew permitidas.
 - [x] Smoke runner testado com ROMs locais privadas, sem imagens versionadas.
 

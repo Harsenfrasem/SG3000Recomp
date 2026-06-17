@@ -119,6 +119,8 @@ int main() {
     const std::filesystem::path host_audio_path = output_dir / "host_audio.wav";
     const std::filesystem::path host_sram_rom_path = output_dir / "host_sram_fixture.sms";
     const std::filesystem::path host_sram_path = output_dir / "host_save.sav";
+    const std::filesystem::path host_profile_path = output_dir / "host_profiles.txt";
+    const std::filesystem::path host_profile_sram_path = output_dir / "host_profile_save.sav";
     const std::filesystem::path object_path = output_dir / "generated_fixture.obj";
 
     const std::vector<unsigned char> rom = {
@@ -296,5 +298,22 @@ int main() {
     const auto host_sram = read_binary(host_sram_path);
     assert(host_sram.size() == 0x8000);
     assert(host_sram[0] == 0x5A);
+
+    write_binary(host_profile_path, std::vector<unsigned char>(
+        {'[', 'p', 'r', 'o', 'f', 'i', 'l', 'e', ']', '\n',
+         'n', 'a', 'm', 'e', ' ', '=', ' ', '"', 's', 'm', 'o', 'k', 'e', '"', '\n',
+         'h', 'a', 's', 'h', ' ', '=', ' ', '"', 'f', 'n', 'v', '1', 'a', '6', '4', ':',
+         'd', '3', 'f', '7', '1', '7', '5', '8', '4', 'f', 'a', 'e', '6', 'e', '4', '2', '"', '\n',
+         'm', 'o', 'd', 'e', ' ', '=', ' ', '"', 'e', 'n', 'h', 'a', 'n', 'c', 'e', 'd', '"', '\n',
+         'r', 'e', 'd', 'u', 'c', 'e', '_', 'f', 'l', 'i', 'c', 'k', 'e', 'r', ' ', '=', ' ', 't', 'r', 'u', 'e', '\n',
+         'a', 'u', 'd', 'i', 'o', '_', 'l', 'a', 't', 'e', 'n', 'c', 'y', '_', 'm', 's', ' ', '=', ' ', '1', '2', '0', '\n'}));
+
+    const std::string host_profile_command = quote_arg(SGRECOMP_HOST_PATH) + " " + quote(host_sram_rom_path)
+        + " --profile " + quote(host_profile_path)
+        + " --mute --no-overlay --quit-after-frames 1 --save-sram " + quote(host_profile_sram_path);
+    assert(run_command(host_profile_command) == 0);
+    const auto host_profile_sram = read_binary(host_profile_sram_path);
+    assert(host_profile_sram.size() == 0x8000);
+    assert(host_profile_sram[0] == 0x5A);
 #endif
 }
