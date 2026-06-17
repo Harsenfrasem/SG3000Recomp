@@ -130,6 +130,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Smoke runner com dump CSV de cobertura de PCs.
 - [x] Teste automatizado do dump BMP do smoke runner.
 - [x] Descoberta inicial de basic blocks e fluxo de controle estatico alcancavel.
+- [x] Analise estatica considera entry points de reset, IRQ IM1 (`0x0038`) e NMI/Pause (`0x0066`).
 - [ ] Emissao de funcoes por bloco em vez de um `switch` monolitico.
 - [x] Comentarios de disassembly no C++ gerado.
 - [x] Relatorio de analise: blocos, sucessores, opcodes levantados e fallback usado.

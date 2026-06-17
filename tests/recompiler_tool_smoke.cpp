@@ -113,6 +113,8 @@ int main() {
     const std::filesystem::path analysis_path = output_dir / "analysis.txt";
     const std::filesystem::path header_rom_path = output_dir / "header_fixture.sms";
     const std::filesystem::path header_analysis_path = output_dir / "header_analysis.txt";
+    const std::filesystem::path entry_rom_path = output_dir / "entry_fixture.sms";
+    const std::filesystem::path entry_analysis_path = output_dir / "entry_analysis.txt";
     const std::filesystem::path audio_rom_path = output_dir / "audio_fixture.sms";
     const std::filesystem::path frame_bmp_path = output_dir / "frame_fixture.bmp";
     const std::filesystem::path audio_path = output_dir / "audio_fixture.wav";
@@ -227,6 +229,7 @@ int main() {
 
     const std::string analysis = read_text(analysis_path);
     assert(contains(analysis, "SG3000Recomp static analysis"));
+    assert(contains(analysis, "entry_points: 0x0000"));
     assert(contains(analysis, "basic_blocks:"));
     assert(contains(analysis, "header_found: no"));
     assert(contains(analysis, "direct_emit_instructions:"));
@@ -264,6 +267,25 @@ int main() {
     assert(contains(header_analysis, "header_declared_size_bytes: 32768"));
     assert(contains(header_analysis, "header_checksum_declared_size:"));
     assert(contains(header_analysis, "header_checksum_matches_declared_size: no"));
+
+    std::vector<unsigned char> entry_rom(0x80, 0x00);
+    entry_rom[0x0000] = 0x76; // halt
+    entry_rom[0x0038] = 0x3E; // ld a,$38
+    entry_rom[0x0039] = 0x38;
+    entry_rom[0x003A] = 0x76; // halt
+    entry_rom[0x0066] = 0x3E; // ld a,$66
+    entry_rom[0x0067] = 0x66;
+    entry_rom[0x0068] = 0x76; // halt
+    write_binary(entry_rom_path, entry_rom);
+
+    const std::string entry_analysis_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(entry_rom_path)
+        + " --dump-analysis " + quote(entry_analysis_path);
+    assert(run_command(entry_analysis_command) == 0);
+    const std::string entry_analysis = read_text(entry_analysis_path);
+    assert(contains(entry_analysis, "entry_points: 0x0000 0x0038 0x0066"));
+    assert(contains(entry_analysis, "block 0x0000"));
+    assert(contains(entry_analysis, "block 0x0038"));
+    assert(contains(entry_analysis, "block 0x0066"));
 
     const std::vector<unsigned char> audio_rom = {
         0x3E, 0x80, // ld a,$80: tone channel 0 latch

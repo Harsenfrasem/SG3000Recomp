@@ -974,7 +974,20 @@ InstructionFlow classify_flow(const std::array<u8, 0x10000>& image, u16 pc, cons
     return flow;
 }
 
-std::vector<BasicBlock> discover_basic_blocks(const std::array<u8, 0x10000>& image, std::size_t limit) {
+std::vector<u16> default_entry_points(std::size_t limit) {
+    std::vector<u16> entries;
+    for (const u16 entry : {static_cast<u16>(0x0000), static_cast<u16>(0x0038), static_cast<u16>(0x0066)}) {
+        if (entry < limit) {
+            entries.push_back(entry);
+        }
+    }
+    return entries;
+}
+
+std::vector<BasicBlock> discover_basic_blocks(
+    const std::array<u8, 0x10000>& image,
+    std::size_t limit,
+    std::span<const u16> entry_points) {
     std::vector<BasicBlock> blocks;
     std::set<u16> queued_or_done;
     std::deque<u16> worklist;
@@ -983,8 +996,11 @@ std::vector<BasicBlock> discover_basic_blocks(const std::array<u8, 0x10000>& ima
         return blocks;
     }
 
-    worklist.push_back(0);
-    queued_or_done.insert(0);
+    for (const u16 entry : entry_points) {
+        if (in_code_window(entry, limit) && queued_or_done.insert(entry).second) {
+            worklist.push_back(entry);
+        }
+    }
 
     while (!worklist.empty()) {
         const u16 start = worklist.front();
@@ -1030,6 +1046,7 @@ void write_analysis_report(
     const std::filesystem::path& path,
     std::span<const u8> rom,
     std::size_t limit,
+    std::span<const u16> entry_points,
     const std::vector<BasicBlock>& blocks) {
     if (path.has_parent_path()) {
         std::filesystem::create_directories(path.parent_path());
@@ -1069,6 +1086,11 @@ void write_analysis_report(
     out << "rom_scan_limit: 0x" << std::hex << std::setw(4) << std::setfill('0') << std::min<std::size_t>(limit, 0xC000)
         << std::dec << "\n";
     out << "rom_size: " << rom.size() << "\n";
+    out << "entry_points:";
+    for (const u16 entry : entry_points) {
+        out << " 0x" << std::hex << std::setw(4) << std::setfill('0') << entry;
+    }
+    out << std::dec << "\n";
     out << "header_found: " << (header.found ? "yes" : "no") << "\n";
     if (header.found) {
         out << "header_offset: 0x" << std::hex << std::setw(4) << std::setfill('0') << header.offset << std::dec << "\n";
@@ -2058,8 +2080,9 @@ int main(int argc, char** argv) {
         const auto image = image_for_decode(opts.model, opts.mapper, rom, opts.disassemble_only && bios ? &*bios : nullptr);
         const std::size_t limit = std::min<std::size_t>(rom.size(), 0xC000);
         if (!opts.dump_analysis.empty()) {
-            const auto blocks = discover_basic_blocks(image, limit);
-            write_analysis_report(opts.dump_analysis, rom, limit, blocks);
+            const auto entry_points = default_entry_points(limit);
+            const auto blocks = discover_basic_blocks(image, limit, entry_points);
+            write_analysis_report(opts.dump_analysis, rom, limit, entry_points, blocks);
             const CartridgeHeaderInfo header = analyze_cartridge_header(rom);
             std::cout << "analysis dumped: " << opts.dump_analysis.string() << "\n";
             std::cout << "rom header: " << (header.found ? "found" : "not found") << "\n";
