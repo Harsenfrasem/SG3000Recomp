@@ -64,6 +64,17 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [ ] Fallback obrigatorio para PSG original.
 - [ ] Documentar limites: FM sintetico nao deve ser tratado como fidelidade historica.
 
+### 6. GUI amigavel para usuario final
+
+- [ ] Criar GUI apos o host runtime com janela/audio estar estavel.
+- [ ] Seletor de ROM e BIOS locais sem copiar, versionar ou expor caminhos privados.
+- [ ] Biblioteca local de jogos por hash/header, com apelidos configurados pelo usuario.
+- [ ] Tela de configuracao simples para modo fiel/enhanced e toggles de enhancements.
+- [ ] Gerenciamento de saves, screenshots, audio dumps e pastas locais ignoradas pelo Git.
+- [ ] Perfis por jogo editaveis pela GUI.
+- [ ] Tela de logs/status com FPS, backend ativo, modelo, fallback/recompiler e avisos de compatibilidade.
+- [ ] Empacotamento Windows com instalador ou pasta portable.
+
 ## Recompilador
 
 - [x] CLI `sgrecomp` com entrada ROM, saida C++ e modo disassembly.
@@ -168,6 +179,15 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Save RAM em arquivo local pelo smoke runner.
 - [ ] Estado serializavel para save states.
 - [ ] Debug overlay de PC, registradores, FPS e fallback count.
+
+## GUI
+
+- [ ] Escolher toolkit GUI depois do backend de janela inicial.
+- [ ] Tela inicial com abrir ROM, escolher BIOS local opcional e iniciar.
+- [ ] Persistir configuracoes em arquivo local ignoravel, sem caminhos sensiveis no repositorio.
+- [ ] Controles visuais para enhancements opcionais.
+- [ ] Lista de jogos recentes usando somente dados locais do usuario.
+- [ ] Dialogo de compatibilidade explicando quando uma melhoria altera fidelidade.
 
 ## Enhancements Opcionais
 
