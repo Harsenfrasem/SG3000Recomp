@@ -1703,6 +1703,25 @@ void test_smapper_loads_cartridge_ram() {
     assert(console.bus().debug_cartridge_ram()[0x4000] == 0x33);
 }
 
+void test_mapper_snapshot_reports_active_mapper_and_banks() {
+    std::vector<u8> rom(0x10000, 0x00);
+    Console console(ConsoleModel::SMS);
+    console.load_rom(rom);
+    assert(std::string(cartridge_mapper_name(console.bus().mapper())) == "smapper");
+
+    console.bus().write(0xFFFF, 0x03);
+    auto snapshot = console.bus().mapper_snapshot();
+    assert(snapshot.mapper == CartridgeMapper::SMapper);
+    assert(snapshot.smapper_slots[2] == 0x03);
+    assert(!snapshot.cartridge_ram_enabled);
+
+    console.bus().write(0xFFFC, 0x0C);
+    snapshot = console.bus().mapper_snapshot();
+    assert(snapshot.cartridge_ram_enabled);
+    assert(snapshot.cartridge_ram_bank == 1);
+    assert(snapshot.smapper_control == 0x0C);
+}
+
 void test_cmapper_banks_and_auto_detection() {
     std::vector<u8> rom(0x10000, 0x00);
     rom[0x0000] = 0x10;
@@ -2052,6 +2071,7 @@ int main() {
     test_bios_can_disable_itself_with_memory_control_port();
     test_smapper_cartridge_ram_banks();
     test_smapper_loads_cartridge_ram();
+    test_mapper_snapshot_reports_active_mapper_and_banks();
     test_cmapper_banks_and_auto_detection();
     test_forced_kmapper_bank_switches_slot2();
     test_forced_k8k_mapper_uses_8k_banks();

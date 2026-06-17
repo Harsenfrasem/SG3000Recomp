@@ -540,6 +540,24 @@ std::string overlay_text(const AppState& app) {
         out << "profile none  ";
     }
     out << app.rom_hash << "\n";
+    const auto mapper = app.host->console().bus().mapper_snapshot();
+    out << "mapper " << cartridge_mapper_name(mapper.mapper)
+        << " req " << cartridge_mapper_name(mapper.requested_mapper);
+    if (mapper.mapper == CartridgeMapper::SMapper) {
+        out << " slots " << static_cast<int>(mapper.smapper_slots[0])
+            << "," << static_cast<int>(mapper.smapper_slots[1])
+            << "," << static_cast<int>(mapper.smapper_slots[2]);
+        if (mapper.cartridge_ram_enabled) {
+            out << " cart_ram bank " << static_cast<int>(mapper.cartridge_ram_bank);
+        }
+    } else if (mapper.mapper == CartridgeMapper::CMapper) {
+        out << " slots " << static_cast<int>(mapper.cmapper_slots[0])
+            << "," << static_cast<int>(mapper.cmapper_slots[1])
+            << "," << static_cast<int>(mapper.cmapper_slots[2]);
+    } else if (mapper.mapper == CartridgeMapper::KMapper) {
+        out << " slot2 " << static_cast<int>(mapper.kmapper_slot2);
+    }
+    out << "\n";
 
     if (app.audio) {
         app.audio->cleanup_completed_buffers();
@@ -565,7 +583,7 @@ void draw_overlay(HDC dc, const AppState& app) {
     }
 
     const std::string text = overlay_text(app);
-    RECT background{8, 8, 388, 84};
+    RECT background{8, 8, 520, 104};
     HBRUSH brush = CreateSolidBrush(RGB(0, 0, 0));
     FillRect(dc, &background, brush);
     DeleteObject(brush);

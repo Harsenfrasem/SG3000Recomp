@@ -9,6 +9,18 @@
 
 namespace sgrecomp {
 
+const char* cartridge_mapper_name(CartridgeMapper mapper) {
+    switch (mapper) {
+    case CartridgeMapper::Auto: return "auto";
+    case CartridgeMapper::Plain: return "plain";
+    case CartridgeMapper::SMapper: return "smapper";
+    case CartridgeMapper::CMapper: return "cmapper";
+    case CartridgeMapper::KMapper: return "kmapper";
+    case CartridgeMapper::K8KMapper: return "k8k";
+    }
+    return "unknown";
+}
+
 Bus::Bus(ConsoleModel model, Vdp& vdp, Psg& psg, Ym2413& ym2413, Joypad& joypad)
     : model_(model), vdp_(vdp), psg_(psg), ym2413_(ym2413), joypad_(joypad) {}
 
@@ -51,6 +63,20 @@ void Bus::set_mapper(CartridgeMapper mapper) {
         ? (rom_.size() <= 0xC000 ? CartridgeMapper::Plain : CartridgeMapper::SMapper)
         : mapper;
     refresh_cartridge_map();
+}
+
+BusMapperSnapshot Bus::mapper_snapshot() const {
+    return {
+        mapper_,
+        requested_mapper_,
+        smapper_control_,
+        {smapper_slots_[0], smapper_slots_[1], smapper_slots_[2]},
+        {cmapper_slots_[0], cmapper_slots_[1], cmapper_slots_[2]},
+        kmapper_slot2_,
+        {k8k_slots_[0], k8k_slots_[1], k8k_slots_[2], k8k_slots_[3], k8k_slots_[4], k8k_slots_[5]},
+        cartridge_ram_enabled(),
+        cartridge_ram_bank(),
+    };
 }
 
 void Bus::set_bios_enabled(bool enabled) {

@@ -35,6 +35,8 @@ enum class CartridgeMapper {
     K8KMapper,
 };
 
+const char* cartridge_mapper_name(CartridgeMapper mapper);
+
 struct BusMemoryAccess {
     u64 cycle = 0;
     BusMemoryAccessKind kind = BusMemoryAccessKind::Ram;
@@ -59,6 +61,18 @@ struct BusState {
     std::array<u8, 6> k8k_slots{{0, 1, 2, 3, 4, 5}};
 };
 
+struct BusMapperSnapshot {
+    CartridgeMapper mapper = CartridgeMapper::Auto;
+    CartridgeMapper requested_mapper = CartridgeMapper::Auto;
+    u8 smapper_control = 0;
+    std::array<u8, 3> smapper_slots{{0, 1, 2}};
+    std::array<u8, 3> cmapper_slots{{0, 1, 2}};
+    u8 kmapper_slot2 = 2;
+    std::array<u8, 6> k8k_slots{{0, 1, 2, 3, 4, 5}};
+    bool cartridge_ram_enabled = false;
+    u8 cartridge_ram_bank = 0;
+};
+
 enum class ConsoleModel {
     SMS,
     SG3000,
@@ -73,6 +87,7 @@ public:
     void set_mapper(CartridgeMapper mapper);
     CartridgeMapper mapper() const { return mapper_; }
     CartridgeMapper requested_mapper() const { return requested_mapper_; }
+    BusMapperSnapshot mapper_snapshot() const;
     bool rom_header_removed() const { return rom_header_removed_; }
     void set_bios_enabled(bool enabled);
     bool bios_enabled() const { return bios_enabled_; }
