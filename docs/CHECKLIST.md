@@ -211,6 +211,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Paleta CRAM inicial, backdrop/display disabled e framebuffer com background Mode 4 basico.
 - [x] VBlank, line interrupts e status flags iniciais.
 - [x] VDP: line IRQ separado dos bits de status, overflow/collision preservados e latch de controle resetado por acesso a dados/status.
+- [x] Timing de VDP configuravel pelo HostRuntime, salvo em save state e exposto no overlay/debug snapshot.
 - [ ] Timing NTSC/PAL configuravel.
 - [x] Pause/NMI do SMS conectado ao runtime.
 - [x] Dump de tilemap/sprite table para engenharia reversa local.
@@ -258,6 +259,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [ ] Save states com compatibilidade longa, migracoes e validacao de BIOS/perfil.
 - [x] Debug overlay de PC, FPS, frame, modo runtime e audio.
 - [x] Debug overlay com estado de pausa, volume e latencia.
+- [x] Debug overlay com timing de scanline/frame do VDP.
 - [ ] Debug overlay com registradores completos e fallback count.
 
 ## GUI

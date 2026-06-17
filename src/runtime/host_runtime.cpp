@@ -5,10 +5,14 @@
 namespace sgrecomp {
 
 HostRuntime::HostRuntime(ConsoleModel model, HostRuntimeConfig config)
-    : console_(model), config_(config) {}
+    : console_(model), config_(config) {
+    console_.vdp().set_timing({config_.cpu_cycles_per_scanline, config_.scanlines_per_frame});
+}
 
 HostRuntime::HostRuntime(ConsoleModel model, const EnhancementConfig& enhancements, HostRuntimeConfig config)
-    : console_(model, enhancements), config_(config) {}
+    : console_(model, enhancements), config_(config) {
+    console_.vdp().set_timing({config_.cpu_cycles_per_scanline, config_.scanlines_per_frame});
+}
 
 void HostRuntime::load_rom(std::span<const u8> rom) {
     console_.load_rom(rom);

@@ -63,6 +63,6 @@ The report does not include ROM or BIOS assets and should normally be written un
 2. Add CB-prefixed rotate/shift/bit instructions.
 3. Add ED block I/O, interrupt mode, and 16-bit arithmetic details.
 4. Add IX/IY prefixed addressing.
-5. Implement SMS VDP modes, line timing, VBlank, and pause/NMI behavior.
+5. Complete SMS VDP modes on top of configurable scanline/frame timing, VBlank, and pause/NMI behavior.
 6. Implement common SMapper variants and SG-3000 cartridge layouts.
 7. Produce per-ROM generated project templates with assets and host loop.

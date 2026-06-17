@@ -1325,6 +1325,36 @@ void test_vdp_debug_snapshot_reports_timing_and_status() {
     assert(!vdp.irq_pending());
 }
 
+void test_vdp_custom_timing_controls_scanline_wrap() {
+    Vdp vdp;
+    vdp.set_timing({200, 313});
+    auto snapshot = vdp.debug_snapshot();
+    assert(snapshot.cpu_cycles_per_scanline == 200);
+    assert(snapshot.scanlines_per_frame == 313);
+
+    vdp.tick(199);
+    assert(vdp.debug_snapshot().scanline == 0);
+    assert(vdp.debug_snapshot().scanline_cycles == 199);
+    vdp.tick(1);
+    assert(vdp.debug_snapshot().scanline == 1);
+    assert(vdp.debug_snapshot().scanline_cycles == 0);
+
+    vdp.tick(200 * 312);
+    snapshot = vdp.debug_snapshot();
+    assert(snapshot.scanline == 0);
+}
+
+void test_host_runtime_config_sets_vdp_timing() {
+    HostRuntimeConfig config;
+    config.cpu_cycles_per_scanline = 200;
+    config.scanlines_per_frame = 313;
+    HostRuntime host(ConsoleModel::SMS, config);
+    const auto snapshot = host.console().vdp().debug_snapshot();
+    assert(snapshot.cpu_cycles_per_scanline == 200);
+    assert(snapshot.scanlines_per_frame == 313);
+    assert(host.config().cycles_per_frame() == 62600);
+}
+
 void test_console_enhancement_config_propagates_to_runtime_devices() {
     Console console(ConsoleModel::SMS);
     assert(console.enhancements().mode == RuntimeMode::Accurate);
@@ -1981,6 +2011,7 @@ void test_console_save_state_round_trip_restores_runtime_state() {
 
     Console console(ConsoleModel::SMS);
     console.load_rom(rom);
+    console.vdp().set_timing({200, 313});
     run_until_halt(console);
     assert(console.bus().read(0xC000) == 0x42);
 
@@ -1998,6 +2029,8 @@ void test_console_save_state_round_trip_restores_runtime_state() {
     const auto restored = deserialize_console_state(bytes);
     assert(restored.cpu.a == 0x42);
     assert(restored.bus.memory[0xC000] == 0x42);
+    assert(restored.vdp.timing.cpu_cycles_per_scanline == 200);
+    assert(restored.vdp.timing.scanlines_per_frame == 313);
     const auto image = deserialize_console_state_image(bytes);
     assert(image.metadata.present);
     assert(image.metadata.model == ConsoleModel::SMS);
@@ -2079,6 +2112,8 @@ int main() {
     test_bus_memory_logging_records_ram_mapper_and_cartridge_ram();
     test_vdp_access_logging_records_register_vram_and_cram_writes();
     test_vdp_debug_snapshot_reports_timing_and_status();
+    test_vdp_custom_timing_controls_scanline_wrap();
+    test_host_runtime_config_sets_vdp_timing();
     test_console_enhancement_config_propagates_to_runtime_devices();
     test_psg_tone_generates_sample();
     test_ym2413_audio_control_and_register_writes();

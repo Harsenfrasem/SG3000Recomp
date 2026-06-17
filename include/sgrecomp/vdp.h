@@ -41,9 +41,16 @@ struct VdpAccess {
     u8 value = 0;
 };
 
+struct VdpTimingConfig {
+    int cpu_cycles_per_scanline = 228;
+    int scanlines_per_frame = 262;
+};
+
 struct VdpDebugSnapshot {
     int scanline = 0;
     int scanline_cycles = 0;
+    int cpu_cycles_per_scanline = 228;
+    int scanlines_per_frame = 262;
     int line_counter = 0;
     u8 status = 0;
     bool display_enabled = false;
@@ -71,6 +78,8 @@ public:
     void tick(int cpu_cycles);
     bool irq_pending() const;
     int scanline() const { return scanline_; }
+    void set_timing(const VdpTimingConfig& timing);
+    const VdpTimingConfig& timing() const { return timing_; }
     void set_cycle(u64 cycle) { current_cycle_ = cycle; }
     void set_access_logging_enabled(bool enabled);
     const std::vector<VdpAccess>& logged_accesses() const { return logged_accesses_; }
@@ -103,6 +112,7 @@ private:
     int line_counter_ = 0;
     bool first_line_ = true;
     bool line_irq_pending_ = false;
+    VdpTimingConfig timing_{};
     u64 current_cycle_ = 0;
     bool access_logging_enabled_ = false;
     std::vector<VdpAccess> logged_accesses_;
@@ -138,6 +148,7 @@ struct VdpState {
     int line_counter = 0;
     bool first_line = true;
     bool line_irq_pending = false;
+    VdpTimingConfig timing{};
 };
 
 } // namespace sgrecomp

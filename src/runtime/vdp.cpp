@@ -30,7 +30,7 @@ u8 Vdp::read_v_counter() const {
 }
 
 u8 Vdp::read_h_counter() const {
-    return static_cast<u8>((scanline_cycles_ * 342) / 228);
+    return static_cast<u8>((scanline_cycles_ * 342) / timing_.cpu_cycles_per_scanline);
 }
 
 void Vdp::write_data(u8 value) {
@@ -67,8 +67,8 @@ void Vdp::write_control(u8 value) {
 
 void Vdp::tick(int cpu_cycles) {
     scanline_cycles_ += cpu_cycles;
-    while (scanline_cycles_ >= 228) {
-        scanline_cycles_ -= 228;
+    while (scanline_cycles_ >= timing_.cpu_cycles_per_scanline) {
+        scanline_cycles_ -= timing_.cpu_cycles_per_scanline;
         advance_scanline();
     }
 }
@@ -83,6 +83,18 @@ void Vdp::set_access_logging_enabled(bool enabled) {
     access_logging_enabled_ = enabled;
     if (!enabled) {
         logged_accesses_.clear();
+    }
+}
+
+void Vdp::set_timing(const VdpTimingConfig& timing) {
+    timing_.cpu_cycles_per_scanline = timing.cpu_cycles_per_scanline > 0 ? timing.cpu_cycles_per_scanline : 228;
+    timing_.scanlines_per_frame = timing.scanlines_per_frame > height ? timing.scanlines_per_frame : 262;
+    if (scanline_ >= timing_.scanlines_per_frame) {
+        scanline_ = 0;
+        first_line_ = true;
+    }
+    if (scanline_cycles_ >= timing_.cpu_cycles_per_scanline) {
+        scanline_cycles_ %= timing_.cpu_cycles_per_scanline;
     }
 }
 
@@ -107,7 +119,7 @@ void Vdp::advance_scanline() {
         line_counter_ = registers_[10];
     }
 
-    if (scanline_ >= 262) {
+    if (scanline_ >= timing_.scanlines_per_frame) {
         scanline_ = 0;
         first_line_ = true;
     }
@@ -285,6 +297,8 @@ VdpDebugSnapshot Vdp::debug_snapshot() const {
     return {
         scanline_,
         scanline_cycles_,
+        timing_.cpu_cycles_per_scanline,
+        timing_.scanlines_per_frame,
         line_counter_,
         status_,
         (registers_[1] & 0x40) != 0,
@@ -369,6 +383,7 @@ VdpState Vdp::save_state() const {
         line_counter_,
         first_line_,
         line_irq_pending_,
+        timing_,
     };
 }
 
@@ -388,6 +403,7 @@ void Vdp::load_state(const VdpState& state) {
     line_counter_ = state.line_counter;
     first_line_ = state.first_line;
     line_irq_pending_ = state.line_irq_pending;
+    set_timing(state.timing);
 }
 
 void Vdp::log_access(VdpAccessKind kind, u16 address, u8 value) {

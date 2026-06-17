@@ -560,7 +560,9 @@ std::string overlay_text(const AppState& app) {
     out << "\n";
     const auto vdp = app.host->console().vdp().debug_snapshot();
     out << "vdp line " << vdp.scanline
-        << "+" << vdp.scanline_cycles
+        << "/" << vdp.scanlines_per_frame
+        << " +" << vdp.scanline_cycles
+        << "/" << vdp.cpu_cycles_per_scanline
         << " status $" << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
         << static_cast<int>(vdp.status) << std::dec
         << " display " << (vdp.display_enabled ? "on" : "off")

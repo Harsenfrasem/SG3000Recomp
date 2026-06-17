@@ -8,7 +8,7 @@ namespace sgrecomp {
 namespace {
 
 constexpr u32 kMagic = 0x53534753; // SGSS
-constexpr u16 kVersion = 4;
+constexpr u16 kVersion = 5;
 
 class Writer {
 public:
@@ -223,6 +223,8 @@ void write_state(Writer& out, const ConsoleState& state, const SaveStateMetadata
     out.i32v(state.vdp.line_counter);
     out.boolv(state.vdp.first_line);
     out.boolv(state.vdp.line_irq_pending);
+    out.i32v(state.vdp.timing.cpu_cycles_per_scanline);
+    out.i32v(state.vdp.timing.scanlines_per_frame);
     out.array_bytes(state.psg.tone);
     out.array_bytes(state.psg.volume);
     out.array_bytes(state.psg.counters);
@@ -244,7 +246,7 @@ SaveStateImage read_image(Reader& in) {
         throw std::runtime_error("not an SG3000Recomp save state");
     }
     const u16 version = in.u16v();
-    if (version != 1 && version != 2 && version != 3 && version != kVersion) {
+    if (version != 1 && version != 2 && version != 3 && version != 4 && version != kVersion) {
         throw std::runtime_error("unsupported save state version");
     }
 
@@ -286,6 +288,10 @@ SaveStateImage read_image(Reader& in) {
     state.vdp.first_line = in.boolv();
     if (version >= 3) {
         state.vdp.line_irq_pending = in.boolv();
+    }
+    if (version >= 5) {
+        state.vdp.timing.cpu_cycles_per_scanline = in.i32v();
+        state.vdp.timing.scanlines_per_frame = in.i32v();
     }
     in.array_bytes(state.psg.tone);
     in.array_bytes(state.psg.volume);
