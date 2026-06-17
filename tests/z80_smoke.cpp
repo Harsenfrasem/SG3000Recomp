@@ -1461,6 +1461,21 @@ void test_v_counter_port() {
     assert(console.cpu().a == 0xB0);
 }
 
+void test_v_counter_uses_video_standard_timing() {
+    Vdp ntsc;
+    ntsc.tick(228 * 0xDB);
+    assert(ntsc.debug_snapshot().scanline == 0xDB);
+    assert(ntsc.read_v_counter() == 0xD5);
+
+    Vdp pal;
+    pal.set_timing({228, 313});
+    pal.tick(228 * 0xF2);
+    assert(pal.read_v_counter() == 0xF2);
+    pal.tick(228);
+    assert(pal.debug_snapshot().scanline == 0xF3);
+    assert(pal.read_v_counter() == 0xBA);
+}
+
 void test_index_register_basics() {
     std::vector<u8> rom(0x80, 0x00);
     rom[0x00] = 0x31; // ld sp,$c100
@@ -2125,6 +2140,7 @@ int main() {
     test_ym2413_absent_audio_control_probe();
     test_misc_jumps_and_flags();
     test_v_counter_port();
+    test_v_counter_uses_video_standard_timing();
     test_index_register_basics();
     test_accumulator_rotates();
     test_index_cb_operations();

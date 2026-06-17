@@ -23,6 +23,12 @@ u8 Vdp::read_status() {
 }
 
 u8 Vdp::read_v_counter() const {
+    if (timing_.scanlines_per_frame >= 300) {
+        if (scanline_ <= 0xF2) {
+            return static_cast<u8>(scanline_);
+        }
+        return static_cast<u8>(scanline_ - 0x39);
+    }
     if (scanline_ <= 0xDA) {
         return static_cast<u8>(scanline_);
     }

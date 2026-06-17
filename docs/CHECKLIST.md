@@ -213,6 +213,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] VDP: line IRQ separado dos bits de status, overflow/collision preservados e latch de controle resetado por acesso a dados/status.
 - [x] Timing de VDP configuravel pelo HostRuntime, salvo em save state e exposto no overlay/debug snapshot.
 - [x] Timing NTSC/PAL configuravel por HostRuntime, CLI headless, host Win32 e perfis locais.
+- [x] VCounter usa remapeamento separado para frames NTSC/PAL em modo 192 linhas.
 - [x] Pause/NMI do SMS conectado ao runtime.
 - [x] Dump de tilemap/sprite table para engenharia reversa local.
 - [ ] Renderer enhanced experimental sem alterar o framebuffer fiel.
