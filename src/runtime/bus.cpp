@@ -69,6 +69,10 @@ BusMapperSnapshot Bus::mapper_snapshot() const {
     return {
         mapper_,
         requested_mapper_,
+        memory_control_,
+        bios_enabled_,
+        cartridge_enabled(),
+        work_ram_enabled(),
         smapper_control_,
         {smapper_slots_[0], smapper_slots_[1], smapper_slots_[2]},
         {cmapper_slots_[0], cmapper_slots_[1], cmapper_slots_[2]},
@@ -82,6 +86,14 @@ BusMapperSnapshot Bus::mapper_snapshot() const {
 void Bus::set_bios_enabled(bool enabled) {
     bios_enabled_ = enabled && !bios_.empty();
     refresh_cartridge_map();
+}
+
+bool Bus::cartridge_enabled() const {
+    return model_ != ConsoleModel::SMS || (memory_control_ & 0x40) == 0;
+}
+
+bool Bus::work_ram_enabled() const {
+    return model_ != ConsoleModel::SMS || (memory_control_ & 0x10) == 0;
 }
 
 bool Bus::cartridge_ram_enabled() const {
@@ -102,6 +114,9 @@ void Bus::load_cartridge_ram(std::span<const u8> ram) {
 
 u8 Bus::read(u16 address) const {
     if (address >= 0xC000) {
+        if (!work_ram_enabled()) {
+            return 0xFF;
+        }
         return memory_[mirrored_ram_address(address)];
     }
     return memory_[address];
@@ -160,6 +175,9 @@ void Bus::write(u16 address, u8 value) {
     }
 
     if (address >= 0xC000) {
+        if (!work_ram_enabled()) {
+            return;
+        }
         const u16 ram = mirrored_ram_address(address);
         memory_[ram] = value;
         memory_[static_cast<u16>(ram + 0x2000)] = value;
@@ -223,8 +241,7 @@ void Bus::output(u8 port, u8 value) {
         return;
     }
     if (model_ == ConsoleModel::SMS && port == 0x3E) {
-        memory_control_ = value;
-        set_bios_enabled((value & 0x08) == 0);
+        set_memory_control(value);
         return;
     }
     if (is_vdp_data_port(port)) {
@@ -286,6 +303,7 @@ void Bus::load_state(const BusState& state) {
     for (std::size_t i = 0; i < 6; ++i) {
         k8k_slots_[i] = state.k8k_slots[i];
     }
+    refresh_cartridge_map();
 }
 
 void Bus::set_io_logging_enabled(bool enabled) {
@@ -305,23 +323,25 @@ void Bus::set_memory_logging_enabled(bool enabled) {
 void Bus::refresh_cartridge_map() {
     std::fill(memory_.begin(), memory_.begin() + 0xC000, 0xFF);
 
-    switch (mapper_) {
-    case CartridgeMapper::Plain:
-        refresh_linear_rom();
-        break;
-    case CartridgeMapper::CMapper:
-        refresh_cmapper();
-        break;
-    case CartridgeMapper::KMapper:
-        refresh_kmapper();
-        break;
-    case CartridgeMapper::K8KMapper:
-        refresh_k8k_mapper();
-        break;
-    case CartridgeMapper::Auto:
-    case CartridgeMapper::SMapper:
-        refresh_smapper();
-        break;
+    if (cartridge_enabled()) {
+        switch (mapper_) {
+        case CartridgeMapper::Plain:
+            refresh_linear_rom();
+            break;
+        case CartridgeMapper::CMapper:
+            refresh_cmapper();
+            break;
+        case CartridgeMapper::KMapper:
+            refresh_kmapper();
+            break;
+        case CartridgeMapper::K8KMapper:
+            refresh_k8k_mapper();
+            break;
+        case CartridgeMapper::Auto:
+        case CartridgeMapper::SMapper:
+            refresh_smapper();
+            break;
+        }
     }
 
     if (bios_enabled_ && !bios_.empty()) {
@@ -399,6 +419,12 @@ void Bus::select_auto_mapper(CartridgeMapper mapper) {
     if (requested_mapper_ == CartridgeMapper::Auto && mapper_ != mapper) {
         mapper_ = mapper;
     }
+}
+
+void Bus::set_memory_control(u8 value) {
+    memory_control_ = value;
+    bios_enabled_ = (value & 0x08) == 0 && !bios_.empty();
+    refresh_cartridge_map();
 }
 
 bool Bus::slot2_cartridge_ram_enabled() const {

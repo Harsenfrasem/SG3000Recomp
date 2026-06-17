@@ -561,7 +561,12 @@ std::string overlay_text(const AppState& app) {
     out << app.rom_hash << "\n";
     const auto mapper = app.host->console().bus().mapper_snapshot();
     out << "mapper " << cartridge_mapper_name(mapper.mapper)
-        << " req " << cartridge_mapper_name(mapper.requested_mapper);
+        << " req " << cartridge_mapper_name(mapper.requested_mapper)
+        << " mem $" << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
+        << static_cast<int>(mapper.memory_control) << std::dec
+        << " bios " << (mapper.bios_enabled ? "on" : "off")
+        << " cart " << (mapper.cartridge_enabled ? "on" : "off")
+        << " ram " << (mapper.work_ram_enabled ? "on" : "off");
     if (mapper.mapper == CartridgeMapper::SMapper) {
         out << " slots " << static_cast<int>(mapper.smapper_slots[0])
             << "," << static_cast<int>(mapper.smapper_slots[1])

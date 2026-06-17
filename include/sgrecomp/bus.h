@@ -64,6 +64,10 @@ struct BusState {
 struct BusMapperSnapshot {
     CartridgeMapper mapper = CartridgeMapper::Auto;
     CartridgeMapper requested_mapper = CartridgeMapper::Auto;
+    u8 memory_control = 0;
+    bool bios_enabled = false;
+    bool cartridge_enabled = true;
+    bool work_ram_enabled = true;
     u8 smapper_control = 0;
     std::array<u8, 3> smapper_slots{{0, 1, 2}};
     std::array<u8, 3> cmapper_slots{{0, 1, 2}};
@@ -89,6 +93,9 @@ public:
     CartridgeMapper requested_mapper() const { return requested_mapper_; }
     BusMapperSnapshot mapper_snapshot() const;
     bool rom_header_removed() const { return rom_header_removed_; }
+    u8 memory_control() const { return memory_control_; }
+    bool cartridge_enabled() const;
+    bool work_ram_enabled() const;
     void set_bios_enabled(bool enabled);
     bool bios_enabled() const { return bios_enabled_; }
     bool cartridge_ram_enabled() const;
@@ -147,6 +154,7 @@ private:
     void refresh_k8k_mapper();
     void copy_rom_bank(std::size_t bank, u16 dst, std::size_t size, std::size_t bank_size, std::size_t bank_offset = 0);
     void select_auto_mapper(CartridgeMapper mapper);
+    void set_memory_control(u8 value);
     void log_io(bool write, u8 port, u8 value);
     void log_memory(BusMemoryAccessKind kind, u16 address, u32 physical, u8 value);
     bool slot2_cartridge_ram_enabled() const;

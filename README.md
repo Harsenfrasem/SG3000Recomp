@@ -95,6 +95,8 @@ Save states are local binary snapshots of mutable runtime state. They do not emb
 
 On Windows, `sgrecomp_host` opens the first native video/input/audio host window. Arrow keys map to the directional pad, `Z`/`X` map to the two action buttons, and `Enter` sends Pause/NMI. `Space` pauses emulation, `R` resets the runtime, `M` mutes audio, and `+`/`-` adjust volume. Audio uses the Win32 waveOut backend, can be disabled with `--mute`, and accepts `--audio-latency-ms`. Local cartridge RAM can be loaded and saved with `--load-sram` and `--save-sram`; keep those files under ignored local folders. `--profile` loads hash-based local profiles for model, enhancements, video standard, and audio latency without storing ROM paths, and `--print-hash` prints the local ROM hash plus detected cartridge header metadata needed for a profile. The debug overlay shows FPS, frame count, PC, runtime mode, mapper/banks, VDP line/cycle timing plus status/IRQ state, pause state, volume, audio queue, underruns, dropped buffers, ROM hash, and matched profile; press `F1` to toggle it or start with `--no-overlay`.
 
+The SMS memory-control port (`0x3E`) is modeled for the core boot/runtime cases: BIOS overlay enable, cartridge mapping enable, and work-RAM enable are tracked in the bus state, save states, I/O logs, and host overlay. Peripheral/region-specific bits remain compatibility work.
+
 Generated code exposes:
 
 ```cpp

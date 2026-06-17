@@ -192,6 +192,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [ ] CMapper completo: SRAM/EEPROM se necessario e edge cases por jogo.
 - [ ] KMapper/K8K completos usados por ROMs especificas.
 - [ ] SG-3000 cartridge layouts.
+- [x] Porta de controle de memoria `0x3E`: bits centrais de BIOS, cartucho e RAM de trabalho modelados, testados e expostos no overlay.
 - [ ] Modelar porta de controle de memoria `0x3E` com todos os bits reais.
 - [ ] Modelar portas `0xDE-0xDF` e diferencas regionais/perifericos quando houver ROM local que dependa disso.
 

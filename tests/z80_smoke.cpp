@@ -1728,6 +1728,39 @@ void test_bios_can_disable_itself_with_memory_control_port() {
     assert(!console.bus().bios_enabled());
 }
 
+void test_memory_control_port_maps_bios_cart_and_ram() {
+    std::vector<u8> bios(0x4000, 0x00);
+    bios[0] = 0x11;
+    std::vector<u8> rom(0x8000, 0x00);
+    rom[0] = 0x22;
+
+    Console console(ConsoleModel::SMS);
+    console.load_bios(bios);
+    console.load_rom(rom);
+    assert(console.bus().bios_enabled());
+    assert(console.bus().read(0x0000) == 0x11);
+
+    console.bus().output(0x3E, 0x08);
+    assert(!console.bus().bios_enabled());
+    assert(console.bus().read(0x0000) == 0x22);
+
+    console.bus().output(0x3E, 0x48);
+    assert(!console.bus().bios_enabled());
+    assert(!console.bus().cartridge_enabled());
+    assert(console.bus().read(0x0000) == 0xFF);
+
+    console.bus().write(0xC000, 0x5A);
+    assert(console.bus().read(0xE000) == 0x5A);
+    console.bus().output(0x3E, 0x58);
+    assert(!console.bus().work_ram_enabled());
+    console.bus().write(0xC000, 0xA5);
+    assert(console.bus().read(0xC000) == 0xFF);
+
+    console.bus().output(0x3E, 0x08);
+    assert(console.bus().work_ram_enabled());
+    assert(console.bus().read(0xC000) == 0x5A);
+}
+
 void test_smapper_cartridge_ram_banks() {
     std::vector<u8> rom(0x10000, 0x00);
     rom[0x8000] = 0x22;
@@ -1791,6 +1824,12 @@ void test_mapper_snapshot_reports_active_mapper_and_banks() {
     assert(snapshot.cartridge_ram_enabled);
     assert(snapshot.cartridge_ram_bank == 1);
     assert(snapshot.smapper_control == 0x0C);
+    console.bus().output(0x3E, 0x58);
+    snapshot = console.bus().mapper_snapshot();
+    assert(snapshot.memory_control == 0x58);
+    assert(!snapshot.bios_enabled);
+    assert(!snapshot.cartridge_enabled);
+    assert(!snapshot.work_ram_enabled);
 }
 
 void test_cmapper_banks_and_auto_detection() {
@@ -2027,6 +2066,7 @@ void test_console_save_state_round_trip_restores_runtime_state() {
     Console console(ConsoleModel::SMS);
     console.load_rom(rom);
     console.vdp().set_timing({200, 313});
+    console.bus().output(0x3E, 0x08);
     run_until_halt(console);
     assert(console.bus().read(0xC000) == 0x42);
 
@@ -2044,6 +2084,7 @@ void test_console_save_state_round_trip_restores_runtime_state() {
     const auto restored = deserialize_console_state(bytes);
     assert(restored.cpu.a == 0x42);
     assert(restored.bus.memory[0xC000] == 0x42);
+    assert(restored.bus.memory_control == 0x08);
     assert(restored.vdp.timing.cpu_cycles_per_scanline == 200);
     assert(restored.vdp.timing.scanlines_per_frame == 313);
     const auto image = deserialize_console_state_image(bytes);
@@ -2152,6 +2193,7 @@ int main() {
     test_ram_mirroring();
     test_bios_overlay_boots_before_rom();
     test_bios_can_disable_itself_with_memory_control_port();
+    test_memory_control_port_maps_bios_cart_and_ram();
     test_smapper_cartridge_ram_banks();
     test_smapper_loads_cartridge_ram();
     test_mapper_snapshot_reports_active_mapper_and_banks();
