@@ -111,6 +111,8 @@ int main() {
     const std::filesystem::path rom_path = output_dir / "fixture.sms";
     const std::filesystem::path generated_path = output_dir / "generated_fixture.cpp";
     const std::filesystem::path analysis_path = output_dir / "analysis.txt";
+    const std::filesystem::path header_rom_path = output_dir / "header_fixture.sms";
+    const std::filesystem::path header_analysis_path = output_dir / "header_analysis.txt";
     const std::filesystem::path audio_rom_path = output_dir / "audio_fixture.sms";
     const std::filesystem::path frame_bmp_path = output_dir / "frame_fixture.bmp";
     const std::filesystem::path audio_path = output_dir / "audio_fixture.wav";
@@ -226,6 +228,7 @@ int main() {
     const std::string analysis = read_text(analysis_path);
     assert(contains(analysis, "SG3000Recomp static analysis"));
     assert(contains(analysis, "basic_blocks:"));
+    assert(contains(analysis, "header_found: no"));
     assert(contains(analysis, "direct_emit_instructions:"));
     assert(contains(analysis, "fallback_instructions:"));
     assert(contains(analysis, "successors=0x0013"));
@@ -233,6 +236,34 @@ int main() {
 
     compile_generated_cpp(generated_path, object_path);
     assert(std::filesystem::exists(object_path));
+
+    std::vector<unsigned char> header_rom(0x8000, 0x00);
+    header_rom[0x0000] = 0x76; // halt
+    const std::string magic = "TMR SEGA";
+    for (std::size_t i = 0; i < magic.size(); ++i) {
+        header_rom[0x7FF0 + i] = static_cast<unsigned char>(magic[i]);
+    }
+    header_rom[0x7FFA] = 0x34;
+    header_rom[0x7FFB] = 0x12;
+    header_rom[0x7FFC] = 0x56;
+    header_rom[0x7FFD] = 0x78;
+    header_rom[0x7FFE] = 0x91; // product nibble + version 1
+    header_rom[0x7FFF] = 0x4C; // export, 32 KiB
+    write_binary(header_rom_path, header_rom);
+
+    const std::string header_analysis_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(header_rom_path)
+        + " --dump-analysis " + quote(header_analysis_path);
+    assert(run_command(header_analysis_command) == 0);
+    const std::string header_analysis = read_text(header_analysis_path);
+    assert(contains(header_analysis, "header_found: yes"));
+    assert(contains(header_analysis, "header_offset: 0x7ff0"));
+    assert(contains(header_analysis, "header_platform: Master System"));
+    assert(contains(header_analysis, "header_region: SMS export"));
+    assert(contains(header_analysis, "header_size_code: 32 KiB"));
+    assert(contains(header_analysis, "header_checksum_stored: 0x1234"));
+    assert(contains(header_analysis, "header_declared_size_bytes: 32768"));
+    assert(contains(header_analysis, "header_checksum_declared_size:"));
+    assert(contains(header_analysis, "header_checksum_matches_declared_size: no"));
 
     const std::vector<unsigned char> audio_rom = {
         0x3E, 0x80, // ld a,$80: tone channel 0 latch

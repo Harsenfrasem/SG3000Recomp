@@ -2,6 +2,7 @@
 #define WIN32_LEAN_AND_MEAN
 
 #include "sgrecomp/enhancements.h"
+#include "sgrecomp/cartridge.h"
 #include "sgrecomp/game_profile.h"
 #include "sgrecomp/host_runtime.h"
 #include "sgrecomp/save_state.h"
@@ -12,6 +13,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cctype>
 #include <cstdlib>
 #include <cstdint>
 #include <exception>
@@ -41,6 +43,7 @@ struct Options {
     std::filesystem::path save_state;
     std::filesystem::path profile;
     ConsoleModel model = ConsoleModel::SMS;
+    CartridgeMapper mapper = CartridgeMapper::Auto;
     EnhancementConfig enhancements;
     int scale = 3;
     bool audio = true;
@@ -307,6 +310,31 @@ std::vector<u8> normalize_rom_payload(std::vector<u8> rom) {
     return rom;
 }
 
+CartridgeMapper parse_mapper(std::string text) {
+    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    if (text == "auto") {
+        return CartridgeMapper::Auto;
+    }
+    if (text == "plain" || text == "none" || text == "nomapper") {
+        return CartridgeMapper::Plain;
+    }
+    if (text == "smapper" || text == "s") {
+        return CartridgeMapper::SMapper;
+    }
+    if (text == "cmapper" || text == "c") {
+        return CartridgeMapper::CMapper;
+    }
+    if (text == "kmapper" || text == "k") {
+        return CartridgeMapper::KMapper;
+    }
+    if (text == "k8k" || text == "k8kmapper") {
+        return CartridgeMapper::K8KMapper;
+    }
+    throw std::runtime_error("unknown mapper: " + text);
+}
+
 void write_binary_file(const std::filesystem::path& path, std::span<const u8> bytes) {
     if (path.has_parent_path()) {
         std::filesystem::create_directories(path.parent_path());
@@ -320,7 +348,7 @@ void write_binary_file(const std::filesystem::path& path, std::span<const u8> by
 }
 
 void print_usage() {
-    std::cout << "usage: sgrecomp_host <rom.sms|rom.sg> [--bios bios.sms] [--model sms|sg3000]\n"
+    std::cout << "usage: sgrecomp_host <rom.sms|rom.sg> [--bios bios.sms] [--model sms|sg3000] [--mapper auto|plain|smapper|cmapper|kmapper|k8k]\n"
               << "                    [--scale n] [--mute] [--no-overlay] [--audio-latency-ms n]\n"
               << "                    [--load-sram save.sav] [--save-sram save.sav]\n"
               << "                    [--load-state state.sgstate] [--save-state state.sgstate] [--force-state]\n"
@@ -340,6 +368,10 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--bios" && i + 1 < argc) {
             opts.bios = argv[++i];
+            continue;
+        }
+        if (arg == "--mapper" && i + 1 < argc) {
+            opts.mapper = parse_mapper(argv[++i]);
             continue;
         }
         if (arg == "--load-sram" && i + 1 < argc) {
@@ -713,9 +745,25 @@ int run(int argc, char** argv) {
     Options opts = parse_args(argc, argv);
     auto rom = normalize_rom_payload(read_file(opts.rom));
     const std::string rom_hash = rom_hash_fnv1a64(rom);
+    const CartridgeHeaderInfo header = analyze_cartridge_header(rom);
     if (opts.print_hash) {
         std::cout << rom_hash << "\n";
+        if (header.found) {
+            std::cout << "header: " << cartridge_platform_name(cartridge_header_platform(header))
+                      << ", " << cartridge_region_name(header.region)
+                      << ", " << cartridge_size_code_name(header.region_size)
+                      << ", offset 0x" << std::hex << header.offset << std::dec;
+            if (header.declared_size_available) {
+                std::cout << ", checksum " << (header.checksum_matches_declared_size ? "ok" : "mismatch");
+            }
+            std::cout << "\n";
+        } else {
+            std::cout << "header: not found\n";
+        }
         return 0;
+    }
+    if (cartridge_header_is_game_gear(header) && opts.model == ConsoleModel::SMS) {
+        std::cout << "warning: cartridge header identifies a Game Gear image; SMS host support is not expected to be faithful yet\n";
     }
     std::string profile_name;
     if (!opts.profile.empty()) {
@@ -742,6 +790,7 @@ int run(int argc, char** argv) {
 
     AppState app;
     app.host = std::make_unique<HostRuntime>(opts.model, opts.enhancements);
+    app.host->console().bus().set_mapper(opts.mapper);
     app.overlay_enabled = opts.overlay;
     app.quit_after_frames = opts.quit_after_frames;
     app.rom_hash = rom_hash;

@@ -20,6 +20,9 @@ $env:PATH="$env:APPDATA\Python\Python314\Scripts;$env:PATH"
 .\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --run-smoke --steps 300000 --bios ".\local-bios\your-test-bios.sms"
 .\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --run-smoke --steps 300000 --bios ".\local-bios\your-test-bios.sms" --dump-frame ".\out\frame.ppm"
 .\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --run-smoke --steps 300000 --bios ".\local-bios\your-test-bios.sms" --dump-vram ".\out\vram.bin" --dump-cram ".\out\cram.bin"
+.\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --run-smoke --steps 300000 --mapper auto --dump-frame-bmp ".\out\frame-auto.bmp"
+.\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --run-smoke --steps 300000 --mapper plain --dump-frame-bmp ".\out\frame-plain.bmp"
+.\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --run-smoke --steps 300000 --mapper cmapper --dump-frame-bmp ".\out\frame-cmapper.bmp"
 .\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --run-smoke --steps 300000 --dump-io-log ".\out\io.csv" --dump-tilemap ".\out\tilemap.csv" --dump-sprites ".\out\sprites.csv"
 .\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --run-smoke --steps 300000 --dump-memory-log ".\out\memory.csv" --watch 0xc000-0xdfff --dump-vdp-log ".\out\vdp.csv" --watch-vdp 0x0000-0x03ff --io-port 0xbe
 .\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --run-smoke --steps 300000 --bios ".\local-bios\your-test-bios.sms" --load-sram ".\local-saves\your-test-save.sav" --save-sram ".\local-saves\your-test-save.sav"
@@ -27,6 +30,7 @@ $env:PATH="$env:APPDATA\Python\Python314\Scripts;$env:PATH"
 .\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --run-smoke --load-state ".\local-saves\your-test-state.sgstate" --steps 300000
 .\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --run-smoke --steps 300000 --bios ".\local-bios\your-test-bios.sms" --dump-coverage ".\out\coverage.csv"
 .\build\zig-debug\sgrecomp.exe ".\local-fm-roms\your-fm-test-rom.sms" --run-smoke --enable-fm --steps 300000 --bios ".\local-bios\your-test-bios.sms" --dump-audio ".\out\fm.wav" --dump-fm-log ".\out\fm-writes.csv"
+.\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --dump-analysis ".\out\analysis.txt"
 .\build\zig-debug\sgrecomp.exe ".\local-roms\your-test-rom.sms" --run-smoke --steps 200 --trace
 .\build\zig-debug\sgrecomp_host.exe ".\local-roms\your-test-rom.sms" --print-hash
 .\build\zig-debug\sgrecomp_host.exe ".\local-roms\your-test-rom.sms" --bios ".\local-bios\your-test-bios.sms" --profile ".\out\profiles\your-local-profile.txt"
@@ -34,8 +38,12 @@ $env:PATH="$env:APPDATA\Python\Python314\Scripts;$env:PATH"
 
 `--bios` is intended for local smoke testing and disassembly only. Generated C++ still embeds only the ROM image, never the BIOS file.
 ROM files with a generic 512-byte copier header are normalized before loading.
+`--dump-analysis` reports the detected `TMR SEGA` header offset, region/size byte, stored checksum, and checksum over the declared ROM size excluding the 16-byte header block. Use it before mapper/BIOS debugging to catch wrong-platform images or surprising size metadata.
+If the detected platform is Game Gear, treat the result as diagnostic only for now. The project can support Game Gear in the future, but the current faithful target is still SMS/SG-3000.
 `--save-state` writes only mutable emulator state, not ROM or BIOS data. Always load the same ROM/BIOS combination before `--load-state`. New state files validate ROM hash and console model; use `--force-state` only when intentionally debugging mismatches.
 The smoke runner also reports visited PCs, lit framebuffer pixels, the current PSG/FM sample, and can dump the current framebuffer, VRAM, CRAM, SRAM, PC coverage, PSG VGM writes, FM CSV writes, generic I/O access logs, RAM/cart/mapper writes, VDP writes, tilemap entries, and sprite table entries.
+
+Use `--mapper auto|plain|smapper|cmapper|kmapper|k8k` when a ROM reaches code but stays blank. `auto` keeps small linear ROMs as `plain` and uses SMapper for larger banked SMS ROMs. The explicit modes are useful for local reverse-engineering matrices. Keep generated screenshots, logs, and per-ROM notes under ignored local folders such as `out/`.
 
 FM support status: the runtime now exposes the expected local FM control path and can log writes to `$F0/$F1/$F2`. The current synthesis is still an approximation for plumbing and diagnostics, not a faithful YM2413/OPLL implementation.
 

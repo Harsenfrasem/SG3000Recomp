@@ -57,6 +57,8 @@ Runtime smoke execution is useful before full video/audio support exists:
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --steps 50000
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --steps 200 --trace
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --dump-frame out\frame.ppm --dump-frame-bmp out\frame.bmp --dump-audio out\audio.wav --dump-vgm out\audio.vgm
+.\build\zig-debug\sgrecomp.exe game.sms --run-smoke --mapper auto --dump-frame-bmp out\frame-auto.bmp
+.\build\zig-debug\sgrecomp.exe game.sms --run-smoke --mapper plain --dump-frame-bmp out\frame-plain.bmp
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --enable-fm --dump-audio out\fm.wav --dump-fm-log out\fm-writes.csv
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --dump-io-log out\io.csv --dump-tilemap out\tilemap.csv --dump-sprites out\sprites.csv
 .\build\zig-debug\sgrecomp.exe game.sms --run-smoke --dump-memory-log out\memory.csv --watch 0xc000-0xc0ff --dump-vdp-log out\vdp.csv --watch-vdp 0x0000-0x03ff --io-port 0xbe
@@ -79,6 +81,10 @@ If execution reaches an unsupported opcode, the tool prints the instruction, PC,
 
 Enhancements are off by default. Smoke summaries print the active mode and enhancement flags so compatibility tests can confirm whether they are running in accurate or enhanced mode.
 
+Mapper selection can be forced with `--mapper auto|plain|smapper|cmapper|kmapper|k8k` in both `sgrecomp` and `sgrecomp_host`. Use this when a ROM executes but stays blank; `auto` is the default, while explicit mapper modes are useful for local compatibility matrices.
+
+The runtime normalizes common SMS I/O mirrors: `0x40-0x7f` route counter reads and PSG writes, and `0x80-0xbf` route VDP data/control access by even/odd port.
+
 `--dump-frame`, `--dump-frame-bmp`, `--dump-audio`, `--dump-vgm`, `--dump-fm-log`, `--dump-io-log`, `--dump-memory-log`, `--dump-vdp-log`, `--dump-tilemap`, and `--dump-sprites` are local smoke artifacts for visual/audio inspection and reverse engineering. Keep them under ignored directories such as `out/` when testing private ROMs. BMP is convenient for opening a quick frame preview on Windows; PPM remains a simple raw technical frame dump. WAV is useful for listening to the current PSG/FM renderer; VGM is useful for inspecting captured PSG writes with timing; FM, I/O, memory, and VDP CSV logs capture runtime activity; tilemap and sprite CSVs expose VDP tables in a readable form. Use `--watch`, `--watch-vdp`, and `--io-port` to filter noisy logs.
 
 Sprite enhancements currently keep the original overflow status bit. Accurate mode renders the original 8 sprites per scanline, `--reduce-flicker` raises that render limit to 16, and `--disable-sprite-limit` renders all visible sprites on the scanline. `--enable-fm` enables the optional FM path for software/profile testing; the current FM synthesis is diagnostic plumbing and still needs a faithful YM2413/OPLL core.
@@ -87,7 +93,7 @@ Save states are local binary snapshots of mutable runtime state. They do not emb
 
 `--run-host` uses the headless host runtime path. It advances full frames, samples audio at 44.1 kHz, applies joypad state through the runtime API, and exposes the latest framebuffer for a future window backend.
 
-On Windows, `sgrecomp_host` opens the first native video/input/audio host window. Arrow keys map to the directional pad, `Z`/`X` map to the two action buttons, and `Enter` sends Pause/NMI. `Space` pauses emulation, `R` resets the runtime, `M` mutes audio, and `+`/`-` adjust volume. Audio uses the Win32 waveOut backend, can be disabled with `--mute`, and accepts `--audio-latency-ms`. Local cartridge RAM can be loaded and saved with `--load-sram` and `--save-sram`; keep those files under ignored local folders. `--profile` loads hash-based local profiles for model, enhancements, and audio latency without storing ROM paths, and `--print-hash` prints the local ROM hash needed for a profile. The debug overlay shows FPS, frame count, PC, runtime mode, pause state, volume, audio queue, underruns, dropped buffers, ROM hash, and matched profile; press `F1` to toggle it or start with `--no-overlay`.
+On Windows, `sgrecomp_host` opens the first native video/input/audio host window. Arrow keys map to the directional pad, `Z`/`X` map to the two action buttons, and `Enter` sends Pause/NMI. `Space` pauses emulation, `R` resets the runtime, `M` mutes audio, and `+`/`-` adjust volume. Audio uses the Win32 waveOut backend, can be disabled with `--mute`, and accepts `--audio-latency-ms`. Local cartridge RAM can be loaded and saved with `--load-sram` and `--save-sram`; keep those files under ignored local folders. `--profile` loads hash-based local profiles for model, enhancements, and audio latency without storing ROM paths, and `--print-hash` prints the local ROM hash plus detected cartridge header metadata needed for a profile. The debug overlay shows FPS, frame count, PC, runtime mode, pause state, volume, audio queue, underruns, dropped buffers, ROM hash, and matched profile; press `F1` to toggle it or start with `--no-overlay`.
 
 Generated code exposes:
 

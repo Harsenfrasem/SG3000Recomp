@@ -1,4 +1,5 @@
 #include "sgrecomp/bus.h"
+#include "sgrecomp/cartridge.h"
 #include "sgrecomp/game_profile.h"
 #include "sgrecomp/host_runtime.h"
 #include "sgrecomp/joypad.h"
@@ -20,6 +21,7 @@
 #include <iostream>
 #include <optional>
 #include <set>
+#include <span>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -58,6 +60,7 @@ struct Options {
     std::filesystem::path save_state;
     std::filesystem::path output = "recompiled_rom.cpp";
     ConsoleModel model = ConsoleModel::SMS;
+    CartridgeMapper mapper = CartridgeMapper::Auto;
     EnhancementConfig enhancements;
     std::vector<AddressRange> memory_filters;
     std::vector<AddressRange> vdp_filters;
@@ -91,6 +94,31 @@ AddressRange parse_range(const std::string& text) {
         std::swap(range.first, range.last);
     }
     return range;
+}
+
+CartridgeMapper parse_mapper(std::string text) {
+    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    if (text == "auto") {
+        return CartridgeMapper::Auto;
+    }
+    if (text == "plain" || text == "none" || text == "nomapper") {
+        return CartridgeMapper::Plain;
+    }
+    if (text == "smapper" || text == "s") {
+        return CartridgeMapper::SMapper;
+    }
+    if (text == "cmapper" || text == "c") {
+        return CartridgeMapper::CMapper;
+    }
+    if (text == "kmapper" || text == "k") {
+        return CartridgeMapper::KMapper;
+    }
+    if (text == "k8k" || text == "k8kmapper") {
+        return CartridgeMapper::K8KMapper;
+    }
+    throw std::runtime_error("unknown mapper: " + text);
 }
 
 bool range_matches(const std::vector<AddressRange>& filters, u32 value) {
@@ -128,8 +156,8 @@ std::vector<u8> normalize_rom_payload(std::vector<u8> rom) {
 }
 
 void print_usage() {
-    std::cout << "usage: sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--model sms|sg3000] [--disasm] [--bios bios.sms]\n"
-              << "       sgrecomp <rom.sms|rom.sg> --run-smoke [--steps n] [--trace] [--bios bios.sms]\n"
+    std::cout << "usage: sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--model sms|sg3000] [--mapper auto|plain|smapper|cmapper|kmapper|k8k] [--disasm] [--bios bios.sms]\n"
+              << "       sgrecomp <rom.sms|rom.sg> --run-smoke [--steps n] [--trace] [--bios bios.sms] [--mapper auto|plain|smapper|cmapper|kmapper|k8k]\n"
               << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp]\n"
               << "                [--dump-audio audio.wav] [--dump-vgm audio.vgm] [--dump-fm-log fm.csv]\n"
               << "                [--dump-io-log io.csv] [--dump-memory-log memory.csv] [--dump-vdp-log vdp.csv]\n"
@@ -158,6 +186,10 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--bios" && i + 1 < argc) {
             opts.bios = argv[++i];
+            continue;
+        }
+        if (arg == "--mapper" && i + 1 < argc) {
+            opts.mapper = parse_mapper(argv[++i]);
             continue;
         }
         if (arg == "--dump-frame" && i + 1 < argc) {
@@ -313,12 +345,13 @@ Options parse_args(int argc, char** argv) {
     return opts;
 }
 
-std::array<u8, 0x10000> image_for_decode(ConsoleModel model, const std::vector<u8>& rom, const std::vector<u8>* bios = nullptr) {
+std::array<u8, 0x10000> image_for_decode(ConsoleModel model, CartridgeMapper mapper, const std::vector<u8>& rom, const std::vector<u8>* bios = nullptr) {
     Vdp vdp;
     Psg psg;
     Ym2413 ym2413;
     Joypad joypad;
     Bus bus(model, vdp, psg, ym2413, joypad);
+    bus.set_mapper(mapper);
     if (bios != nullptr) {
         bus.load_bios(*bios);
     }
@@ -995,6 +1028,7 @@ std::vector<BasicBlock> discover_basic_blocks(const std::array<u8, 0x10000>& ima
 
 void write_analysis_report(
     const std::filesystem::path& path,
+    std::span<const u8> rom,
     std::size_t limit,
     const std::vector<BasicBlock>& blocks) {
     if (path.has_parent_path()) {
@@ -1030,9 +1064,33 @@ void write_analysis_report(
     }
 
     const std::size_t fallback_count = instruction_count - direct_count;
+    const CartridgeHeaderInfo header = analyze_cartridge_header(rom);
     out << "SG3000Recomp static analysis\n";
     out << "rom_scan_limit: 0x" << std::hex << std::setw(4) << std::setfill('0') << std::min<std::size_t>(limit, 0xC000)
         << std::dec << "\n";
+    out << "rom_size: " << rom.size() << "\n";
+    out << "header_found: " << (header.found ? "yes" : "no") << "\n";
+    if (header.found) {
+        out << "header_offset: 0x" << std::hex << std::setw(4) << std::setfill('0') << header.offset << std::dec << "\n";
+        out << "header_platform: " << cartridge_platform_name(cartridge_header_platform(header)) << "\n";
+        out << "header_region: " << cartridge_region_name(header.region) << "\n";
+        out << "header_size_code: " << cartridge_size_code_name(header.region_size) << "\n";
+        out << "header_product_code: " << header.product_code << "\n";
+        out << "header_version: " << static_cast<int>(header.version) << "\n";
+        out << "header_checksum_stored: 0x" << std::hex << std::setw(4) << std::setfill('0')
+            << header.stored_checksum << "\n";
+        out << "header_checksum_diagnostic: 0x" << std::setw(4) << header.diagnostic_checksum << std::dec << "\n";
+        out << "header_declared_size_bytes: " << header.declared_size_bytes << "\n";
+        if (header.declared_size_available) {
+            out << "header_checksum_declared_size: 0x" << std::hex << std::setw(4) << std::setfill('0')
+                << header.declared_size_checksum << std::dec << "\n";
+            out << "header_checksum_matches_declared_size: "
+                << (header.checksum_matches_declared_size ? "yes" : "no") << "\n";
+        } else {
+            out << "header_checksum_declared_size: unknown\n";
+            out << "header_checksum_matches_declared_size: unknown\n";
+        }
+    }
     out << "basic_blocks: " << blocks.size() << "\n";
     out << "instructions: " << instruction_count << "\n";
     out << "direct_emit_instructions: " << direct_count << "\n";
@@ -1090,6 +1148,7 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
     Joypad joypad;
     Bus bus(model, vdp, psg, ym2413, joypad);
     Z80State cpu;
+    bus.set_mapper(opts.mapper);
     vdp.set_enhancements(opts.enhancements);
     psg.set_enhancements(opts.enhancements);
     psg.set_write_logging_enabled(!opts.dump_vgm.empty());
@@ -1307,6 +1366,7 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
 
 void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<u8>* bios, const Options& opts) {
     HostRuntime host(model, opts.enhancements);
+    host.console().bus().set_mapper(opts.mapper);
     if (bios != nullptr) {
         host.load_bios(*bios);
     }
@@ -1995,12 +2055,14 @@ int main(int argc, char** argv) {
         const std::optional<std::vector<u8>> bios = opts.bios.empty()
             ? std::optional<std::vector<u8>>{}
             : std::optional<std::vector<u8>>{read_file(opts.bios)};
-        const auto image = image_for_decode(opts.model, rom, opts.disassemble_only && bios ? &*bios : nullptr);
+        const auto image = image_for_decode(opts.model, opts.mapper, rom, opts.disassemble_only && bios ? &*bios : nullptr);
         const std::size_t limit = std::min<std::size_t>(rom.size(), 0xC000);
         if (!opts.dump_analysis.empty()) {
             const auto blocks = discover_basic_blocks(image, limit);
-            write_analysis_report(opts.dump_analysis, limit, blocks);
+            write_analysis_report(opts.dump_analysis, rom, limit, blocks);
+            const CartridgeHeaderInfo header = analyze_cartridge_header(rom);
             std::cout << "analysis dumped: " << opts.dump_analysis.string() << "\n";
+            std::cout << "rom header: " << (header.found ? "found" : "not found") << "\n";
         }
 
         if (opts.disassemble_only) {

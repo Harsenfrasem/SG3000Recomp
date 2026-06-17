@@ -1,9 +1,12 @@
 #include "sgrecomp/console.h"
+#include "sgrecomp/cartridge.h"
 #include "sgrecomp/game_profile.h"
 #include "sgrecomp/host_runtime.h"
 #include "sgrecomp/save_state.h"
 
+#include <array>
 #include <cassert>
+#include <string>
 #include <vector>
 
 using namespace sgrecomp;
@@ -14,6 +17,43 @@ void run_until_halt(Console& console, u64 max_cycles = 4096) {
 }
 
 void setup_visible_sprites(Vdp& vdp, int count);
+
+void test_cartridge_header_analysis() {
+    std::vector<u8> rom(0x8000, 0x00);
+    const std::array<u8, 8> magic{'T', 'M', 'R', ' ', 'S', 'E', 'G', 'A'};
+    for (std::size_t i = 0; i < magic.size(); ++i) {
+    rom[0x7FF0 + i] = magic[i];
+    }
+    rom[0x7FFC] = 0x34;
+    rom[0x7FFD] = 0x12;
+    rom[0x7FFE] = 0xA2;
+    rom[0x7FFF] = 0x7C;
+    u32 checksum = 0;
+    for (std::size_t i = 0; i < rom.size(); ++i) {
+        if (i >= 0x7FF0 && i < 0x8000) {
+            continue;
+        }
+        checksum += rom[i];
+    }
+    rom[0x7FFA] = static_cast<u8>(checksum & 0xFF);
+    rom[0x7FFB] = static_cast<u8>((checksum >> 8) & 0xFF);
+
+    const CartridgeHeaderInfo header = analyze_cartridge_header(rom);
+    assert(header.found);
+    assert(header.offset == 0x7FF0);
+    assert(header.product_code == "3412A");
+    assert(header.version == 2);
+    assert(header.region == CartridgeHeaderRegion::GameGearInternational);
+    assert(header.declared_size_bytes == 32768);
+    assert(header.declared_size_available);
+    assert(header.stored_checksum == header.declared_size_checksum);
+    assert(header.checksum_matches_declared_size);
+    assert(cartridge_header_platform(header) == CartridgePlatform::GameGear);
+    assert(cartridge_header_is_game_gear(header));
+    assert(std::string(cartridge_platform_name(cartridge_header_platform(header))) == "Game Gear");
+    assert(std::string(cartridge_region_name(header.region)) == "Game Gear international");
+    assert(std::string(cartridge_size_code_name(header.region_size)) == "32 KiB");
+}
 
 void test_basic_program() {
     const std::vector<u8> rom = {
@@ -1170,6 +1210,33 @@ void test_bus_io_logging_records_reads_and_writes() {
     assert(log[1].port == 0xDC);
 }
 
+void test_bus_mirrors_vdp_psg_and_counter_ports() {
+    Vdp vdp;
+    Psg psg;
+    Ym2413 ym2413;
+    Joypad joypad;
+    Bus bus(ConsoleModel::SMS, vdp, psg, ym2413, joypad);
+
+    psg.set_write_logging_enabled(true);
+    bus.output(0x40, 0x90);
+    bus.output(0x7F, 0x91);
+    assert(psg.logged_writes().size() == 2);
+    assert(psg.logged_writes()[0].value == 0x90);
+    assert(psg.logged_writes()[1].value == 0x91);
+
+    bus.output(0x81, 0x05);
+    bus.output(0x81, 0x87);
+    assert(vdp.debug_registers()[7] == 0x05);
+
+    bus.output(0x81, 0x10);
+    bus.output(0x81, 0x40);
+    bus.output(0x80, 0xAA);
+    assert(vdp.debug_vram()[0x0010] == 0xAA);
+
+    assert(bus.input(0x40) == vdp.read_v_counter());
+    assert(bus.input(0x41) == vdp.read_h_counter());
+}
+
 void test_bus_memory_logging_records_ram_mapper_and_cartridge_ram() {
     Vdp vdp;
     Psg psg;
@@ -1636,6 +1703,93 @@ void test_smapper_loads_cartridge_ram() {
     assert(console.bus().debug_cartridge_ram()[0x4000] == 0x33);
 }
 
+void test_cmapper_banks_and_auto_detection() {
+    std::vector<u8> rom(0x10000, 0x00);
+    rom[0x0000] = 0x10;
+    rom[0x4000] = 0x11;
+    rom[0x8000] = 0x12;
+    rom[0xC000] = 0x13;
+
+    Console console(ConsoleModel::SMS);
+    console.load_rom(rom);
+    assert(console.bus().mapper() == CartridgeMapper::SMapper);
+
+    console.bus().write(0x4000, 0x03);
+    assert(console.bus().mapper() == CartridgeMapper::CMapper);
+    assert(console.bus().read(0x4000) == 0x13);
+
+    console.bus().write(0x8000, 0x01);
+    assert(console.bus().read(0x8000) == 0x11);
+}
+
+void test_forced_kmapper_bank_switches_slot2() {
+    std::vector<u8> rom(0x10000, 0x00);
+    rom[0x0000] = 0x20;
+    rom[0x4000] = 0x21;
+    rom[0x8000] = 0x22;
+    rom[0xC000] = 0x23;
+
+    Console console(ConsoleModel::SMS);
+    console.bus().set_mapper(CartridgeMapper::KMapper);
+    console.load_rom(rom);
+    assert(console.bus().read(0x0000) == 0x20);
+    assert(console.bus().read(0x4000) == 0x21);
+    assert(console.bus().read(0x8000) == 0x22);
+
+    console.bus().write(0xA000, 0x03);
+    assert(console.bus().read(0x8000) == 0x23);
+}
+
+void test_forced_k8k_mapper_uses_8k_banks() {
+    std::vector<u8> rom(0x10000, 0x00);
+    for (std::size_t bank = 0; bank < 8; ++bank) {
+        rom[bank * 0x2000] = static_cast<u8>(0x30 + bank);
+    }
+
+    Console console(ConsoleModel::SMS);
+    console.bus().set_mapper(CartridgeMapper::K8KMapper);
+    console.load_rom(rom);
+    assert(console.bus().read(0x0000) == 0x30);
+    assert(console.bus().read(0x2000) == 0x31);
+    assert(console.bus().read(0xA000) == 0x35);
+
+    console.bus().write(0x0003, 0x07);
+    assert(console.bus().read(0x6000) == 0x37);
+}
+
+void test_plain_mapper_keeps_first_48k_linear() {
+    std::vector<u8> rom(0x10000, 0x00);
+    rom[0x0000] = 0x40;
+    rom[0x4000] = 0x41;
+    rom[0x8000] = 0x42;
+    rom[0xC000] = 0x43;
+
+    Console console(ConsoleModel::SMS);
+    console.bus().set_mapper(CartridgeMapper::Plain);
+    console.load_rom(rom);
+    assert(console.bus().read(0x0000) == 0x40);
+    assert(console.bus().read(0x4000) == 0x41);
+    assert(console.bus().read(0x8000) == 0x42);
+
+    console.bus().write(0x4000, 0x03);
+    assert(console.bus().mapper() == CartridgeMapper::Plain);
+    assert(console.bus().read(0x4000) == 0x41);
+}
+
+void test_auto_mapper_uses_plain_for_small_linear_roms() {
+    std::vector<u8> rom(0xC000, 0x00);
+    rom[0x0000] = 0x50;
+    rom[0x4000] = 0x51;
+    rom[0x8000] = 0x52;
+
+    Console console(ConsoleModel::SMS);
+    console.load_rom(rom);
+    assert(console.bus().mapper() == CartridgeMapper::Plain);
+    assert(console.bus().read(0x0000) == 0x50);
+    assert(console.bus().read(0x4000) == 0x51);
+    assert(console.bus().read(0x8000) == 0x52);
+}
+
 void test_copier_header_is_removed() {
     std::vector<u8> rom(512 + 0x4000, 0xEE);
     rom[512] = 0x3E; // ld a,$42
@@ -1834,6 +1988,7 @@ void test_game_profile_hash_and_parse() {
 }
 
 int main() {
+    test_cartridge_header_analysis();
     test_basic_program();
     test_djnz_loop();
     test_stack_and_conditional_call();
@@ -1875,6 +2030,7 @@ int main() {
     test_vdp_reduce_flicker_uses_conservative_sprite_limit();
     test_vdp_debug_tilemap_and_sprite_snapshots();
     test_bus_io_logging_records_reads_and_writes();
+    test_bus_mirrors_vdp_psg_and_counter_ports();
     test_bus_memory_logging_records_ram_mapper_and_cartridge_ram();
     test_vdp_access_logging_records_register_vram_and_cram_writes();
     test_console_enhancement_config_propagates_to_runtime_devices();
@@ -1896,6 +2052,11 @@ int main() {
     test_bios_can_disable_itself_with_memory_control_port();
     test_smapper_cartridge_ram_banks();
     test_smapper_loads_cartridge_ram();
+    test_cmapper_banks_and_auto_detection();
+    test_forced_kmapper_bank_switches_slot2();
+    test_forced_k8k_mapper_uses_8k_banks();
+    test_plain_mapper_keeps_first_48k_linear();
+    test_auto_mapper_uses_plain_for_small_linear_roms();
     test_copier_header_is_removed();
     test_ei_delay_and_nmi_service();
     test_bc_de_indirect_loads();

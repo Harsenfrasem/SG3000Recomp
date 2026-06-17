@@ -8,7 +8,7 @@ namespace sgrecomp {
 namespace {
 
 constexpr u32 kMagic = 0x53534753; // SGSS
-constexpr u16 kVersion = 3;
+constexpr u16 kVersion = 4;
 
 class Writer {
 public:
@@ -203,6 +203,11 @@ void write_state(Writer& out, const ConsoleState& state, const SaveStateMetadata
     out.u8v(state.bus.memory_control);
     out.u8v(state.bus.smapper_control);
     out.array_bytes(state.bus.smapper_slots);
+    out.u8v(static_cast<u8>(state.bus.mapper));
+    out.u8v(static_cast<u8>(state.bus.requested_mapper));
+    out.array_bytes(state.bus.cmapper_slots);
+    out.u8v(state.bus.kmapper_slot2);
+    out.array_bytes(state.bus.k8k_slots);
     out.array_bytes(state.vdp.vram);
     out.array_bytes(state.vdp.cram);
     out.array_bytes(state.vdp.registers);
@@ -239,7 +244,7 @@ SaveStateImage read_image(Reader& in) {
         throw std::runtime_error("not an SG3000Recomp save state");
     }
     const u16 version = in.u16v();
-    if (version != 1 && version != kVersion) {
+    if (version != 1 && version != 2 && version != 3 && version != kVersion) {
         throw std::runtime_error("unsupported save state version");
     }
 
@@ -258,6 +263,13 @@ SaveStateImage read_image(Reader& in) {
     state.bus.memory_control = in.u8v();
     state.bus.smapper_control = in.u8v();
     in.array_bytes(state.bus.smapper_slots);
+    if (version >= 4) {
+        state.bus.mapper = static_cast<CartridgeMapper>(in.u8v());
+        state.bus.requested_mapper = static_cast<CartridgeMapper>(in.u8v());
+        in.array_bytes(state.bus.cmapper_slots);
+        state.bus.kmapper_slot2 = in.u8v();
+        in.array_bytes(state.bus.k8k_slots);
+    }
     in.array_bytes(state.vdp.vram);
     in.array_bytes(state.vdp.cram);
     in.array_bytes(state.vdp.registers);

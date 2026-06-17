@@ -103,6 +103,21 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [ ] Hooks por PC/banco para modo hybrid/recompiled.
 - [ ] Fallback obrigatorio para 256x192 fiel.
 
+### 8. Suporte futuro a Game Gear
+
+Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, cartucho, PSG e parte do VDP, mas deve entrar como plataforma explicita futura para nao quebrar a fidelidade SMS/SG atual.
+
+- [x] Detectar headers que indicam Game Gear e reportar plataforma no `--dump-analysis`.
+- [x] Avisar no host quando uma imagem Game Gear for aberta no modelo SMS atual.
+- [ ] Adicionar `ConsoleModel::GameGear` sem alterar o comportamento padrao de SMS/SG-3000.
+- [ ] Viewport 160x144 com janela/letterbox correta no host.
+- [ ] Paleta Game Gear 12-bit/4096 cores separada da CRAM SMS 6-bit.
+- [ ] Portas/input especificos, incluindo botao Start.
+- [ ] Ajustar VDP/render para diferencas GG mantendo fallback SMS.
+- [ ] Perfis por hash/header para selecionar Game Gear automaticamente quando seguro.
+- [ ] Testes sinteticos de header, paleta, viewport e input GG.
+- [ ] Documentar limites: sem prometer compatibilidade GG ate VDP/paleta/input estarem validados.
+
 ## Recompilador
 
 - [x] CLI `sgrecomp` com entrada ROM, saida C++ e modo disassembly.
@@ -154,15 +169,26 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Escrita RAM em `0xC000-0xFFFF`.
 - [x] Espelhamento correto de RAM de 8 KiB.
 - [x] BIOS opcional local, carregada por `--bios` e ignorada pelo Git.
+- [x] Portas espelhadas de VDP/PSG/counters normalizadas no barramento (`0x40-0x7f`, `0x80-0xbf`).
 - [x] SMapper parcial: slots de ROM e SRAM de cartucho em dois bancos.
 - [x] Load/save/dump local de SRAM de cartucho.
 - [x] Remocao automatica de header generico de 512 bytes.
-- [ ] Deteccao completa de header e regioes de ROM/BIOS.
-- [ ] SMapper completo: control, slots, SRAM, enable bits.
-- [ ] Codemasters mapper.
-- [ ] Korean mappers usados por ROMs especificas.
+- [x] Deteccao inicial de header `TMR SEGA` em offsets comuns no relatorio `--dump-analysis`.
+- [x] API compartilhada de metadados de cartucho para CLI, host, perfis e futura GUI.
+- [x] Checksum de header por tamanho declarado, reportado como diagnostico.
+- [x] Selecao local de mapper por CLI/host: `auto`, `plain`, `smapper`, `cmapper`, `kmapper`, `k8k`.
+- [x] Cartuchos lineares pequenos usam `plain` por padrao no modo `auto`.
+- [x] CMapper inicial com registradores em `0x0000`, `0x4000`, `0x8000`.
+- [x] KMapper inicial com registrador em `0xA000`.
+- [x] K8K inicial com bancos de 8 KiB e registradores `0x0000-0x0003`.
+- [ ] Deteccao completa de header, validacao/rebuild de checksum e regioes de ROM/BIOS.
+- [ ] SMapper completo: edge cases de control, write protect, mirroring e variantes com EEPROM.
+- [ ] Heuristicas/perfis locais para escolher mapper automaticamente em ROMs maiores sem guardar caminhos privados.
+- [ ] CMapper completo: SRAM/EEPROM se necessario e edge cases por jogo.
+- [ ] KMapper/K8K completos usados por ROMs especificas.
 - [ ] SG-3000 cartridge layouts.
 - [ ] Modelar porta de controle de memoria `0x3E` com todos os bits reais.
+- [ ] Modelar portas `0xDE-0xDF` e diferencas regionais/perifericos quando houver ROM local que dependa disso.
 
 ## VDP
 

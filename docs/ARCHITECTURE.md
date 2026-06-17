@@ -6,6 +6,8 @@ SG3000Recomp is an ahead-of-time recompilation toolkit for Z80-based 8-bit syste
 
 SMS and SG-3000 share a Z80 CPU family and a similar I/O style, but they differ in cartridge expectations and video behavior. The runtime therefore keeps the model explicit instead of hiding it behind one generic console.
 
+Game Gear is a planned future target because it can reuse much of the SMS core, including Z80 execution, cartridge metadata, PSG behavior, and parts of the VDP pipeline. It still needs its own explicit platform model for 160x144 output, 12-bit palette handling, Start/input differences, and compatibility heuristics. Until those pieces are validated, Game Gear headers are detected for diagnostics but SMS/SG-3000 remain the active compatibility targets.
+
 ## Pipeline
 
 ```text
