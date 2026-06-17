@@ -114,27 +114,27 @@ void Vdp::render_scanline(int line) {
     scanline_bg_priority_.fill(false);
     if ((registers_[1] & 0x40) == 0) {
         for (int x = 0; x < width; ++x) {
-            framebuffer_[line * width + x] = cram_color(16);
+            framebuffer_[line * width + x] = backdrop_color();
         }
         return;
     }
 
-    const u16 name_base = static_cast<u16>((registers_[2] & 0x0E) << 10);
-    const u16 pattern_base = static_cast<u16>((registers_[4] & 0x04) << 11);
+    const u16 name_base = name_table_base();
+    const u16 pattern_base = background_pattern_base();
     const bool lock_top_horizontal_scroll = (registers_[0] & 0x40) != 0 && line < 16;
     const bool lock_right_vertical_scroll = (registers_[0] & 0x80) != 0;
-    const bool blank_left_column = (registers_[0] & 0x20) != 0;
+    const bool blank_left_column = left_column_blank_enabled();
     const int horizontal_scroll = lock_top_horizontal_scroll ? 0 : registers_[8];
 
     for (int x = 0; x < width; ++x) {
         if (blank_left_column && x < 8) {
-            framebuffer_[line * width + x] = cram_color(16);
+            framebuffer_[line * width + x] = backdrop_color();
             continue;
         }
 
         const int scrolled_x = (x + horizontal_scroll) & 0xFF;
         const int tile_x = scrolled_x / 8;
-        const int vertical_scroll = (lock_right_vertical_scroll && tile_x >= 24) ? 0 : registers_[9];
+        const int vertical_scroll = (lock_right_vertical_scroll && x >= 24 * 8) ? 0 : registers_[9];
         const int y = (line + vertical_scroll) & 0xFF;
         const int tile_y = (y / 8) & 0x1F;
         const int row = y & 0x07;
@@ -149,11 +149,7 @@ void Vdp::render_scanline(int line) {
         const int tile_row = flip_y ? (7 - row) : row;
         const int tile_bit = flip_x ? (7 - bit) : bit;
         const u16 pattern = static_cast<u16>((pattern_base + tile * 32 + tile_row * 4) & 0x3FFF);
-        const u8 color = static_cast<u8>(
-            (((vram_[pattern] >> tile_bit) & 0x01) << 0) |
-            (((vram_[(pattern + 1) & 0x3FFF] >> tile_bit) & 0x01) << 1) |
-            (((vram_[(pattern + 2) & 0x3FFF] >> tile_bit) & 0x01) << 2) |
-            (((vram_[(pattern + 3) & 0x3FFF] >> tile_bit) & 0x01) << 3));
+        const u8 color = background_color_index(pattern, tile_bit);
         const u8 palette_index = static_cast<u8>((palette1 ? 16 : 0) + color);
         framebuffer_[line * width + x] = cram_color(palette_index);
         scanline_bg_priority_[static_cast<std::size_t>(x)] = priority && color != 0;
@@ -164,7 +160,7 @@ void Vdp::render_scanline(int line) {
 
 void Vdp::render_sprites(int line) {
     const u16 sprite_base = static_cast<u16>((registers_[5] & 0x7E) << 7);
-    const u16 sprite_pattern_base = static_cast<u16>((registers_[6] & 0x04) << 11);
+    const u16 sprite_pattern = sprite_pattern_base();
     const bool tall_sprites = (registers_[1] & 0x02) != 0;
     const bool zoomed_sprites = (registers_[1] & 0x01) != 0;
     const bool shift_sprites_left = (registers_[0] & 0x08) != 0;
@@ -209,7 +205,7 @@ void Vdp::render_sprites(int line) {
             tile = static_cast<u8>(tile + 1);
             row -= 8;
         }
-        const u16 pattern = static_cast<u16>((sprite_pattern_base + tile * 32 + row * 4) & 0x3FFF);
+        const u16 pattern = static_cast<u16>((sprite_pattern + tile * 32 + row * 4) & 0x3FFF);
         for (int px = 0; px < 8; ++px) {
             const int bit = 7 - px;
             const u8 color = static_cast<u8>(
@@ -224,6 +220,9 @@ void Vdp::render_sprites(int line) {
             for (int zx = 0; zx < pixel_width; ++zx) {
                 const int x = sprite_x + px * pixel_width + zx;
                 if (x < 0 || x >= width) {
+                    continue;
+                }
+                if (left_column_blank_enabled() && x < 8) {
                     continue;
                 }
                 if (sprite_pixels[static_cast<std::size_t>(x)]) {
@@ -247,8 +246,40 @@ u32 Vdp::cram_color(u8 index) const {
     return kOpaque | (static_cast<u32>(r) << 16) | (static_cast<u32>(g) << 8) | b;
 }
 
+u8 Vdp::background_color_index(u16 pattern, int bit) const {
+    return static_cast<u8>(
+        (((vram_[pattern] >> bit) & 0x01) << 0) |
+        (((vram_[(pattern + 1) & 0x3FFF] >> bit) & 0x01) << 1) |
+        (((vram_[(pattern + 2) & 0x3FFF] >> bit) & 0x01) << 2) |
+        (((vram_[(pattern + 3) & 0x3FFF] >> bit) & 0x01) << 3));
+}
+
+u8 Vdp::backdrop_color_index() const {
+    return static_cast<u8>(16 + (registers_[7] & 0x0F));
+}
+
+u32 Vdp::backdrop_color() const {
+    return cram_color(backdrop_color_index());
+}
+
+bool Vdp::left_column_blank_enabled() const {
+    return (registers_[0] & 0x20) != 0;
+}
+
+u16 Vdp::name_table_base() const {
+    return static_cast<u16>((registers_[2] & 0x0E) << 10);
+}
+
+u16 Vdp::background_pattern_base() const {
+    return static_cast<u16>((registers_[4] & 0x04) << 11);
+}
+
+u16 Vdp::sprite_pattern_base() const {
+    return static_cast<u16>((registers_[6] & 0x04) << 11);
+}
+
 std::vector<VdpTileEntry> Vdp::debug_tilemap() const {
-    const u16 name_base = static_cast<u16>((registers_[2] & 0x0E) << 10);
+    const u16 name_base = name_table_base();
     std::vector<VdpTileEntry> entries;
     entries.reserve(32 * 32);
 

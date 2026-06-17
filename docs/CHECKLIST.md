@@ -169,7 +169,8 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] VRAM, CRAM, registradores e portas iniciais.
 - [ ] TMS9918/SG-3000 modes.
 - [ ] SMS Mode 4 tile renderer completo.
-- [x] Mode 4: hscroll/vscroll basicos, locks de topo/direita e coluna esquerda em branco.
+- [x] Mode 4: hscroll/vscroll basicos, lock de topo, lock de direita por coluna de tela e coluna esquerda em branco.
+- [x] Mode 4: backdrop por registrador 7, mask de name table e blanking aplicado tambem sobre sprites.
 - [x] Sprites 8x8 iniciais com transparencia.
 - [x] Sprites: deslocamento horizontal, zoom inicial e wrap vertical.
 - [x] Sprites: base de pattern via registrador 6 e 8x16 usando tile par/impar.

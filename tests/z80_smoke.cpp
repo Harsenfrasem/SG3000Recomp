@@ -466,6 +466,52 @@ void test_vdp_display_disabled_uses_backdrop_color() {
     assert(vdp.framebuffer()[Vdp::width] == 0xFFFF0000);
 }
 
+void test_vdp_backdrop_uses_register7_color() {
+    Vdp vdp;
+    vdp.write_control(0x13);
+    vdp.write_control(0xC0);
+    vdp.write_data(0x0C); // palette 1 color 3: green
+    vdp.write_control(0x03);
+    vdp.write_control(0x87); // register 7 backdrop color 3
+
+    vdp.tick(228);
+    assert(vdp.framebuffer()[0] == 0xFF00FF00);
+
+    vdp.write_control(0x60);
+    vdp.write_control(0x80); // blank left column, lock top hscroll
+    vdp.write_control(0x40);
+    vdp.write_control(0x81); // display enabled
+    vdp.tick(228);
+    assert(vdp.framebuffer()[Vdp::width] == 0xFF00FF00);
+}
+
+void test_vdp_name_table_register_masks_low_bit() {
+    Vdp vdp;
+    vdp.write_control(0x40);
+    vdp.write_control(0x81); // display enabled
+    vdp.write_control(0x0F);
+    vdp.write_control(0x82); // register 2 low bit ignored, base remains $3800
+
+    vdp.write_control(0x01);
+    vdp.write_control(0xC0);
+    vdp.write_data(0x03);
+    vdp.write_control(0x00);
+    vdp.write_control(0x40);
+    vdp.write_data(0x80);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x78);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+
+    vdp.tick(228);
+    assert(vdp.framebuffer()[0] == 0xFFFF0000);
+    assert(vdp.debug_tilemap()[0].address == 0x3800);
+}
+
 void test_vdp_scroll_lock_and_left_blank() {
     Vdp vdp;
     vdp.write_control(0x60);
@@ -500,6 +546,41 @@ void test_vdp_scroll_lock_and_left_blank() {
 
     assert(vdp.framebuffer()[0] == 0xFF000000);
     assert(vdp.framebuffer()[8] == 0xFFFF0000);
+}
+
+void test_vdp_left_column_blank_masks_sprites() {
+    Vdp vdp;
+    vdp.write_control(0x20);
+    vdp.write_control(0x80); // blank left column
+    vdp.write_control(0x40);
+    vdp.write_control(0x81); // display enabled
+    vdp.write_control(0x7E);
+    vdp.write_control(0x85); // sprite table at $3f00
+    vdp.write_control(0x10);
+    vdp.write_control(0xC0);
+    vdp.write_data(0x03); // backdrop red
+    vdp.write_control(0x11);
+    vdp.write_control(0xC0);
+    vdp.write_data(0x0C); // sprite green
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x40);
+    vdp.write_data(0x80);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+    vdp.write_control(0x00);
+    vdp.write_control(0x7F);
+    vdp.write_data(0xFF);
+    vdp.write_data(0xD0);
+    vdp.write_control(0x80);
+    vdp.write_control(0x7F);
+    vdp.write_data(0x04);
+    vdp.write_data(0x00);
+
+    vdp.tick(228);
+    assert(vdp.framebuffer()[4] == 0xFFFF0000);
+    assert(vdp.framebuffer()[8] == 0xFF000000);
 }
 
 void test_vdp_right_column_vertical_scroll_lock() {
@@ -544,6 +625,51 @@ void test_vdp_right_column_vertical_scroll_lock() {
     vdp.tick(228);
 
     assert(vdp.framebuffer()[0] == 0xFFFF0000);
+    assert(vdp.framebuffer()[24 * 8] == 0xFF00FF00);
+}
+
+void test_vdp_right_column_vertical_scroll_lock_uses_screen_column() {
+    Vdp vdp;
+    vdp.write_control(0x80);
+    vdp.write_control(0x80); // lock right columns vertical scroll
+    vdp.write_control(0x40);
+    vdp.write_control(0x81); // display enabled
+    vdp.write_control(0x0E);
+    vdp.write_control(0x82); // name table at $3800
+    vdp.write_control(0x40);
+    vdp.write_control(0x88); // hscroll wraps the right-column source to tile 0
+    vdp.write_control(0x08);
+    vdp.write_control(0x89); // vscroll one tile
+
+    vdp.write_control(0x01);
+    vdp.write_control(0xC0);
+    vdp.write_data(0x03); // red
+    vdp.write_control(0x02);
+    vdp.write_control(0xC0);
+    vdp.write_data(0x0C); // green
+
+    vdp.write_control(0x20);
+    vdp.write_control(0x40);
+    vdp.write_data(0x80);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+    vdp.write_control(0x40);
+    vdp.write_control(0x40);
+    vdp.write_data(0x00);
+    vdp.write_data(0x80);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x78);
+    for (int i = 0; i < 32 * 32; ++i) {
+        const u8 tile = i == 0 ? 0x02 : (i == 32 ? 0x01 : 0x00);
+        vdp.write_data(tile);
+        vdp.write_data(0x00);
+    }
+
+    vdp.tick(228);
     assert(vdp.framebuffer()[24 * 8] == 0xFF00FF00);
 }
 
@@ -1681,8 +1807,12 @@ int main() {
     test_two_player_joypad_ports();
     test_vdp_mode4_background_pixel();
     test_vdp_display_disabled_uses_backdrop_color();
+    test_vdp_backdrop_uses_register7_color();
+    test_vdp_name_table_register_masks_low_bit();
     test_vdp_scroll_lock_and_left_blank();
+    test_vdp_left_column_blank_masks_sprites();
     test_vdp_right_column_vertical_scroll_lock();
+    test_vdp_right_column_vertical_scroll_lock_uses_screen_column();
     test_vdp_basic_sprite_pixel();
     test_vdp_sprite_shift_and_zoom();
     test_vdp_sprite_pattern_base_register();
