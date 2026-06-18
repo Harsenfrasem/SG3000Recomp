@@ -614,6 +614,76 @@ void test_z80_undocumented_xy_flags() {
     }
 }
 
+void test_z80_refresh_register_and_prefix_cycles() {
+    {
+        const std::array<u8, 1> rom{0x00};
+        Console console(ConsoleModel::SMS);
+        console.load_rom(rom);
+        console.cpu().r = 0xFF;
+        execute_one(console.cpu(), console.bus());
+        assert(console.cpu().r == 0x80); // bit 7 preserved, low 7 bits wrap
+        assert(console.cpu().cycles == 4);
+    }
+    {
+        const std::array<u8, 2> rom{0xCB, 0x00};
+        Console console(ConsoleModel::SMS);
+        console.load_rom(rom);
+        execute_one(console.cpu(), console.bus());
+        assert(console.cpu().r == 2);
+        assert(console.cpu().cycles == 8);
+    }
+    {
+        const std::array<u8, 2> rom{0xED, 0x00};
+        Console console(ConsoleModel::SMS);
+        console.load_rom(rom);
+        execute_one(console.cpu(), console.bus());
+        assert(console.cpu().r == 2);
+        assert(console.cpu().cycles == 8);
+    }
+    {
+        const std::array<u8, 4> rom{0xDD, 0x21, 0x34, 0x12};
+        Console console(ConsoleModel::SMS);
+        console.load_rom(rom);
+        execute_one(console.cpu(), console.bus());
+        assert(console.cpu().r == 2);
+        assert(console.cpu().cycles == 14);
+    }
+    {
+        const std::array<u8, 4> rom{0xFD, 0x21, 0x34, 0x12};
+        Console console(ConsoleModel::SMS);
+        console.load_rom(rom);
+        execute_one(console.cpu(), console.bus());
+        assert(console.cpu().r == 2);
+        assert(console.cpu().cycles == 14);
+    }
+    {
+        const std::array<u8, 4> rom{0xDD, 0xCB, 0x00, 0x46};
+        Console console(ConsoleModel::SMS);
+        console.load_rom(rom);
+        console.cpu().ixh = 0xC0;
+        execute_one(console.cpu(), console.bus());
+        assert(console.cpu().r == 2); // final DDCB opcode is not an M1 fetch
+        assert(console.cpu().cycles == 20);
+    }
+    {
+        const std::array<u8, 3> rom{0xDD, 0xDD, 0x00};
+        Console console(ConsoleModel::SMS);
+        console.load_rom(rom);
+        execute_one(console.cpu(), console.bus());
+        assert(console.cpu().r == 3);
+        assert(console.cpu().cycles == 12);
+    }
+    {
+        const std::array<u8, 1> rom{0x76};
+        Console console(ConsoleModel::SMS);
+        console.load_rom(rom);
+        execute_one(console.cpu(), console.bus());
+        execute_one(console.cpu(), console.bus());
+        assert(console.cpu().r == 2);
+        assert(console.cpu().cycles == 8);
+    }
+}
+
 void test_vdp_line_interrupt_im1() {
     std::vector<u8> rom(0x80, 0x00);
     rom[0x00] = 0x3E; // ld a,$01
@@ -2717,6 +2787,7 @@ int main() {
     test_ed_decrementing_block_transfer_and_search();
     test_all_z80_opcode_pages_have_runtime_behavior();
     test_z80_undocumented_xy_flags();
+    test_z80_refresh_register_and_prefix_cycles();
     test_ed_nibble_rotates();
     test_ed_block_io();
     test_ed_block_io_exact_flags();

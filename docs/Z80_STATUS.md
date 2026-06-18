@@ -32,6 +32,7 @@
 - Runtime X/Y flags for 8-bit ALU, INC/DEC, CB rotate/shift/BIT, indexed BIT, 16-bit arithmetic, accumulator control, `LD A,I/R`, and block transfer/search
 - Generated C++ X/Y flags for directly emitted ALU, INC/DEC, 16-bit add, accumulator rotate, and LDI/LDIR paths
 - ED block-I/O flags, including direction-dependent sum, H/C overflow, N from transferred data, X/Y from B, and parity formula
+- Runtime refresh register `R` with bit-7 preservation and M1 counts for CB/ED/DD/FD, indexed-CB, repeated prefixes, and HALT cycles
 - `halt`
 - CB-prefixed `rlc`, `rrc`, `rl`, `rr`, `sla`, `sra`, `sll`, `srl`, `bit`, `res`, `set`
 
@@ -49,6 +50,7 @@
 
 - Remaining rare prefix flag semantics validated against an external conformance suite.
 - Remaining DD/FD rare mirrored semantics and cycle conformance.
+- Mirror refresh-register M1 accounting in directly emitted C++ instructions.
 - Pause/NMI source wiring and exact interrupt timing.
 - Flag parity conformance tests against a known Z80 suite.
 - Cycle-count validation for taken and untaken branches.

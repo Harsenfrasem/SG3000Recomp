@@ -149,6 +149,14 @@ u8 fetch8(Z80State& cpu, Bus& bus) {
     return value;
 }
 
+void increment_refresh(Z80State& cpu) {
+    cpu.r = static_cast<u8>((cpu.r & 0x80) | ((cpu.r + 1) & 0x7F));
+}
+
+void decrement_refresh(Z80State& cpu) {
+    cpu.r = static_cast<u8>((cpu.r & 0x80) | ((cpu.r - 1) & 0x7F));
+}
+
 u16 fetch16(Z80State& cpu, Bus& bus) {
     const u8 lo = fetch8(cpu, bus);
     const u8 hi = fetch8(cpu, bus);
@@ -995,6 +1003,7 @@ void execute_index(Z80State& cpu, Bus& bus, bool iy, u8 op) {
         // Replaying the already fetched opcode preserves normal operand decoding;
         // execute_one also accounts for its opcode fetch/R increment.
         cpu.pc = static_cast<u16>(cpu.pc - 1);
+        decrement_refresh(cpu);
         cpu.cycles += 4;
         execute_one(cpu, bus);
         return;
@@ -1458,6 +1467,7 @@ void execute_one(Z80State& cpu, Bus& bus) {
             cpu.iff2 = true;
             cpu.ei_pending = false;
         }
+        increment_refresh(cpu);
         cpu.cycles += 4;
         return;
     }
@@ -1470,7 +1480,7 @@ void execute_one(Z80State& cpu, Bus& bus) {
 
     const u8 opcode = fetch8(cpu, bus);
     cpu.last_pc = static_cast<u16>(cpu.pc - 1);
-    cpu.r = static_cast<u8>((cpu.r + 1) & 0x7F);
+    increment_refresh(cpu);
 
     switch (opcode) {
     case 0x00: cpu.cycles += 4; break;
@@ -1618,6 +1628,7 @@ void execute_one(Z80State& cpu, Bus& bus) {
     case 0xC6: cpu.a = add8(cpu, cpu.a, fetch8(cpu, bus)); cpu.cycles += 7; break;
     case 0xC9: cpu.pc = pop16(cpu, bus); cpu.cycles += 10; break;
     case 0xCB:
+        increment_refresh(cpu);
         execute_cb(cpu, bus, fetch8(cpu, bus));
         break;
     case 0xCD: {
@@ -1641,10 +1652,12 @@ void execute_one(Z80State& cpu, Bus& bus) {
         cpu.cycles += 4;
         break;
     case 0xDD:
+        increment_refresh(cpu);
         execute_index(cpu, bus, false, fetch8(cpu, bus));
         break;
     case 0xDE: cpu.a = sbc8(cpu, cpu.a, fetch8(cpu, bus)); cpu.cycles += 7; break;
     case 0xED:
+        increment_refresh(cpu);
         execute_ed(cpu, bus, fetch8(cpu, bus));
         break;
     case 0xE3: {
@@ -1675,6 +1688,7 @@ void execute_one(Z80State& cpu, Bus& bus) {
         cpu.cycles += 4;
         break;
     case 0xFD:
+        increment_refresh(cpu);
         execute_index(cpu, bus, true, fetch8(cpu, bus));
         break;
     case 0xF6: cpu.a = or8(cpu, cpu.a, fetch8(cpu, bus)); cpu.cycles += 7; break;
