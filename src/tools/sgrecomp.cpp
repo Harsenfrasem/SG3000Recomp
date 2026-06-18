@@ -37,10 +37,17 @@ struct AddressRange {
     u32 last = 0;
 };
 
+enum class HeaderWriteMode {
+    None,
+    Rebuild,
+    Generate,
+};
+
 struct Options {
     std::filesystem::path input;
     std::filesystem::path input_script;
     std::filesystem::path dump_frame_log;
+    std::filesystem::path header_output;
     std::filesystem::path bios;
     std::filesystem::path dump_frame;
     std::filesystem::path dump_frame_bmp;
@@ -78,6 +85,10 @@ struct Options {
     std::size_t host_frames = 1;
     std::optional<std::size_t> max_static_bytes;
     u32 audio_sample_rate = 44100;
+    HeaderWriteMode header_write_mode = HeaderWriteMode::None;
+    CartridgeHeaderRegion header_region = CartridgeHeaderRegion::SmsExport;
+    std::string header_product_code = "00000";
+    u8 header_version = 0;
 };
 
 std::string trim_ascii(std::string value) {
@@ -165,6 +176,16 @@ HostVideoStandard parse_video_standard(std::string text) {
     throw std::runtime_error("unknown video standard: " + text);
 }
 
+CartridgeHeaderRegion parse_header_region(std::string text) {
+    text = lower_ascii(strip_quotes(std::move(text)));
+    if (text == "sms-japan") return CartridgeHeaderRegion::SmsJapan;
+    if (text == "sms-export") return CartridgeHeaderRegion::SmsExport;
+    if (text == "gg-japan") return CartridgeHeaderRegion::GameGearJapan;
+    if (text == "gg-export") return CartridgeHeaderRegion::GameGearExport;
+    if (text == "gg-international") return CartridgeHeaderRegion::GameGearInternational;
+    throw std::runtime_error("unknown cartridge header region: " + text);
+}
+
 ConsoleModel parse_console_model(std::string text) {
     text = lower_ascii(strip_quotes(std::move(text)));
     if (text == "sms") {
@@ -217,6 +238,17 @@ std::vector<u8> read_file(const std::filesystem::path& path) {
 std::string read_text_file(const std::filesystem::path& path) {
     const auto bytes = read_file(path);
     return {bytes.begin(), bytes.end()};
+}
+
+void write_binary_file(const std::filesystem::path& path, std::span<const u8> bytes) {
+    std::ofstream file(path, std::ios::binary);
+    if (!file) {
+        throw std::runtime_error("cannot open binary output file");
+    }
+    file.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+    if (!file) {
+        throw std::runtime_error("cannot write binary output file");
+    }
 }
 
 std::vector<u8> normalize_rom_payload(std::vector<u8> rom) {
@@ -313,7 +345,10 @@ void print_usage() {
               << "                [--dump-coverage pcs.csv] [--disable-sprite-limit] [--reduce-flicker] [--enable-fm]\n"
               << "       sgrecomp <rom.sms|rom.sg> --run-host [--frames n] [--input-script input.csv] [--bios bios.sms] [--video-standard ntsc|pal] [--audio-sample-rate hz]\n"
               << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp] [--dump-audio audio.wav] [--dump-frame-log frames.csv]\n"
-              << "       sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--dump-analysis analysis.txt]\n";
+              << "       sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--dump-analysis analysis.txt]\n"
+              << "       sgrecomp <rom.sms> --rebuild-header output.sms\n"
+              << "       sgrecomp <rom.sms> --generate-header output.sms [--header-region sms-japan|sms-export|gg-japan|gg-export|gg-international]\n"
+              << "                [--product-code 00000] [--header-version 0]\n";
 }
 
 Options parse_args(int argc, char** argv) {
@@ -334,6 +369,30 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--bios" && i + 1 < argc) {
             opts.bios = argv[++i];
+            continue;
+        }
+        if ((arg == "--rebuild-header" || arg == "--generate-header") && i + 1 < argc) {
+            if (opts.header_write_mode != HeaderWriteMode::None) {
+                throw std::runtime_error("choose only one cartridge header write mode");
+            }
+            opts.header_write_mode = arg == "--generate-header" ? HeaderWriteMode::Generate : HeaderWriteMode::Rebuild;
+            opts.header_output = argv[++i];
+            continue;
+        }
+        if (arg == "--header-region" && i + 1 < argc) {
+            opts.header_region = parse_header_region(argv[++i]);
+            continue;
+        }
+        if (arg == "--product-code" && i + 1 < argc) {
+            opts.header_product_code = argv[++i];
+            continue;
+        }
+        if (arg == "--header-version" && i + 1 < argc) {
+            const unsigned version = static_cast<unsigned>(std::stoul(argv[++i], nullptr, 0));
+            if (version > 15) {
+                throw std::runtime_error("header version must be between 0 and 15");
+            }
+            opts.header_version = static_cast<u8>(version);
             continue;
         }
         if (arg == "--mapper" && i + 1 < argc) {
@@ -1377,7 +1436,8 @@ void write_analysis_report(
             << header.stored_checksum << "\n";
         out << "header_checksum_diagnostic: 0x" << std::setw(4) << header.diagnostic_checksum << std::dec << "\n";
         out << "header_declared_size_bytes: " << header.declared_size_bytes << "\n";
-        if (header.declared_size_available) {
+        out << "header_declared_size_fits_rom: " << (header.declared_size_fits_rom ? "yes" : "no") << "\n";
+        if (header.declared_size_fits_rom) {
             out << "header_checksum_declared_size: 0x" << std::hex << std::setw(4) << std::setfill('0')
                 << header.declared_size_checksum << std::dec << "\n";
             out << "header_checksum_matches_declared_size: "
@@ -2488,7 +2548,21 @@ void generate_cpp(
 int main(int argc, char** argv) {
     try {
         const Options opts = parse_args(argc, argv);
-        const auto rom = normalize_rom_payload(read_file(opts.input));
+        auto rom = normalize_rom_payload(read_file(opts.input));
+        if (opts.header_write_mode != HeaderWriteMode::None) {
+            CartridgeHeaderBuildOptions header_options;
+            header_options.preserve_existing = opts.header_write_mode == HeaderWriteMode::Rebuild;
+            header_options.region = opts.header_region;
+            header_options.product_code = opts.header_product_code;
+            header_options.version = opts.header_version;
+            const CartridgeHeaderInfo header = rebuild_cartridge_header(rom, header_options);
+            write_binary_file(opts.header_output, rom);
+            std::cout << (header_options.preserve_existing ? "rebuilt" : "generated")
+                      << " cartridge header at 0x" << std::hex << header.offset
+                      << ", checksum 0x" << std::setw(4) << std::setfill('0') << header.stored_checksum
+                      << std::dec << "\nwrote " << opts.header_output.string() << "\n";
+            return 0;
+        }
         const std::optional<std::vector<u8>> bios = opts.bios.empty()
             ? std::optional<std::vector<u8>>{}
             : std::optional<std::vector<u8>>{read_file(opts.bios)};

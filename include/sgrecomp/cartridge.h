@@ -34,8 +34,16 @@ struct CartridgeHeaderInfo {
     u8 region_size = 0;
     std::size_t declared_size_bytes = 0;
     bool declared_size_available = false;
+    bool declared_size_fits_rom = false;
     bool checksum_matches_declared_size = false;
     CartridgeHeaderRegion region = CartridgeHeaderRegion::Unknown;
+};
+
+struct CartridgeHeaderBuildOptions {
+    bool preserve_existing = true;
+    CartridgeHeaderRegion region = CartridgeHeaderRegion::SmsExport;
+    std::string product_code = "00000";
+    u8 version = 0;
 };
 
 CartridgeHeaderInfo analyze_cartridge_header(std::span<const u8> rom);
@@ -45,5 +53,9 @@ const char* cartridge_platform_name(CartridgePlatform platform);
 const char* cartridge_size_code_name(u8 region_size);
 std::size_t cartridge_declared_size_bytes(u8 region_size);
 bool cartridge_header_is_game_gear(const CartridgeHeaderInfo& header);
+u16 calculate_cartridge_checksum(std::span<const u8> rom, std::size_t checksum_size, std::size_t header_offset);
+std::size_t cartridge_standard_header_offset(std::size_t rom_size);
+u8 cartridge_size_code_for_bytes(std::size_t rom_size);
+CartridgeHeaderInfo rebuild_cartridge_header(std::span<u8> rom, const CartridgeHeaderBuildOptions& options = {});
 
 } // namespace sgrecomp

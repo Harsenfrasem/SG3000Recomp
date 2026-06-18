@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <iomanip>
+#include <stdexcept>
 #include <sstream>
 
 namespace sgrecomp {
@@ -36,6 +37,25 @@ u16 checksum_range(std::span<const u8> rom, std::size_t size, std::size_t header
         sum += rom[i];
     }
     return static_cast<u16>(sum & 0xFFFF);
+}
+
+u8 encode_region(CartridgeHeaderRegion region) {
+    switch (region) {
+    case CartridgeHeaderRegion::SmsJapan: return 3;
+    case CartridgeHeaderRegion::SmsExport: return 4;
+    case CartridgeHeaderRegion::GameGearJapan: return 5;
+    case CartridgeHeaderRegion::GameGearExport: return 6;
+    case CartridgeHeaderRegion::GameGearInternational: return 7;
+    case CartridgeHeaderRegion::Unknown: break;
+    }
+    throw std::invalid_argument("cannot encode unknown cartridge region");
+}
+
+u8 parse_hex_digit(char value) {
+    if (value >= '0' && value <= '9') return static_cast<u8>(value - '0');
+    if (value >= 'a' && value <= 'f') return static_cast<u8>(value - 'a' + 10);
+    if (value >= 'A' && value <= 'F') return static_cast<u8>(value - 'A' + 10);
+    throw std::invalid_argument("product code must contain exactly five hexadecimal digits");
 }
 
 std::string decode_product_code(std::span<const u8> rom, std::size_t header_offset) {
@@ -86,7 +106,8 @@ CartridgeHeaderInfo analyze_cartridge_header(std::span<const u8> rom) {
         info.region = decode_region(info.region_size);
         info.declared_size_bytes = cartridge_declared_size_bytes(info.region_size);
         info.declared_size_available = info.declared_size_bytes != 0;
-        if (info.declared_size_available) {
+        info.declared_size_fits_rom = info.declared_size_available && info.declared_size_bytes <= rom.size();
+        if (info.declared_size_fits_rom) {
             info.declared_size_checksum = checksum_range(rom, info.declared_size_bytes, offset);
             info.checksum_matches_declared_size = info.declared_size_checksum == info.stored_checksum;
         }
@@ -164,6 +185,84 @@ std::size_t cartridge_declared_size_bytes(u8 region_size) {
 
 bool cartridge_header_is_game_gear(const CartridgeHeaderInfo& header) {
     return cartridge_header_platform(header) == CartridgePlatform::GameGear;
+}
+
+u16 calculate_cartridge_checksum(std::span<const u8> rom, std::size_t checksum_size, std::size_t header_offset) {
+    if (checksum_size > rom.size()) {
+        throw std::invalid_argument("declared cartridge size exceeds ROM image");
+    }
+    if (header_offset + 16 > checksum_size) {
+        throw std::invalid_argument("cartridge header lies outside checksum range");
+    }
+    return checksum_range(rom, checksum_size, header_offset);
+}
+
+std::size_t cartridge_standard_header_offset(std::size_t rom_size) {
+    if (rom_size == 8 * 1024) return 0x1FF0;
+    if (rom_size == 16 * 1024) return 0x3FF0;
+    if (rom_size == 48 * 1024) return 0xBFF0;
+    if (rom_size >= 32 * 1024) return 0x7FF0;
+    throw std::invalid_argument("ROM size has no standard TMR SEGA header location");
+}
+
+u8 cartridge_size_code_for_bytes(std::size_t rom_size) {
+    switch (rom_size) {
+    case 8 * 1024: return 0xA;
+    case 16 * 1024: return 0xB;
+    case 32 * 1024: return 0xC;
+    case 48 * 1024: return 0xD;
+    case 64 * 1024: return 0xE;
+    case 128 * 1024: return 0xF;
+    case 256 * 1024: return 0x0;
+    case 512 * 1024: return 0x1;
+    case 1024 * 1024: return 0x2;
+    default: throw std::invalid_argument("ROM size cannot be represented by the cartridge header");
+    }
+}
+
+CartridgeHeaderInfo rebuild_cartridge_header(std::span<u8> rom, const CartridgeHeaderBuildOptions& options) {
+    CartridgeHeaderInfo existing = analyze_cartridge_header(rom);
+    std::size_t offset = existing.offset;
+
+    if (options.preserve_existing) {
+        if (!existing.found) {
+            throw std::invalid_argument("cannot preserve cartridge header because no TMR SEGA header was found");
+        }
+        if (!existing.declared_size_available) {
+            throw std::invalid_argument("existing cartridge header has an unknown size code");
+        }
+        if (!existing.declared_size_fits_rom) {
+            throw std::invalid_argument("existing cartridge header declares a size larger than the ROM image");
+        }
+    } else {
+        if (options.product_code.size() != 5) {
+            throw std::invalid_argument("product code must contain exactly five hexadecimal digits");
+        }
+        if (options.version > 0x0F) {
+            throw std::invalid_argument("cartridge version must fit in four bits");
+        }
+        offset = cartridge_standard_header_offset(rom.size());
+        if (offset + 16 > rom.size()) {
+            throw std::invalid_argument("ROM image is too small for its standard cartridge header");
+        }
+        static constexpr std::array<u8, 8> kMagic{'T', 'M', 'R', ' ', 'S', 'E', 'G', 'A'};
+        std::copy(kMagic.begin(), kMagic.end(), rom.begin() + static_cast<std::ptrdiff_t>(offset));
+        rom[offset + 8] = 0;
+        rom[offset + 9] = 0;
+        rom[offset + 12] = static_cast<u8>((parse_hex_digit(options.product_code[0]) << 4)
+            | parse_hex_digit(options.product_code[1]));
+        rom[offset + 13] = static_cast<u8>((parse_hex_digit(options.product_code[2]) << 4)
+            | parse_hex_digit(options.product_code[3]));
+        rom[offset + 14] = static_cast<u8>((parse_hex_digit(options.product_code[4]) << 4) | options.version);
+        rom[offset + 15] = static_cast<u8>((encode_region(options.region) << 4)
+            | cartridge_size_code_for_bytes(rom.size()));
+    }
+
+    const CartridgeHeaderInfo header_before_checksum = analyze_cartridge_header(rom);
+    const u16 checksum = calculate_cartridge_checksum(rom, header_before_checksum.declared_size_bytes, offset);
+    rom[offset + 10] = static_cast<u8>(checksum & 0xFF);
+    rom[offset + 11] = static_cast<u8>(checksum >> 8);
+    return analyze_cartridge_header(rom);
 }
 
 } // namespace sgrecomp

@@ -119,6 +119,8 @@ int main() {
     const std::filesystem::path analysis_path = output_dir / "analysis.txt";
     const std::filesystem::path header_rom_path = output_dir / "header_fixture.sms";
     const std::filesystem::path header_analysis_path = output_dir / "header_analysis.txt";
+    const std::filesystem::path generated_header_rom_path = output_dir / "generated_header.sms";
+    const std::filesystem::path generated_header_analysis_path = output_dir / "generated_header_analysis.txt";
     const std::filesystem::path entry_rom_path = output_dir / "entry_fixture.sms";
     const std::filesystem::path entry_analysis_path = output_dir / "entry_analysis.txt";
     const std::filesystem::path pointer_rom_path = output_dir / "pointer_fixture.sms";
@@ -285,6 +287,19 @@ int main() {
     assert(contains(header_analysis, "header_declared_size_bytes: 32768"));
     assert(contains(header_analysis, "header_checksum_declared_size:"));
     assert(contains(header_analysis, "header_checksum_matches_declared_size: no"));
+
+    const std::string generate_header_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(header_rom_path)
+        + " --generate-header " + quote(generated_header_rom_path)
+        + " --header-region sms-japan --product-code 12ABF --header-version 3";
+    assert(run_command(generate_header_command) == 0);
+    const std::string generated_header_analysis_command = quote_arg(SGRECOMP_TOOL_PATH) + " "
+        + quote(generated_header_rom_path) + " --dump-analysis " + quote(generated_header_analysis_path);
+    assert(run_command(generated_header_analysis_command) == 0);
+    const std::string generated_header_analysis = read_text(generated_header_analysis_path);
+    assert(contains(generated_header_analysis, "header_region: SMS Japan"));
+    assert(contains(generated_header_analysis, "header_product_code: 12ABF"));
+    assert(contains(generated_header_analysis, "header_version: 3"));
+    assert(contains(generated_header_analysis, "header_checksum_matches_declared_size: yes"));
 
     std::vector<unsigned char> entry_rom(0x80, 0x00);
     entry_rom[0x0000] = 0x76; // halt

@@ -79,6 +79,8 @@ Runtime smoke execution is useful before full video/audio support exists:
 .\build\zig-debug\sgrecomp.exe game.sms --run-host --frames 3 --dump-frame-bmp out\host-frame.bmp --dump-audio out\host-audio.wav
 .\build\zig-debug\sgrecomp.exe game.sms --run-host --frames 300 --input-script local-saves\title-input.csv
 .\build\zig-debug\sgrecomp.exe game.sms --run-host --frames 300 --input-script local-saves\title-input.csv --dump-frame-log out\frames.csv
+.\build\zig-debug\sgrecomp.exe game.sms --rebuild-header out\game-fixed.sms
+.\build\zig-debug\sgrecomp.exe game.sms --generate-header out\game-header.sms --header-region sms-export --product-code 00000 --header-version 0
 .\build\zig-debug\sgrecomp_host.exe game.sms --bios bios.sms --scale 3
 .\build\zig-debug\sgrecomp_host.exe game.sms --mute
 .\build\zig-debug\sgrecomp_host.exe game.sms --no-overlay
@@ -108,6 +110,8 @@ Save states are local binary snapshots of mutable runtime state. They do not emb
 `--input-script` applies deterministic player and Pause state at frame boundaries. See `docs/INPUT_SCRIPT.md` for the CSV format.
 
 `--dump-frame-log` writes deterministic per-frame diagnostics: framebuffer hash, executed PC range and instruction count, mapper/bank state, cycle range, and non-zero audio sample count.
+
+`--rebuild-header` preserves an existing `TMR SEGA` header and updates its checksum. `--generate-header` writes a new header using the supplied region, five-digit hexadecimal product code, version, and ROM-size code. Both commands write a separate ROM image and reject sizes that the header cannot represent.
 
 On Windows, `sgrecomp_host` opens the first native video/input/audio host window. Arrow keys map to the directional pad, `Z`/`X` map to the two action buttons, and `Enter` sends Pause/NMI. `Space` pauses emulation, `R` resets the runtime, `M` mutes audio, and `+`/`-` adjust volume. Audio uses the Win32 waveOut backend, can be disabled with `--mute`, and accepts `--audio-latency-ms` plus `--audio-sample-rate`. Local cartridge RAM can be loaded and saved with `--load-sram` and `--save-sram`; keep those files under ignored local folders. `--profile` loads hash-based local profiles for model, enhancements, video standard, audio latency, and audio sample rate without storing ROM paths, and `--print-hash` prints the local ROM hash plus detected cartridge header metadata needed for a profile. The debug overlay shows FPS, frame count, PC, runtime mode, mapper/banks, VDP line/cycle timing plus status/IRQ state, pause state, volume, audio queue, underruns, dropped buffers, ROM hash, and matched profile; press `F1` to toggle it or start with `--no-overlay`.
 

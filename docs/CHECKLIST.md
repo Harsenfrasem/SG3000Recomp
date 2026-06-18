@@ -200,7 +200,8 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] CMapper inicial com registradores em `0x0000`, `0x4000`, `0x8000`.
 - [x] KMapper inicial com registrador em `0xA000`.
 - [x] K8K inicial com bancos de 8 KiB e registradores `0x0000-0x0003`.
-- [ ] Deteccao completa de header, validacao/rebuild de checksum e regioes de ROM/BIOS.
+- [x] Deteccao de header de ROM, validacao de tamanho e geracao/rebuild de checksum e regiao.
+- [ ] Heuristicas de modelo/regiao para BIOS sem header padrao, validadas com imagens permitidas.
 - [ ] SMapper completo: edge cases de control, write protect, mirroring e variantes com EEPROM.
 - [ ] Heuristicas/perfis locais para escolher mapper automaticamente em ROMs maiores sem guardar caminhos privados.
 - [ ] CMapper completo: SRAM/EEPROM se necessario e edge cases por jogo.

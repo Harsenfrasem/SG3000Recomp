@@ -7,6 +7,7 @@
 
 #include <array>
 #include <cassert>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -47,6 +48,7 @@ void test_cartridge_header_analysis() {
     assert(header.region == CartridgeHeaderRegion::GameGearInternational);
     assert(header.declared_size_bytes == 32768);
     assert(header.declared_size_available);
+    assert(header.declared_size_fits_rom);
     assert(header.stored_checksum == header.declared_size_checksum);
     assert(header.checksum_matches_declared_size);
     assert(cartridge_header_platform(header) == CartridgePlatform::GameGear);
@@ -54,6 +56,47 @@ void test_cartridge_header_analysis() {
     assert(std::string(cartridge_platform_name(cartridge_header_platform(header))) == "Game Gear");
     assert(std::string(cartridge_region_name(header.region)) == "Game Gear international");
     assert(std::string(cartridge_size_code_name(header.region_size)) == "32 KiB");
+}
+
+void test_cartridge_header_generation_and_checksum_rebuild() {
+    std::vector<u8> rom(0x8000, 0x11);
+    CartridgeHeaderBuildOptions options;
+    options.preserve_existing = false;
+    options.region = CartridgeHeaderRegion::SmsJapan;
+    options.product_code = "12ABF";
+    options.version = 3;
+
+    CartridgeHeaderInfo header = rebuild_cartridge_header(rom, options);
+    assert(header.found);
+    assert(header.offset == 0x7FF0);
+    assert(header.region == CartridgeHeaderRegion::SmsJapan);
+    assert(header.product_code == "12ABF");
+    assert(header.version == 3);
+    assert(header.checksum_matches_declared_size);
+
+    rom[0x0100] ^= 0xFF;
+    assert(!analyze_cartridge_header(rom).checksum_matches_declared_size);
+    header = rebuild_cartridge_header(rom);
+    assert(header.product_code == "12ABF");
+    assert(header.version == 3);
+    assert(header.checksum_matches_declared_size);
+}
+
+void test_cartridge_header_rejects_truncated_declared_size() {
+    std::vector<u8> rom(0x8000, 0);
+    const std::array<u8, 8> magic{'T', 'M', 'R', ' ', 'S', 'E', 'G', 'A'};
+    std::copy(magic.begin(), magic.end(), rom.begin() + 0x7FF0);
+    rom[0x7FFF] = 0x4E; // SMS export, claims 64 KiB
+    const CartridgeHeaderInfo header = analyze_cartridge_header(rom);
+    assert(header.declared_size_available);
+    assert(!header.declared_size_fits_rom);
+    bool rejected = false;
+    try {
+        (void)rebuild_cartridge_header(rom);
+    } catch (const std::invalid_argument&) {
+        rejected = true;
+    }
+    assert(rejected);
 }
 
 void test_basic_program() {
@@ -2229,6 +2272,8 @@ void test_game_profile_hash_and_parse() {
 
 int main() {
     test_cartridge_header_analysis();
+    test_cartridge_header_generation_and_checksum_rebuild();
+    test_cartridge_header_rejects_truncated_declared_size();
     test_basic_program();
     test_djnz_loop();
     test_stack_and_conditional_call();
