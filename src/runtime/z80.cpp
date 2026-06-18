@@ -14,7 +14,9 @@ namespace {
 
 constexpr u8 flag_s = 0x80;
 constexpr u8 flag_z = 0x40;
+constexpr u8 flag_y = 0x20;
 constexpr u8 flag_h = 0x10;
+constexpr u8 flag_x = 0x08;
 constexpr u8 flag_pv = 0x04;
 constexpr u8 flag_n = 0x02;
 constexpr u8 flag_c = 0x01;
@@ -26,13 +28,13 @@ u8 parity(u8 value) {
 }
 
 void set_szp(Z80State& cpu, u8 value) {
-    cpu.f = static_cast<u8>((value & 0x80) | (value == 0 ? flag_z : 0) | parity(value));
+    cpu.f = static_cast<u8>((value & (flag_s | flag_y | flag_x)) | (value == 0 ? flag_z : 0) | parity(value));
 }
 
 u8 add8(Z80State& cpu, u8 lhs, u8 rhs) {
     const u16 sum = static_cast<u16>(lhs + rhs);
     const u8 result = static_cast<u8>(sum);
-    cpu.f = static_cast<u8>((result & flag_s) |
+    cpu.f = static_cast<u8>((result & (flag_s | flag_y | flag_x)) |
         (result == 0 ? flag_z : 0) |
         (((lhs ^ rhs ^ result) & 0x10) ? flag_h : 0) |
         ((~(lhs ^ rhs) & (lhs ^ result) & 0x80) ? flag_pv : 0) |
@@ -44,7 +46,7 @@ u8 sub8(Z80State& cpu, u8 lhs, u8 rhs) {
     const u16 diff = static_cast<u16>(lhs - rhs);
     const u8 result = static_cast<u8>(diff);
     cpu.f = static_cast<u8>(flag_n |
-        (result & flag_s) |
+        (result & (flag_s | flag_y | flag_x)) |
         (result == 0 ? flag_z : 0) |
         (((lhs ^ rhs ^ result) & 0x10) ? flag_h : 0) |
         (((lhs ^ rhs) & (lhs ^ result) & 0x80) ? flag_pv : 0) |
@@ -69,7 +71,7 @@ void daa(Z80State& cpu) {
         ? static_cast<u8>(cpu.a - correction)
         : static_cast<u8>(cpu.a + correction);
     cpu.f = static_cast<u8>((cpu.f & flag_n) |
-        (cpu.a & flag_s) |
+        (cpu.a & (flag_s | flag_y | flag_x)) |
         (cpu.a == 0 ? flag_z : 0) |
         (((old_a ^ cpu.a) & 0x10) ? flag_h : 0) |
         parity(cpu.a) |
@@ -80,7 +82,7 @@ u8 adc8(Z80State& cpu, u8 lhs, u8 rhs) {
     const u8 carry = static_cast<u8>(cpu.f & flag_c);
     const u16 sum = static_cast<u16>(lhs + rhs + carry);
     const u8 result = static_cast<u8>(sum);
-    cpu.f = static_cast<u8>((result & flag_s) |
+    cpu.f = static_cast<u8>((result & (flag_s | flag_y | flag_x)) |
         (result == 0 ? flag_z : 0) |
         (((lhs ^ rhs ^ result) & 0x10) ? flag_h : 0) |
         ((~(lhs ^ rhs) & (lhs ^ result) & 0x80) ? flag_pv : 0) |
@@ -93,7 +95,7 @@ u8 sbc8(Z80State& cpu, u8 lhs, u8 rhs) {
     const u16 diff = static_cast<u16>(lhs - rhs - carry);
     const u8 result = static_cast<u8>(diff);
     cpu.f = static_cast<u8>(flag_n |
-        (result & flag_s) |
+        (result & (flag_s | flag_y | flag_x)) |
         (result == 0 ? flag_z : 0) |
         (((lhs ^ rhs ^ result) & 0x10) ? flag_h : 0) |
         (((lhs ^ rhs) & (lhs ^ result) & 0x80) ? flag_pv : 0) |
@@ -103,7 +105,7 @@ u8 sbc8(Z80State& cpu, u8 lhs, u8 rhs) {
 
 u8 and8(Z80State& cpu, u8 lhs, u8 rhs) {
     const u8 result = static_cast<u8>(lhs & rhs);
-    cpu.f = static_cast<u8>(flag_h | (result & flag_s) | (result == 0 ? flag_z : 0) | parity(result));
+    cpu.f = static_cast<u8>(flag_h | (result & (flag_s | flag_y | flag_x)) | (result == 0 ? flag_z : 0) | parity(result));
     return result;
 }
 
@@ -123,7 +125,7 @@ u8 inc8(Z80State& cpu, u8 value) {
     const u8 old_carry = static_cast<u8>(cpu.f & flag_c);
     const u8 result = static_cast<u8>(value + 1);
     cpu.f = static_cast<u8>(old_carry |
-        (result & flag_s) |
+        (result & (flag_s | flag_y | flag_x)) |
         (result == 0 ? flag_z : 0) |
         (((value ^ result) & 0x10) ? flag_h : 0) |
         (value == 0x7F ? flag_pv : 0));
@@ -134,7 +136,7 @@ u8 dec8(Z80State& cpu, u8 value) {
     const u8 old_carry = static_cast<u8>(cpu.f & flag_c);
     const u8 result = static_cast<u8>(value - 1);
     cpu.f = static_cast<u8>(old_carry | flag_n |
-        (result & flag_s) |
+        (result & (flag_s | flag_y | flag_x)) |
         (result == 0 ? flag_z : 0) |
         (((value ^ result) & 0x10) ? flag_h : 0) |
         (value == 0x80 ? flag_pv : 0));
@@ -291,6 +293,7 @@ void add_hl(Z80State& cpu, u16 rhs) {
     const u16 result = static_cast<u16>(sum);
     const u8 preserved = static_cast<u8>(cpu.f & (flag_s | flag_z | flag_pv));
     cpu.f = static_cast<u8>(preserved |
+        ((result >> 8) & (flag_y | flag_x)) |
         (((lhs ^ rhs ^ result) & 0x1000) ? flag_h : 0) |
         (sum > 0xFFFF ? flag_c : 0));
     cpu.set_hl(result);
@@ -301,6 +304,7 @@ void adc_hl(Z80State& cpu, u16 rhs) {
     const u32 sum = static_cast<u32>(lhs + rhs + (cpu.f & flag_c));
     const u16 result = static_cast<u16>(sum);
     cpu.f = static_cast<u8>((result & 0x8000 ? flag_s : 0) |
+        ((result >> 8) & (flag_y | flag_x)) |
         (result == 0 ? flag_z : 0) |
         (((lhs ^ rhs ^ result) & 0x1000) ? flag_h : 0) |
         ((~(lhs ^ rhs) & (lhs ^ result) & 0x8000) ? flag_pv : 0) |
@@ -314,6 +318,7 @@ void sbc_hl(Z80State& cpu, u16 rhs) {
     const u32 diff = static_cast<u32>(lhs - rhs - carry);
     const u16 result = static_cast<u16>(diff);
     cpu.f = static_cast<u8>(flag_n |
+        ((result >> 8) & (flag_y | flag_x)) |
         (result & 0x8000 ? flag_s : 0) |
         (result == 0 ? flag_z : 0) |
         (((lhs ^ rhs ^ result) & 0x1000) ? flag_h : 0) |
@@ -327,6 +332,7 @@ u16 add16_index_flags(Z80State& cpu, u16 lhs, u16 rhs) {
     const u16 result = static_cast<u16>(sum);
     const u8 preserved = static_cast<u8>(cpu.f & (flag_s | flag_z | flag_pv));
     cpu.f = static_cast<u8>(preserved |
+        ((result >> 8) & (flag_y | flag_x)) |
         (((lhs ^ rhs ^ result) & 0x1000) ? flag_h : 0) |
         (sum > 0xFFFF ? flag_c : 0));
     return result;
@@ -392,7 +398,7 @@ const char* condition_name(u8 index) {
 }
 
 void set_rotate_flags(Z80State& cpu, u8 result, bool carry) {
-    cpu.f = static_cast<u8>((result & flag_s) |
+    cpu.f = static_cast<u8>((result & (flag_s | flag_y | flag_x)) |
         (result == 0 ? flag_z : 0) |
         parity(result) |
         (carry ? flag_c : 0));
@@ -467,7 +473,7 @@ void execute_cb(Z80State& cpu, Bus& bus, u8 op) {
         const u8 value = read_reg(cpu, bus, reg);
         const bool zero = (value & (1u << bit)) == 0;
         const u8 carry = static_cast<u8>(cpu.f & flag_c);
-        cpu.f = static_cast<u8>(carry | flag_h | (zero ? (flag_z | flag_pv) : 0) |
+        cpu.f = static_cast<u8>(carry | flag_h | (value & (flag_y | flag_x)) | (zero ? (flag_z | flag_pv) : 0) |
             (!zero && bit == 7 ? flag_s : 0));
         cpu.cycles += reg == 6 ? 12 : 8;
         return;
@@ -504,7 +510,7 @@ void execute_index_cb(Z80State& cpu, Bus& bus, bool iy, s8 displacement, u8 op) 
         const u8 value = bus.read(address);
         const bool zero = (value & (1u << bit)) == 0;
         const u8 carry = static_cast<u8>(cpu.f & flag_c);
-        cpu.f = static_cast<u8>(carry | flag_h | (zero ? (flag_z | flag_pv) : 0) |
+        cpu.f = static_cast<u8>(carry | flag_h | ((address >> 8) & (flag_y | flag_x)) | (zero ? (flag_z | flag_pv) : 0) |
             (!zero && bit == 7 ? flag_s : 0));
         cpu.cycles += 20;
         return;
@@ -527,17 +533,20 @@ void execute_index_cb(Z80State& cpu, Bus& bus, bool iy, s8 displacement, u8 op) 
 void set_ld_a_ir_flags(Z80State& cpu, u8 value) {
     const u8 carry = static_cast<u8>(cpu.f & flag_c);
     cpu.f = static_cast<u8>(carry |
-        (value & flag_s) |
+        (value & (flag_s | flag_y | flag_x)) |
         (value == 0 ? flag_z : 0) |
         (cpu.iff2 ? flag_pv : 0));
 }
 
 void block_transfer(Z80State& cpu, Bus& bus, s16 step) {
-    bus.write(cpu.de(), bus.read(cpu.hl()));
+    const u8 value = bus.read(cpu.hl());
+    bus.write(cpu.de(), value);
     cpu.set_hl(static_cast<u16>(cpu.hl() + step));
     cpu.set_de(static_cast<u16>(cpu.de() + step));
     cpu.set_bc(static_cast<u16>(cpu.bc() - 1));
-    cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_c)) | (cpu.bc() != 0 ? flag_pv : 0));
+    const u8 sum = static_cast<u8>(cpu.a + value);
+    cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_c)) |
+        (sum & flag_x) | ((sum & 0x02) ? flag_y : 0) | (cpu.bc() != 0 ? flag_pv : 0));
 }
 
 void block_compare(Z80State& cpu, Bus& bus, s16 step) {
@@ -546,15 +555,16 @@ void block_compare(Z80State& cpu, Bus& bus, s16 step) {
     const u8 result = static_cast<u8>(cpu.a - value);
     cpu.set_hl(static_cast<u16>(cpu.hl() + step));
     cpu.set_bc(static_cast<u16>(cpu.bc() - 1));
+    const u8 adjusted = static_cast<u8>(result - (((cpu.a ^ value ^ result) & 0x10) ? 1 : 0));
     cpu.f = static_cast<u8>(carry | flag_n |
-        (result & flag_s) |
+        (result & flag_s) | (adjusted & flag_x) | ((adjusted & 0x02) ? flag_y : 0) |
         (result == 0 ? flag_z : 0) |
         (((cpu.a ^ value ^ result) & 0x10) ? flag_h : 0) |
         (cpu.bc() != 0 ? flag_pv : 0));
 }
 
 void set_block_io_flags(Z80State& cpu) {
-    cpu.f = static_cast<u8>(flag_n | (cpu.b == 0 ? flag_z : 0) | (cpu.b & flag_s));
+    cpu.f = static_cast<u8>(flag_n | (cpu.b == 0 ? flag_z : 0) | (cpu.b & (flag_s | flag_y | flag_x)));
 }
 
 void ini(Z80State& cpu, Bus& bus, s16 step) {
@@ -574,7 +584,7 @@ void outi(Z80State& cpu, Bus& bus, s16 step) {
 void set_in_flags(Z80State& cpu, u8 value) {
     const u8 carry = static_cast<u8>(cpu.f & flag_c);
     cpu.f = static_cast<u8>(carry |
-        (value & flag_s) |
+        (value & (flag_s | flag_y | flag_x)) |
         (value == 0 ? flag_z : 0) |
         parity(value));
 }
@@ -582,7 +592,7 @@ void set_in_flags(Z80State& cpu, u8 value) {
 void set_accumulator_flags(Z80State& cpu) {
     const u8 carry = static_cast<u8>(cpu.f & flag_c);
     cpu.f = static_cast<u8>(carry |
-        (cpu.a & flag_s) |
+        (cpu.a & (flag_s | flag_y | flag_x)) |
         (cpu.a == 0 ? flag_z : 0) |
         parity(cpu.a));
 }
@@ -1464,7 +1474,8 @@ void execute_one(Z80State& cpu, Bus& bus) {
     case 0x07: {
         const bool carry = (cpu.a & 0x80) != 0;
         cpu.a = static_cast<u8>((cpu.a << 1) | (carry ? 1 : 0));
-        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) | (carry ? flag_c : 0));
+        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) |
+            (cpu.a & (flag_y | flag_x)) | (carry ? flag_c : 0));
         cpu.cycles += 4;
         break;
     }
@@ -1480,7 +1491,8 @@ void execute_one(Z80State& cpu, Bus& bus) {
     case 0x0F: {
         const bool carry = (cpu.a & 0x01) != 0;
         cpu.a = static_cast<u8>((cpu.a >> 1) | (carry ? 0x80 : 0));
-        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) | (carry ? flag_c : 0));
+        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) |
+            (cpu.a & (flag_y | flag_x)) | (carry ? flag_c : 0));
         cpu.cycles += 4;
         break;
     }
@@ -1502,7 +1514,8 @@ void execute_one(Z80State& cpu, Bus& bus) {
     case 0x17: {
         const bool carry = (cpu.a & 0x80) != 0;
         cpu.a = static_cast<u8>((cpu.a << 1) | (cpu.f & flag_c));
-        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) | (carry ? flag_c : 0));
+        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) |
+            (cpu.a & (flag_y | flag_x)) | (carry ? flag_c : 0));
         cpu.cycles += 4;
         break;
     }
@@ -1514,7 +1527,8 @@ void execute_one(Z80State& cpu, Bus& bus) {
     case 0x1F: {
         const bool carry = (cpu.a & 0x01) != 0;
         cpu.a = static_cast<u8>((cpu.a >> 1) | ((cpu.f & flag_c) ? 0x80 : 0));
-        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) | (carry ? flag_c : 0));
+        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) |
+            (cpu.a & (flag_y | flag_x)) | (carry ? flag_c : 0));
         cpu.cycles += 4;
         break;
     }
@@ -1552,7 +1566,8 @@ void execute_one(Z80State& cpu, Bus& bus) {
         break;
     case 0x2F:
         cpu.a = static_cast<u8>(~cpu.a);
-        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv | flag_c)) | flag_h | flag_n);
+        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv | flag_c)) |
+            (cpu.a & (flag_y | flag_x)) | flag_h | flag_n);
         cpu.cycles += 4;
         break;
     case 0x30: {
@@ -1577,12 +1592,14 @@ void execute_one(Z80State& cpu, Bus& bus) {
         break;
     }
     case 0x37:
-        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) | flag_c);
+        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) |
+            (cpu.a & (flag_y | flag_x)) | flag_c);
         cpu.cycles += 4;
         break;
     case 0x3F: {
         const bool old_carry = (cpu.f & flag_c) != 0;
         cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) |
+            (cpu.a & (flag_y | flag_x)) |
             (old_carry ? flag_h : 0) |
             (old_carry ? 0 : flag_c));
         cpu.cycles += 4;

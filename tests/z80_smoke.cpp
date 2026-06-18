@@ -487,6 +487,86 @@ void test_all_z80_opcode_pages_have_runtime_behavior() {
     assert(ignored_index.cpu().r == 2);
 }
 
+void test_z80_undocumented_xy_flags() {
+    constexpr u8 xy = 0x28;
+
+    {
+        const std::array<u8, 2> rom{0xC6, 0x28}; // add a,$28
+        Console console(ConsoleModel::SMS);
+        console.load_rom(rom);
+        console.cpu().a = 0x10;
+        execute_one(console.cpu(), console.bus());
+        assert(console.cpu().a == 0x38);
+        assert((console.cpu().f & xy) == xy);
+    }
+    {
+        const std::array<u8, 1> rom{0x04}; // inc b
+        Console console(ConsoleModel::SMS);
+        console.load_rom(rom);
+        console.cpu().b = 0x27;
+        execute_one(console.cpu(), console.bus());
+        assert(console.cpu().b == 0x28);
+        assert((console.cpu().f & xy) == xy);
+    }
+    {
+        const std::array<u8, 2> rom{0xCB, 0x00}; // rlc b
+        Console console(ConsoleModel::SMS);
+        console.load_rom(rom);
+        console.cpu().b = 0x14;
+        execute_one(console.cpu(), console.bus());
+        assert(console.cpu().b == 0x28);
+        assert((console.cpu().f & xy) == xy);
+    }
+    {
+        const std::array<u8, 2> rom{0xCB, 0x40}; // bit 0,b
+        Console console(ConsoleModel::SMS);
+        console.load_rom(rom);
+        console.cpu().b = 0x28;
+        execute_one(console.cpu(), console.bus());
+        assert((console.cpu().f & xy) == xy);
+        assert((console.cpu().f & 0x40) != 0);
+    }
+    {
+        const std::array<u8, 4> rom{0xDD, 0xCB, 0x00, 0x46}; // bit 0,(ix+0)
+        Console console(ConsoleModel::SMS);
+        console.load_rom(rom);
+        console.cpu().ixh = 0xA8;
+        console.cpu().ixl = 0x00;
+        execute_one(console.cpu(), console.bus());
+        assert((console.cpu().f & xy) == xy); // copied from effective address high byte
+    }
+    {
+        const std::array<u8, 1> rom{0x09}; // add hl,bc
+        Console console(ConsoleModel::SMS);
+        console.load_rom(rom);
+        console.cpu().set_hl(0x1800);
+        console.cpu().set_bc(0x1000);
+        execute_one(console.cpu(), console.bus());
+        assert(console.cpu().hl() == 0x2800);
+        assert((console.cpu().f & xy) == xy);
+    }
+    {
+        const std::array<u8, 1> rom{0x37}; // scf
+        Console console(ConsoleModel::SMS);
+        console.load_rom(rom);
+        console.cpu().a = 0x28;
+        execute_one(console.cpu(), console.bus());
+        assert((console.cpu().f & xy) == xy);
+    }
+    {
+        const std::array<u8, 2> rom{0xED, 0xA0}; // ldi
+        Console console(ConsoleModel::SMS);
+        console.load_rom(rom);
+        console.cpu().a = 0x02;
+        console.cpu().set_hl(0xC000);
+        console.cpu().set_de(0xC001);
+        console.cpu().set_bc(1);
+        console.bus().write(0xC000, 0x08); // A + value = $0a: bit 3 -> X, bit 1 -> Y
+        execute_one(console.cpu(), console.bus());
+        assert((console.cpu().f & xy) == xy);
+    }
+}
+
 void test_vdp_line_interrupt_im1() {
     std::vector<u8> rom(0x80, 0x00);
     rom[0x00] = 0x3E; // ld a,$01
@@ -2447,6 +2527,7 @@ int main() {
     test_ed_block_transfer_and_search();
     test_ed_decrementing_block_transfer_and_search();
     test_all_z80_opcode_pages_have_runtime_behavior();
+    test_z80_undocumented_xy_flags();
     test_ed_nibble_rotates();
     test_ed_block_io();
     test_ed_port_register_io();

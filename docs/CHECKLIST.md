@@ -173,14 +173,15 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Prefixo `ED` inicial: `im`, `reti/retn`, `neg`, `ld i/r`, `ld dd,(nn)`, `ld (nn),dd`, `ldi/ldir`, `cpi/cpir`.
 - [x] Prefixo `ED` restante parcial: block I/O, `adc hl,rr`, `sbc hl,rr`, `rrd/rld`.
 - [x] Prefixo `ED`: aliases documentados/nao documentados, block transfer/search nos dois sentidos e encodings indefinidos como NOP.
-- [ ] Prefixo `ED`: flags X/Y e ciclos exatos contra suite externa conhecida.
+- [x] Runtime Z80: flags X/Y em ALU, INC/DEC, CB/BIT, BIT indexado, 16-bit, controle do acumulador e block transfer/search.
+- [ ] Prefixo `ED`: flags exatas de block I/O e ciclos contra suite externa conhecida.
 - [x] Prefixos `DD/FD` iniciais: IX/IY, stack, `jp (ix/iy)`, loads absolutos, deslocamento `ld/inc/dec/alu`, `DD/FD CB`, `IXH/IXL/IYH/IYL`.
 - [x] Prefixos `DD/FD`: fallback de prefixo ignorado para opcodes nao afetados e varredura completa sem caminhos nao implementados.
 - [ ] Prefixos `DD/FD` restantes: semantica rara nao documentada e flags/ciclos exatos contra suite externa.
 - [x] Interrupt mode: IM 0/1/2, `ei/di`, `reti/retn`.
 - [x] Interrupts: IRQ maskable inicial, delayed `ei`, servico NMI inicial.
 - [ ] Interrupts: NMI ligado ao Pause, prioridades e timing exato.
-- [ ] Testar flags contra suite conhecida de Z80.
+- [ ] Testar todas as flags contra suite externa conhecida de Z80; vetores sinteticos locais cobrem X/Y das familias principais.
 - [ ] Validar cycle counts por opcode e por branch tomado/nao tomado.
 
 ## Memoria e Cartucho
