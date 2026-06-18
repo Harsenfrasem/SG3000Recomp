@@ -425,7 +425,9 @@ void Vdp::render_tms_sprites(int line) {
         }
         ++visible_sprites;
         if (visible_sprites > 4) {
-            status_ |= 0x40;
+            if (visible_sprites == 5) {
+                status_ = static_cast<u8>((status_ & 0xE0) | 0x40 | (sprite & 0x1F));
+            }
             if (visible_sprites > sprite_limit) {
                 continue;
             }

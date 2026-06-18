@@ -1495,6 +1495,31 @@ void test_tms_overlapping_sprites_keep_lower_index_priority() {
     assert((vdp.read_status() & 0x20) != 0);
 }
 
+void test_tms_sprite_overflow_reports_fifth_sprite_index() {
+    Console console(ConsoleModel::SG3000);
+    Vdp& vdp = console.vdp();
+    vdp.write_control(0x40);
+    vdp.write_control(0x81); // display enabled
+    vdp.write_control(0x36);
+    vdp.write_control(0x85); // SAT at $1b00
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x5B);
+    for (u8 sprite = 0; sprite < 5; ++sprite) {
+        vdp.write_data(0xFF); // all visible on line zero
+        vdp.write_data(static_cast<u8>(sprite * 8));
+        vdp.write_data(0x00);
+        vdp.write_data(0x00); // transparent still participates in evaluation
+    }
+    vdp.write_data(0xD0);
+
+    vdp.tick(228);
+    const u8 status = vdp.read_status();
+    assert((status & 0x40) != 0);
+    assert((status & 0x1F) == 4);
+    assert(vdp.read_status() == 0);
+}
+
 void test_vdp_background_priority_hides_sprite_pixel() {
     Vdp vdp;
     vdp.write_control(0x40);
@@ -2725,6 +2750,7 @@ int main() {
     test_vdp_sprite_collision_and_overflow_flags();
     test_vdp_overlapping_sprites_keep_lower_index_priority();
     test_tms_overlapping_sprites_keep_lower_index_priority();
+    test_tms_sprite_overflow_reports_fifth_sprite_index();
     test_vdp_background_priority_hides_sprite_pixel();
     test_vdp_sprite_overlays_non_priority_background_pixel();
     test_vdp_sprite_limit_enhancement();
