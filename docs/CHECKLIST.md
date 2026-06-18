@@ -172,9 +172,11 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Prefixo `CB`: rotate, shift, bit, res, set.
 - [x] Prefixo `ED` inicial: `im`, `reti/retn`, `neg`, `ld i/r`, `ld dd,(nn)`, `ld (nn),dd`, `ldi/ldir`, `cpi/cpir`.
 - [x] Prefixo `ED` restante parcial: block I/O, `adc hl,rr`, `sbc hl,rr`, `rrd/rld`.
-- [ ] Prefixo `ED` restante: flags/ciclos exatos e opcodes nao documentados.
+- [x] Prefixo `ED`: aliases documentados/nao documentados, block transfer/search nos dois sentidos e encodings indefinidos como NOP.
+- [ ] Prefixo `ED`: flags X/Y e ciclos exatos contra suite externa conhecida.
 - [x] Prefixos `DD/FD` iniciais: IX/IY, stack, `jp (ix/iy)`, loads absolutos, deslocamento `ld/inc/dec/alu`, `DD/FD CB`, `IXH/IXL/IYH/IYL`.
-- [ ] Prefixos `DD/FD` restantes: opcodes espelhados raros, flags/ciclos exatos e casos nao documentados completos.
+- [x] Prefixos `DD/FD`: fallback de prefixo ignorado para opcodes nao afetados e varredura completa sem caminhos nao implementados.
+- [ ] Prefixos `DD/FD` restantes: semantica rara nao documentada e flags/ciclos exatos contra suite externa.
 - [x] Interrupt mode: IM 0/1/2, `ei/di`, `reti/retn`.
 - [x] Interrupts: IRQ maskable inicial, delayed `ei`, servico NMI inicial.
 - [ ] Interrupts: NMI ligado ao Pause, prioridades e timing exato.
@@ -308,7 +310,8 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 ## Testes
 
 - [x] Smoke test de programa Z80 minimo.
-- [ ] Testes unitarios por familia de opcode.
+- [x] Varredura automatica de todas as entradas base, ED, DD e FD sem caminhos nao implementados.
+- [ ] Testes unitarios de semantica/flags por familia de opcode contra vetores externos conhecidos.
 - [ ] ROMs sinteticas para mapper, VDP, PSG e input.
 - [ ] Comparacao de traces com emulador de referencia.
 - [x] Testes do gerador C++ compilando o arquivo emitido.

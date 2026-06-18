@@ -14,7 +14,7 @@ This repository is intentionally not a clone of any existing recompilation proje
 
 ## Current Status
 
-- Z80 CPU state, decoder, and fallback interpreter for the first instruction subset.
+- Z80 CPU state, decoder, and fallback interpreter with executable coverage across base, CB, ED, DD/FD, and DDCB/FDCB opcode pages; exact undocumented flags/timing still require external-suite conformance.
 - SMS and SG-3000 runtime shell: bus, ROM mapping, RAM writes, VDP ports, PSG latch, joypad reads.
 - `sgrecomp` CLI that can disassemble, analyze reachable basic blocks, or generate a C++ instruction dispatcher.
 - Smoke tests for the Z80 runtime and for generated C++ compilation.

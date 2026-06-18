@@ -420,6 +420,73 @@ void test_vblank_interrupt_im1() {
     assert(console.cpu().a == 0x77);
 }
 
+void test_ed_decrementing_block_transfer_and_search() {
+    const std::vector<u8> rom = {
+        0x21, 0x02, 0xC0, // ld hl,$c002
+        0x11, 0x12, 0xC0, // ld de,$c012
+        0x01, 0x03, 0x00, // ld bc,$0003
+        0xED, 0xB8,       // lddr
+        0x21, 0x12, 0xC0, // ld hl,$c012
+        0x01, 0x03, 0x00, // ld bc,$0003
+        0x3E, 0x11,       // ld a,$11
+        0xED, 0xB9,       // cpdr
+        0x76,             // halt
+    };
+
+    Console console(ConsoleModel::SMS);
+    console.load_rom(rom);
+    console.bus().write(0xC000, 0x11);
+    console.bus().write(0xC001, 0x22);
+    console.bus().write(0xC002, 0x33);
+    run_until_halt(console);
+
+    assert(console.bus().read(0xC010) == 0x11);
+    assert(console.bus().read(0xC011) == 0x22);
+    assert(console.bus().read(0xC012) == 0x33);
+    assert(console.cpu().hl() == 0xC00F);
+    assert(console.cpu().bc() == 0);
+    assert((console.cpu().f & 0x40) != 0);
+}
+
+void test_all_z80_opcode_pages_have_runtime_behavior() {
+    for (int opcode = 0; opcode <= 0xFF; ++opcode) {
+        Console base(ConsoleModel::SMS);
+        const std::array<u8, 5> base_rom{static_cast<u8>(opcode), 0, 0, 0, 0};
+        base.load_rom(base_rom);
+        execute_one(base.cpu(), base.bus());
+
+        Console ed(ConsoleModel::SMS);
+        const std::array<u8, 5> ed_rom{0xED, static_cast<u8>(opcode), 0, 0, 0};
+        ed.load_rom(ed_rom);
+        execute_one(ed.cpu(), ed.bus());
+
+        Console ix(ConsoleModel::SMS);
+        const std::array<u8, 6> ix_rom{0xDD, static_cast<u8>(opcode), 0, 0, 0, 0};
+        ix.load_rom(ix_rom);
+        execute_one(ix.cpu(), ix.bus());
+
+        Console iy(ConsoleModel::SMS);
+        const std::array<u8, 6> iy_rom{0xFD, static_cast<u8>(opcode), 0, 0, 0, 0};
+        iy.load_rom(iy_rom);
+        execute_one(iy.cpu(), iy.bus());
+    }
+
+    Console undefined_ed(ConsoleModel::SMS);
+    const std::array<u8, 2> undefined_ed_rom{0xED, 0x00};
+    undefined_ed.load_rom(undefined_ed_rom);
+    execute_one(undefined_ed.cpu(), undefined_ed.bus());
+    assert(undefined_ed.cpu().pc == 2);
+    assert(undefined_ed.cpu().cycles == 8);
+
+    Console ignored_index(ConsoleModel::SMS);
+    const std::array<u8, 2> ignored_index_rom{0xDD, 0x00};
+    ignored_index.load_rom(ignored_index_rom);
+    execute_one(ignored_index.cpu(), ignored_index.bus());
+    assert(ignored_index.cpu().pc == 2);
+    assert(ignored_index.cpu().cycles == 8);
+    assert(ignored_index.cpu().r == 2);
+}
+
 void test_vdp_line_interrupt_im1() {
     std::vector<u8> rom(0x80, 0x00);
     rom[0x00] = 0x3E; // ld a,$01
@@ -2378,6 +2445,8 @@ int main() {
     test_ed_interrupt_and_special_registers();
     test_ed_16bit_memory_load_store();
     test_ed_block_transfer_and_search();
+    test_ed_decrementing_block_transfer_and_search();
+    test_all_z80_opcode_pages_have_runtime_behavior();
     test_ed_nibble_rotates();
     test_ed_block_io();
     test_ed_port_register_io();

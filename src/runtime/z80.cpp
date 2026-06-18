@@ -532,19 +532,19 @@ void set_ld_a_ir_flags(Z80State& cpu, u8 value) {
         (cpu.iff2 ? flag_pv : 0));
 }
 
-void ldi(Z80State& cpu, Bus& bus) {
+void block_transfer(Z80State& cpu, Bus& bus, s16 step) {
     bus.write(cpu.de(), bus.read(cpu.hl()));
-    cpu.set_hl(static_cast<u16>(cpu.hl() + 1));
-    cpu.set_de(static_cast<u16>(cpu.de() + 1));
+    cpu.set_hl(static_cast<u16>(cpu.hl() + step));
+    cpu.set_de(static_cast<u16>(cpu.de() + step));
     cpu.set_bc(static_cast<u16>(cpu.bc() - 1));
     cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_c)) | (cpu.bc() != 0 ? flag_pv : 0));
 }
 
-void cpi(Z80State& cpu, Bus& bus) {
+void block_compare(Z80State& cpu, Bus& bus, s16 step) {
     const u8 value = bus.read(cpu.hl());
     const u8 carry = static_cast<u8>(cpu.f & flag_c);
     const u8 result = static_cast<u8>(cpu.a - value);
-    cpu.set_hl(static_cast<u16>(cpu.hl() + 1));
+    cpu.set_hl(static_cast<u16>(cpu.hl() + step));
     cpu.set_bc(static_cast<u16>(cpu.bc() - 1));
     cpu.f = static_cast<u8>(carry | flag_n |
         (result & flag_s) |
@@ -688,11 +688,24 @@ void execute_ed(Z80State& cpu, Bus& bus, u8 op) {
         return;
     }
     case 0xA0:
-        ldi(cpu, bus);
+        block_transfer(cpu, bus, 1);
+        cpu.cycles += 16;
+        return;
+    case 0xA8:
+        block_transfer(cpu, bus, -1);
         cpu.cycles += 16;
         return;
     case 0xB0:
-        ldi(cpu, bus);
+        block_transfer(cpu, bus, 1);
+        if (cpu.bc() != 0) {
+            cpu.pc = static_cast<u16>(cpu.pc - 2);
+            cpu.cycles += 21;
+        } else {
+            cpu.cycles += 16;
+        }
+        return;
+    case 0xB8:
+        block_transfer(cpu, bus, -1);
         if (cpu.bc() != 0) {
             cpu.pc = static_cast<u16>(cpu.pc - 2);
             cpu.cycles += 21;
@@ -701,7 +714,11 @@ void execute_ed(Z80State& cpu, Bus& bus, u8 op) {
         }
         return;
     case 0xA1:
-        cpi(cpu, bus);
+        block_compare(cpu, bus, 1);
+        cpu.cycles += 16;
+        return;
+    case 0xA9:
+        block_compare(cpu, bus, -1);
         cpu.cycles += 16;
         return;
     case 0xA2:
@@ -721,7 +738,16 @@ void execute_ed(Z80State& cpu, Bus& bus, u8 op) {
         cpu.cycles += 16;
         return;
     case 0xB1:
-        cpi(cpu, bus);
+        block_compare(cpu, bus, 1);
+        if (cpu.bc() != 0 && (cpu.f & flag_z) == 0) {
+            cpu.pc = static_cast<u16>(cpu.pc - 2);
+            cpu.cycles += 21;
+        } else {
+            cpu.cycles += 16;
+        }
+        return;
+    case 0xB9:
+        block_compare(cpu, bus, -1);
         if (cpu.bc() != 0 && (cpu.f & flag_z) == 0) {
             cpu.pc = static_cast<u16>(cpu.pc - 2);
             cpu.cycles += 21;
@@ -766,11 +792,9 @@ void execute_ed(Z80State& cpu, Bus& bus, u8 op) {
         }
         return;
     default:
-        std::ostringstream message;
-        message << "Z80 ED opcode 0x" << std::hex << std::uppercase
-                << std::setw(2) << std::setfill('0') << static_cast<int>(op)
-                << " not implemented in fallback interpreter";
-        throw std::runtime_error(message.str());
+        // Undefined ED encodings execute as two-byte NOPs on a Z80.
+        cpu.cycles += 8;
+        return;
     }
 }
 
@@ -950,11 +974,13 @@ void execute_index(Z80State& cpu, Bus& bus, bool iy, u8 op) {
             cpu.cycles += 8;
             return;
         }
-        std::ostringstream message;
-        message << "Z80 " << (iy ? "FD" : "DD") << " opcode 0x"
-                << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
-                << static_cast<int>(op) << " not implemented in fallback interpreter";
-        throw std::runtime_error(message.str());
+        // DD/FD prefixes are ignored for opcodes that do not reference HL/H/L/(HL).
+        // Replaying the already fetched opcode preserves normal operand decoding;
+        // execute_one also accounts for its opcode fetch/R increment.
+        cpu.pc = static_cast<u16>(cpu.pc - 1);
+        cpu.cycles += 4;
+        execute_one(cpu, bus);
+        return;
     }
     }
 }
