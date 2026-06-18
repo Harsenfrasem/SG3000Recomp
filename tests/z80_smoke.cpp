@@ -964,6 +964,49 @@ void test_sg3000_vdp_tms_sprite_pixel() {
     assert(vdp.framebuffer()[Vdp::width + 1] == 0xFF000000);
 }
 
+void test_sg3000_vdp_tms_large_sprite_quadrants_and_zoom() {
+    const auto setup = [](Vdp& vdp, u8 register1) {
+        vdp.write_control(register1);
+        vdp.write_control(0x81); // display, 16x16, optional zoom
+        vdp.write_control(0x36);
+        vdp.write_control(0x85); // SAT at $1b00
+        vdp.write_control(0x00);
+        vdp.write_control(0x86); // patterns at $0000
+
+        for (u8 tile = 0; tile < 4; ++tile) {
+            vdp.write_control(static_cast<u8>(tile * 8));
+            vdp.write_control(0x40);
+            vdp.write_data(0x80); // first pixel in each quadrant
+        }
+
+        vdp.write_control(0x00);
+        vdp.write_control(0x5B);
+        vdp.write_data(0xFF); // y = 0
+        vdp.write_data(0x00); // x = 0
+        vdp.write_data(0x03); // masked to pattern group 0
+        vdp.write_data(0x0F); // white
+        vdp.write_data(0xD0);
+    };
+
+    Console normal(ConsoleModel::SG3000);
+    setup(normal.vdp(), 0x42);
+    normal.vdp().tick(228 * 9);
+    assert(normal.vdp().framebuffer()[0] == 0xFFFFFFFF);
+    assert(normal.vdp().framebuffer()[8] == 0xFFFFFFFF);
+    assert(normal.vdp().framebuffer()[8 * Vdp::width] == 0xFFFFFFFF);
+    assert(normal.vdp().framebuffer()[8 * Vdp::width + 8] == 0xFFFFFFFF);
+    assert(normal.vdp().framebuffer()[9] == 0xFF000000);
+
+    Console zoomed(ConsoleModel::SG3000);
+    setup(zoomed.vdp(), 0x43);
+    zoomed.vdp().tick(228 * 17);
+    assert(zoomed.vdp().framebuffer()[0] == 0xFFFFFFFF);
+    assert(zoomed.vdp().framebuffer()[1] == 0xFFFFFFFF);
+    assert(zoomed.vdp().framebuffer()[16] == 0xFFFFFFFF);
+    assert(zoomed.vdp().framebuffer()[17] == 0xFFFFFFFF);
+    assert(zoomed.vdp().framebuffer()[16 * Vdp::width + 16] == 0xFFFFFFFF);
+}
+
 void test_vdp_name_table_register_masks_low_bit() {
     Vdp vdp;
     vdp.write_control(0x40);
@@ -2668,6 +2711,7 @@ int main() {
     test_sg3000_vdp_tms_graphics2_mode();
     test_sg3000_vdp_tms_multicolor_mode();
     test_sg3000_vdp_tms_sprite_pixel();
+    test_sg3000_vdp_tms_large_sprite_quadrants_and_zoom();
     test_vdp_name_table_register_masks_low_bit();
     test_vdp_scroll_lock_and_left_blank();
     test_vdp_left_column_blank_masks_sprites();

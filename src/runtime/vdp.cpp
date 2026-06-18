@@ -399,10 +399,10 @@ void Vdp::render_sprites(int line) {
 void Vdp::render_tms_sprites(int line) {
     const u16 sprite_base = static_cast<u16>((registers_[5] & 0x7F) << 7);
     const u16 sprite_pattern = static_cast<u16>((registers_[6] & 0x07) << 11);
-    const bool tall_sprites = (registers_[1] & 0x02) != 0;
+    const bool large_sprites = (registers_[1] & 0x02) != 0;
     const bool zoomed_sprites = (registers_[1] & 0x01) != 0;
-    const int base_sprite_height = tall_sprites ? 16 : 8;
-    const int sprite_height = zoomed_sprites ? base_sprite_height * 2 : base_sprite_height;
+    const int base_sprite_size = large_sprites ? 16 : 8;
+    const int sprite_height = zoomed_sprites ? base_sprite_size * 2 : base_sprite_size;
     const int sprite_limit = enhancements_.disable_sprite_limit
         ? 32
         : (enhancements_.reduce_flicker ? 8 : 4);
@@ -441,18 +441,18 @@ void Vdp::render_tms_sprites(int line) {
         if ((color_byte & 0x80) != 0) {
             sprite_x -= 32;
         }
-        if (tall_sprites) {
+        if (large_sprites) {
             tile = static_cast<u8>(tile & 0xFC);
         }
 
         int row = (line - sprite_y) / (zoomed_sprites ? 2 : 1);
-        if (tall_sprites) {
-            tile = static_cast<u8>(tile + (row / 8));
-            row &= 0x07;
-        }
-        const u16 pattern = static_cast<u16>((sprite_pattern + tile * 8 + row) & 0x3FFF);
-        for (int px = 0; px < 8; ++px) {
-            const int bit = 7 - px;
+        const int pattern_row = row & 0x07;
+        const int tile_row = large_sprites ? row / 8 : 0;
+        for (int px = 0; px < base_sprite_size; ++px) {
+            const int tile_column = large_sprites ? px / 8 : 0;
+            const u8 pattern_tile = static_cast<u8>(tile + tile_row * 2 + tile_column);
+            const u16 pattern = static_cast<u16>((sprite_pattern + pattern_tile * 8 + pattern_row) & 0x3FFF);
+            const int bit = 7 - (px & 0x07);
             if (((vram_[pattern] >> bit) & 0x01) == 0) {
                 continue;
             }
