@@ -424,7 +424,7 @@ u16 Vdp::name_table_base() const {
 }
 
 u16 Vdp::background_pattern_base() const {
-    return static_cast<u16>((registers_[4] & 0x04) << 11);
+    return 0;
 }
 
 u16 Vdp::sprite_pattern_base() const {

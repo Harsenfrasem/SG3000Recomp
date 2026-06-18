@@ -30,7 +30,8 @@ void Bus::load_rom(std::span<const u8> rom) {
         rom = rom.subspan(512);
     }
     rom_.assign(rom.begin(), rom.end());
-    memory_.fill(0xFF);
+    memory_.fill(0);
+    std::fill(memory_.begin(), memory_.begin() + 0xC000, 0xFF);
     memory_control_ = 0;
     smapper_control_ = 0;
     smapper_slots_[0] = 0;

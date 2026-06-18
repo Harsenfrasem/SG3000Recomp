@@ -21,6 +21,8 @@ This repository is intentionally not a clone of any existing recompilation proje
 
 Full compatibility requires completing the Z80/CB/DD/FD/ED opcode tables, exact cycle accounting, SMapper variants, VDP rendering modes, PSG synthesis, pause/NMI behavior, and ROM database heuristics.
 
+The runtime now reaches recognizable multicolor title/opening screens in private local regression tests. This is a boot-visual milestone, not a blanket compatibility claim. The remaining minimum-playability gates are tracked in `docs/PLAYABLE_STATUS.md`.
+
 ## Build
 
 Portable local build, already validated for this workspace:

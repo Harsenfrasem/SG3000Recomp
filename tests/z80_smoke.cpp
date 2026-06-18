@@ -498,6 +498,8 @@ void test_vdp_mode4_background_pixel() {
     vdp.write_control(0x81); // register 1: display enabled
     vdp.write_control(0x0E);
     vdp.write_control(0x82); // register 2: name table at $3800
+    vdp.write_control(0xFF);
+    vdp.write_control(0x84); // register 4 is ignored by Mode 4 background patterns
 
     vdp.write_control(0x01);
     vdp.write_control(0xC0); // CRAM write at 1
@@ -1789,6 +1791,17 @@ void test_bios_can_disable_itself_with_memory_control_port() {
     assert(!console.bus().bios_enabled());
 }
 
+void test_work_ram_starts_cleared() {
+    const std::vector<u8> rom(0x8000, 0x00);
+    Console console(ConsoleModel::SMS);
+    console.load_rom(rom);
+
+    assert(console.bus().read(0xC000) == 0x00);
+    assert(console.bus().read(0xDFFF) == 0x00);
+    assert(console.bus().read(0xE000) == 0x00);
+    assert(console.bus().read(0xFFFF) == 0x00);
+}
+
 void test_memory_control_port_maps_bios_cart_and_ram() {
     std::vector<u8> bios(0x4000, 0x00);
     bios[0] = 0x11;
@@ -2258,6 +2271,7 @@ int main() {
     test_daa_after_add_and_subtract();
     test_mapper_keeps_ram();
     test_ram_mirroring();
+    test_work_ram_starts_cleared();
     test_bios_overlay_boots_before_rom();
     test_bios_can_disable_itself_with_memory_control_port();
     test_memory_control_port_maps_bios_cart_and_ram();

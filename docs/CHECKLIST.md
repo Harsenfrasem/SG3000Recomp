@@ -15,6 +15,18 @@ Use esta lista como guia de implementacao. Marque cada item somente depois de te
 
 Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhorias opcionais.
 
+### 0. Gate de jogabilidade minima
+
+- [x] Corrigir inicializacao de RAM para permitir boot de software que le estado antes da limpeza explicita.
+- [x] Corrigir pattern table de background Mode 4 para `0x0000`, ignorando R4 nesse caminho.
+- [x] Validacao privada local produz telas/titulos reconheciveis em multiplas imagens sem versionar artefatos.
+- [x] Host Win32 possui video, teclado, Pause/NMI, audio e toggles de enhancement por CLI/perfil.
+- [ ] Script headless de input por frame para automatizar entrada em gameplay.
+- [ ] Validar uma sessao jogavel de cinco minutos com input, audio e enhancement.
+- [ ] Validar save state/SRAM durante gameplay real.
+
+Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
+
 ### 1. Completar modo fiel basico
 
 - [ ] CPU Z80: fechar flags, ciclos e opcodes raros contra suite conhecida.
@@ -31,7 +43,7 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Conectar config ao host runtime.
 - [x] Conectar config inicial ao `Console` e `Vdp`.
 - [x] Conectar config inicial ao `Psg`.
-- [ ] Carregamento de config TOML/JSON por alvo sem guardar caminhos locais.
+- [x] Carregamento inicial de config TOML por alvo sem guardar caminhos locais.
 - [x] Registrar no relatorio de smoke quais enhancements estao ativos.
 
 ### 3. Primeiro enhancement: `disable_sprite_limit` / `reduce_flicker`
