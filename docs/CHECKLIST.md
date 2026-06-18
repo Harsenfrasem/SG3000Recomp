@@ -21,7 +21,7 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Corrigir pattern table de background Mode 4 para `0x0000`, ignorando R4 nesse caminho.
 - [x] Validacao privada local produz telas/titulos reconheciveis em multiplas imagens sem versionar artefatos.
 - [x] Host Win32 possui video, teclado, Pause/NMI, audio e toggles de enhancement por CLI/perfil.
-- [ ] Script headless de input por frame para automatizar entrada em gameplay.
+- [x] Script headless de input por frame para automatizar entrada em gameplay.
 - [ ] Validar uma sessao jogavel de cinco minutos com input, audio e enhancement.
 - [ ] Validar save state/SRAM durante gameplay real.
 
@@ -271,6 +271,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [ ] Backend SDL2 opcional.
 - [x] Backend Win32 inicial para desenvolvimento no Windows.
 - [x] HostRuntime headless com framebuffer, input por frame e buffer de audio.
+- [x] Roteiro CSV deterministico de input por frame no host headless.
 - [x] Save RAM em arquivo local pelo smoke runner.
 - [x] Save RAM em arquivo local pelo host Win32.
 - [x] Estado serializavel inicial para save states.

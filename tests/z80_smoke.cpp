@@ -2,6 +2,7 @@
 #include "sgrecomp/cartridge.h"
 #include "sgrecomp/game_profile.h"
 #include "sgrecomp/host_runtime.h"
+#include "sgrecomp/input_script.h"
 #include "sgrecomp/save_state.h"
 
 #include <array>
@@ -2130,6 +2131,25 @@ void test_host_runtime_frame_audio_and_input() {
     assert(host.framebuffer()[0] == 0xFFFF0000);
 }
 
+void test_host_input_script_tracks_frame_state() {
+    const HostInputScript script = parse_host_input_script(
+        "# deterministic title-screen input\n"
+        "frame,player1,player2,pause\n"
+        "0,none,none,off\n"
+        "10,right+button1,left,on\n"
+        "11,right,b2,off\n");
+
+    assert(script.events().size() == 3);
+    assert(script.state_for_frame(0).player1 == 0);
+    assert(script.state_for_frame(9).player1 == 0);
+    assert(script.state_for_frame(10).player1 == static_cast<u8>(Joypad::Right | Joypad::Button1));
+    assert(script.state_for_frame(10).player2 == Joypad::Left);
+    assert(script.state_for_frame(10).pause);
+    assert(script.state_for_frame(11).player1 == Joypad::Right);
+    assert(script.state_for_frame(999).player2 == Joypad::Button2);
+    assert(!script.state_for_frame(999).pause);
+}
+
 void test_console_save_state_round_trip_restores_runtime_state() {
     const std::vector<u8> rom = {
         0x3E, 0x42,       // ld a,$42
@@ -2288,6 +2308,7 @@ int main() {
     test_bc_de_indirect_loads();
     test_hl_absolute_load_store();
     test_host_runtime_frame_audio_and_input();
+    test_host_input_script_tracks_frame_state();
     test_console_save_state_round_trip_restores_runtime_state();
     test_game_profile_hash_and_parse();
     return 0;

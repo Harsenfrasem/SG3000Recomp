@@ -140,6 +140,7 @@ int main() {
     const std::filesystem::path fm_log_path = output_dir / "fm_fixture.csv";
     const std::filesystem::path host_frame_path = output_dir / "host_frame.bmp";
     const std::filesystem::path host_audio_path = output_dir / "host_audio.wav";
+    const std::filesystem::path host_input_path = output_dir / "host_input.csv";
     const std::filesystem::path host_config_path = output_dir / "host_config.toml";
     const std::filesystem::path host_config_audio_path = output_dir / "host_config_audio.wav";
     const std::filesystem::path host_sram_rom_path = output_dir / "host_sram_fixture.sms";
@@ -473,9 +474,14 @@ int main() {
     assert(contains(fm_log, "0xf0,0x20"));
     assert(contains(fm_log, "0xf1,0x11"));
 
+    write_text(host_input_path,
+        "frame,player1,player2,pause\n"
+        "0,none,none,off\n"
+        "1,right+button1,none,off\n");
     const std::string host_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(audio_rom_path)
         + " --run-host --frames 2 --dump-frame-bmp " + quote(host_frame_path)
-        + " --audio-sample-rate 22050 --dump-audio " + quote(host_audio_path);
+        + " --audio-sample-rate 22050 --input-script " + quote(host_input_path)
+        + " --dump-audio " + quote(host_audio_path);
     assert(run_command(host_command) == 0);
 
     const auto host_frame = read_binary(host_frame_path);

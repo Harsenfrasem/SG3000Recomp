@@ -3,6 +3,7 @@
 #include "sgrecomp/game_profile.h"
 #include "sgrecomp/host_runtime.h"
 #include "sgrecomp/joypad.h"
+#include "sgrecomp/input_script.h"
 #include "sgrecomp/psg.h"
 #include "sgrecomp/save_state.h"
 #include "sgrecomp/vdp.h"
@@ -38,6 +39,7 @@ struct AddressRange {
 
 struct Options {
     std::filesystem::path input;
+    std::filesystem::path input_script;
     std::filesystem::path bios;
     std::filesystem::path dump_frame;
     std::filesystem::path dump_frame_bmp;
@@ -211,6 +213,11 @@ std::vector<u8> read_file(const std::filesystem::path& path) {
     return {std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
 }
 
+std::string read_text_file(const std::filesystem::path& path) {
+    const auto bytes = read_file(path);
+    return {bytes.begin(), bytes.end()};
+}
+
 std::vector<u8> normalize_rom_payload(std::vector<u8> rom) {
     if (rom.size() > 512 && (rom.size() % 0x4000) == 512) {
         rom.erase(rom.begin(), rom.begin() + 512);
@@ -303,7 +310,7 @@ void print_usage() {
               << "                [--load-sram save.sav] [--save-sram save.sav] [--dump-sram sram.bin]\n"
               << "                [--load-state state.sgstate] [--save-state state.sgstate] [--force-state]\n"
               << "                [--dump-coverage pcs.csv] [--disable-sprite-limit] [--reduce-flicker] [--enable-fm]\n"
-              << "       sgrecomp <rom.sms|rom.sg> --run-host [--frames n] [--bios bios.sms] [--video-standard ntsc|pal] [--audio-sample-rate hz]\n"
+              << "       sgrecomp <rom.sms|rom.sg> --run-host [--frames n] [--input-script input.csv] [--bios bios.sms] [--video-standard ntsc|pal] [--audio-sample-rate hz]\n"
               << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp] [--dump-audio audio.wav]\n"
               << "       sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--dump-analysis analysis.txt]\n";
 }
@@ -446,6 +453,10 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--frames" && i + 1 < argc) {
             opts.host_frames = static_cast<std::size_t>(std::stoull(argv[++i]));
+            continue;
+        }
+        if (arg == "--input-script" && i + 1 < argc) {
+            opts.input_script = argv[++i];
             continue;
         }
         if (arg == "--audio-sample-rate" && i + 1 < argc) {
@@ -1702,9 +1713,12 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
         load_console_state(host.console(), state_bytes);
     }
 
+    const HostInputScript input_script = opts.input_script.empty()
+        ? HostInputScript{}
+        : parse_host_input_script(read_text_file(opts.input_script));
     HostFrameResult result{};
     for (std::size_t frame = 0; frame < opts.host_frames; ++frame) {
-        result = host.run_frame();
+        result = host.run_frame(input_script.state_for_frame(frame));
     }
 
     const auto& framebuffer = host.framebuffer();
@@ -1734,6 +1748,10 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
               << ", disable_sprite_limit=" << (opts.enhancements.disable_sprite_limit ? "on" : "off")
               << ", reduce_flicker=" << (opts.enhancements.reduce_flicker ? "on" : "off")
               << ", enable_fm=" << (opts.enhancements.enable_fm ? "on" : "off") << "\n";
+    if (!opts.input_script.empty()) {
+        std::cout << "input script: " << opts.input_script.string()
+                  << " (" << input_script.events().size() << " events)\n";
+    }
 
     if (!opts.dump_frame.empty()) {
         write_frame_ppm(opts.dump_frame, framebuffer);

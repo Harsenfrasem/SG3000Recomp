@@ -26,7 +26,7 @@ Do not call a title playable until all items below are demonstrated together:
 
 ## Next Diagnostic Order
 
-1. Add deterministic headless input scripting so title-screen progression is testable without manual timing.
+1. Use the deterministic headless input script to reproduce title-screen progression on the first private test title.
 2. Capture per-frame framebuffer hashes, PC ranges, mapper state, and non-zero audio counts.
 3. Fix remaining mapper/VDP differences using the first title that reaches gameplay.
 4. Validate accurate versus enhanced sprite rendering in a scene with visible flicker.

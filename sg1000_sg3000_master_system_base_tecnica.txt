@@ -1,0 +1,1078 @@
+DOCUMENTO TÉCNICO BASE — SG-1000 / SC-3000 / SG-3000 / MASTER SYSTEM / MARK III
+Base para aplicação de descompilação, análise, recompilação e uso de BIOS em C++
+Autor do documento: ChatGPT
+Idioma: Português-BR
+Data: 2026-06-17
+
+================================================================================
+0. NOTA SOBRE O ARQUIVO ENVIADO
+================================================================================
+
+O arquivo enviado foi um pacote RAR chamado:
+- Sg3000docs de auxilio.rar
+
+A listagem interna do pacote indica os seguintes itens:
+- Sg3000docs de auxilio/z80_260617_065309.pdf
+- Sg3000docs de auxilio/z80-documented-v091_260617_065356.pdf
+- Sg3000docs de auxilio/master system structure.txt
+
+O ambiente conseguiu listar o conteúdo do RAR, mas não possuía ferramenta funcional de extração RAR5 instalada. Por isso, este documento foi construído usando:
+1. Os nomes e escopo identificados dentro do pacote.
+2. Fontes públicas equivalentes encontradas e visitadas, incluindo documentação Z80, documentação não oficial do Z80, documentação oficial Sega Mark III/Master System, SMS Power, notas de VDP e guias técnicos de arquitetura.
+
+Este documento NÃO deve ser tratado como substituto legal dos manuais originais; ele é uma consolidação técnica para servir como base de engenharia de software.
+
+================================================================================
+1. OBJETIVO DO PROJETO
+================================================================================
+
+O objetivo da aplicação é criar uma ferramenta em C++ capaz de analisar ROMs de jogos de SG-1000, SC-3000, SG-3000/Mark III e Master System, usando também BIOS quando necessário, para permitir:
+
+- Carregamento de ROMs e BIOS.
+- Detecção de plataforma, região, mapper e tamanho.
+- Desmontagem Z80 fiel, incluindo opcodes documentados e não documentados.
+- Reconstrução de código assembly a partir de binário.
+- Análise de fluxo de controle: jumps, calls, returns, interrupts e tabelas de ponteiros.
+- Análise de bancos de memória.
+- Separação de código, dados, gráficos, mapas, tiles, paletas e som.
+- Exportação de assets.
+- Recompilação para binário funcional.
+- Comparação binária entre ROM original e ROM reconstruída.
+- Modo avançado com emulação parcial para descobrir código dinâmico, bancos acessados e leituras/escritas de hardware.
+
+A aplicação não deve ser apenas um disassembler linear. Para jogos reais, especialmente Master System com bankswitching, ela precisa combinar desmontagem estática, emulação assistida e regras específicas de plataforma.
+
+================================================================================
+2. FAMÍLIA DE HARDWARE ABRANGIDA
+================================================================================
+
+2.1 SG-1000
+
+Console 8-bit da Sega anterior ao Master System. Usa CPU Z80 e VDP da família TMS9918/TMS9928. Seu modelo gráfico é mais simples que o modo 4 do Master System. Muitos conceitos continuam relevantes:
+
+- CPU Z80.
+- VRAM separada da RAM principal.
+- VDP acessado por portas de I/O.
+- PSG SN76489 ou compatível.
+- Cartuchos ROM.
+
+2.2 SC-3000
+
+Computador baseado na mesma família do SG-1000. Relevante para a aplicação porque compartilha arquitetura geral, mas pode ter diferenças de teclado, RAM, BASIC, mapeamento e periféricos.
+
+2.3 SG-3000 / Mark III / Master System
+
+A nomenclatura do usuário menciona SG1000/2000/3000 e Master System. Tecnicamente, a linha reconhecida envolve SG-1000, SC-3000, Mark III e Master System. O Master System é essencialmente a evolução internacional do Mark III, mantendo Z80, VDP Sega compatível/ampliado e PSG.
+
+2.4 Game Gear
+
+Não é o foco principal, mas é muito próximo do Master System. Pode ser suportado futuramente com ajustes:
+
+- Resolução menor: 160x144.
+- Paleta maior: 12-bit, 4096 cores.
+- Botão Start em porta específica.
+- Layout de ROM e header semelhante.
+
+================================================================================
+3. ARQUITETURA GERAL DO MASTER SYSTEM / MARK III
+================================================================================
+
+Componentes principais:
+
+- CPU: Zilog Z80A em aproximadamente 3,58 MHz NTSC e aproximadamente 3,55 MHz PAL.
+- RAM principal: 8 KB, normalmente em $C000-$DFFF, espelhada em $E000-$FFFF.
+- VRAM: 16 KB dedicada ao VDP, fora do espaço normal de endereçamento da CPU.
+- VDP: Video Display Processor Sega, derivado/conceitualmente relacionado ao TMS9918, com modo gráfico avançado usado pelo Master System.
+- CRAM: Color RAM interna do VDP, usada para paletas.
+- PSG: SN76489 ou compatível, com 3 canais de tom quadrado e 1 canal de ruído.
+- I/O: portas Z80 para VDP, PSG, controles, memória e outros recursos.
+- ROM: cartucho mapeado em janelas de 16 KB.
+- Mapper: sistema de troca de bancos para permitir ROMs maiores que 48 KB.
+- BIOS: presente em alguns modelos/regiões, pode verificar header, exibir tela inicial e iniciar cartucho.
+
+A CPU não acessa a VRAM diretamente por endereços de memória comuns. Ela conversa com o VDP por portas I/O. Isso é crucial para o projeto: gráficos e tilemaps não aparecem como memória normal no fluxo da CPU; eles são copiados da ROM/RAM para o VDP por rotinas que fazem OUT para portas específicas.
+
+================================================================================
+4. CPU Z80 — O QUE A APLICAÇÃO PRECISA SUPORTAR
+================================================================================
+
+4.1 Registradores principais
+
+O Z80 possui:
+
+- A: acumulador.
+- F: flags.
+- BC, DE, HL: pares de registradores de 16 bits.
+- B, C, D, E, H, L: registradores de 8 bits.
+- AF', BC', DE', HL': registradores alternativos.
+- IX, IY: registradores índice.
+- SP: stack pointer.
+- PC: program counter.
+- I: interrupt vector register.
+- R: refresh register.
+
+4.2 Flags
+
+Flags principais em F:
+
+- S: sinal.
+- Z: zero.
+- Y: bit 5 não documentado/espelhado em várias operações.
+- H: half carry.
+- X: bit 3 não documentado/espelhado em várias operações.
+- P/V: paridade ou overflow, dependendo da instrução.
+- N: subtract.
+- C: carry.
+
+Para um descompiler/recompiler fiel, flags não podem ser tratadas de forma preguiçosa. Muitos jogos usam flags de forma indireta após operações aparentemente simples. Em um recompilador, as flags devem ser representadas no IR ou recalculadas corretamente.
+
+4.3 Endianness
+
+O Z80 usa little-endian para operandos de 16 bits. Exemplo:
+
+- Bytes: 34 12
+- Valor: $1234
+
+4.4 Prefixos de opcode
+
+O decoder deve suportar:
+
+- Sem prefixo: instruções base.
+- CB: bit operations, rotate/shift.
+- ED: instruções estendidas, I/O, block transfer, interrupts.
+- DD: instruções usando IX.
+- FD: instruções usando IY.
+- DDCB / FDCB: operações bit/rotate/shift indexadas com deslocamento.
+
+4.5 Instruções não documentadas
+
+O documento z80-documented-v0.91 e trabalhos derivados sobre Z80 não documentado são importantes porque jogos e demos podem usar instruções não oficiais. A aplicação deve reconhecer pelo menos:
+
+- Acesso a IXH, IXL, IYH, IYL.
+- Combinações DD/FD substituindo HL por IX/IY.
+- Instruções DDCB/FDCB com deslocamento.
+- Efeitos de flags em BIT, block instructions e I/O block instructions.
+- Prefixos repetidos ou combinações estranhas.
+
+Não suportar opcodes não documentados é um erro grave para uma ferramenta de reconstrução. Mesmo quando a ROM comercial não os usa, hacks, homebrews, BIOS modificadas e testes podem usar.
+
+4.6 Interrupções
+
+O Master System usa IRQ gerado pelo VDP para eventos de vídeo, especialmente VBlank e line interrupts. O Z80 também possui NMI, mas a implementação depende do hardware. A aplicação deve modelar:
+
+- DI / EI.
+- IM 0, IM 1, IM 2.
+- RST $38 para IM 1.
+- Vetores de interrupção.
+- Efeito de HALT.
+- Atraso de EI: interrupção não é aceita imediatamente na instrução EI.
+
+Para descompilação, rotinas de interrupção devem ser identificadas como entry points mesmo que não sejam chamadas por CALL.
+
+================================================================================
+5. MAPA DE MEMÓRIA DO MASTER SYSTEM
+================================================================================
+
+Mapa típico:
+
+$0000-$03FF  ROM slot 0 inicial / região fixa / vetores / header dependendo do tamanho e mapper
+$0000-$3FFF  ROM slot 0, 16 KB
+$4000-$7FFF  ROM slot 1, 16 KB
+$8000-$BFFF  ROM slot 2, 16 KB ou RAM de cartucho
+$C000-$DFFF  RAM principal, 8 KB
+$E000-$FFFF  espelho da RAM principal
+$FFFC-$FFFF  registradores de paging em alguns modelos/mappers
+
+Observação importante:
+Embora $FFFC-$FFFF estejam dentro da área espelhada de RAM, em cartuchos com mapper esses endereços também são usados para seleção de bancos. O software pode escrever nesses endereços para trocar quais bancos de ROM aparecem em $4000-$7FFF ou $8000-$BFFF.
+
+5.1 Slots de ROM
+
+O Z80 só endereça 64 KB por vez. O Master System resolve isso usando janelas:
+
+- Slot 0: $0000-$3FFF
+- Slot 1: $4000-$7FFF
+- Slot 2: $8000-$BFFF
+
+Em ROMs maiores, o mapper troca bancos nesses slots.
+
+5.2 Implicação para descompilação
+
+Nunca trate endereço CPU como identificador único de código. O endereço $8000 pode representar dezenas de bancos diferentes. A aplicação deve representar localização como:
+
+- banco físico da ROM
+- endereço CPU visível
+- offset absoluto no arquivo
+- tipo de mapper
+- estado de paginação
+
+Modelo recomendado:
+
+struct AddressRef {
+    uint32_t rom_offset;
+    uint16_t cpu_addr;
+    uint16_t bank_id;
+    Slot slot;
+    MapperType mapper;
+};
+
+5.3 Detecção de bancos
+
+A análise deve buscar padrões como:
+
+- LD A, banco
+- LD ($FFFF), A
+- LD ($FFFE), A
+- LD ($FFFD), A
+- OUT ($3E), A em casos de controle de memória
+
+A análise dinâmica/emulada deve registrar cada escrita em endereços/portas de mapper.
+
+================================================================================
+6. HEADER DE ROM MASTER SYSTEM / GAME GEAR
+================================================================================
+
+ROMs de Master System geralmente possuem assinatura:
+
+"TMR SEGA"
+
+Locais comuns:
+
+- $7FF0 para ROMs menores/32 KB.
+- $BFF0 para ROMs maiores.
+- $1FF0 em alguns casos menores.
+
+Campos típicos próximos ao header:
+
+- Magic string: "TMR SEGA".
+- Checksum.
+- Product code.
+- Version.
+- Region/size byte.
+
+A BIOS pode verificar o header. Portanto, para recompilar ROM funcional com BIOS real, o header e checksum precisam ser reconstruídos corretamente.
+
+6.1 Funções obrigatórias da aplicação
+
+- Localizar header em offsets comuns.
+- Validar magic string.
+- Extrair region/size.
+- Calcular checksum conforme regra da plataforma.
+- Atualizar checksum após recompilação.
+- Permitir modo “preservar header original”.
+- Permitir modo “gerar header novo”.
+
+================================================================================
+7. PORTAS DE I/O IMPORTANTES
+================================================================================
+
+Portas comuns no Master System:
+
+$7E  leitura: V counter / escrita: PSG
+$7F  leitura: H counter / escrita: PSG espelhado
+$BE  VDP data port
+$BF  VDP control/status port
+$DC  controle / joystick 1 e parte do joystick 2
+$DD  controle / parte do joystick 2 e sinais diversos
+$DE-$DF  controle de memória em alguns contextos
+$3E  memory control em documentação oficial Mark III/Master System
+
+A decodificação do VDP tem espelhos por causa das linhas de endereço usadas no barramento. Em muitos documentos aparecem faixas espelhadas:
+
+$40-$7F  pares: V counter/PSG; ímpares: H counter/PSG
+$80-$BF  pares: VDP data; ímpares: VDP control
+
+A aplicação deve normalizar portas espelhadas. Exemplo:
+
+- OUT ($BE), A e OUT ($80), A podem ser equivalentes dependendo da decodificação.
+- IN A, ($BF) lê status do VDP e limpa flags de interrupção.
+
+================================================================================
+8. VDP — VIDEO DISPLAY PROCESSOR
+================================================================================
+
+8.1 Conceito
+
+O VDP é o componente gráfico. Ele possui 16 KB de VRAM e CRAM de paleta. A CPU acessa VDP por portas I/O, não por memória normal.
+
+Funções principais:
+
+- Background tilemap / name table.
+- Tiles 8x8.
+- Sprites 8x8 ou 8x16.
+- Paletas de fundo e sprite.
+- Scroll horizontal e vertical.
+- Interrupções de VBlank e line interrupt.
+- Status de colisão/overflow de sprites.
+
+8.2 VRAM
+
+VRAM: $0000-$3FFF, 16 KB.
+
+Organização típica, variável por registradores:
+
+$0000-$1FFF  padrões/tile patterns 0-255
+$2000-$37FF  padrões/tile patterns 256-447 ou dados adicionais
+$3800-$3EFF  screen/name table 32x28
+$3F00-$3FFF  sprite attribute table
+
+Essa organização pode mudar conforme registradores do VDP. Portanto, a aplicação não deve assumir layout fixo sem ler as configurações de VDP usadas pelo jogo.
+
+8.3 Portas do VDP
+
+- $BE: data port, leitura/escrita de VRAM/CRAM conforme comando atual.
+- $BF: control port, escrita de comando e registradores; leitura de status.
+
+8.4 Command word do VDP
+
+O VDP recebe comandos em duas escritas no control port. A primeira escrita define os 8 bits baixos do endereço. A segunda escrita define bits altos do endereço e código de operação.
+
+Formato conceitual:
+
+Primeiro byte:
+A07 A06 A05 A04 A03 A02 A01 A00
+
+Segundo byte:
+CD1 CD0 A13 A12 A11 A10 A09 A08
+
+CD seleciona operação:
+
+0 = preparação de leitura de VRAM
+1 = escrita em VRAM
+2 = escrita em registrador VDP
+3 = escrita em CRAM
+
+Para uma ferramenta de análise, qualquer sequência OUT para $BF seguida de OUT/IN em $BE deve ser interpretada como acesso a VRAM/CRAM/registrador, não apenas como I/O genérico.
+
+8.5 Registradores do VDP
+
+Registradores importantes:
+
+R0: controle de modo, sincronização, line interrupt enable, bits de modo.
+R1: display enable, VBlank interrupt enable, sprite size, modo.
+R2: base da name table.
+R3: base da color table em modos herdados/TMS.
+R4: base da pattern generator table.
+R5: base da sprite attribute table.
+R6: base da sprite pattern generator table.
+R7: cor de borda/background.
+R8: scroll horizontal.
+R9: scroll vertical.
+R10: line counter.
+
+A aplicação deve rastrear escritas nos registradores porque elas determinam onde estão tilemap, sprites e como interpretar gráficos.
+
+8.6 Tiles
+
+No modo principal do Master System, tiles são 8x8 pixels, geralmente 4 bits por pixel, com 16 cores por paleta. Um tile ocupa 32 bytes:
+
+- 8 linhas.
+- 4 planos de bits.
+- 4 bytes por linha.
+
+Decodificação recomendada:
+
+for y in 0..7:
+    b0 = tile[y*4 + 0]
+    b1 = tile[y*4 + 1]
+    b2 = tile[y*4 + 2]
+    b3 = tile[y*4 + 3]
+    for x in 0..7:
+        bit = 7 - x
+        color_index = ((b0 >> bit) & 1) |
+                      (((b1 >> bit) & 1) << 1) |
+                      (((b2 >> bit) & 1) << 2) |
+                      (((b3 >> bit) & 1) << 3)
+
+8.7 Name table / tilemap
+
+Cada entrada de tilemap normalmente possui 16 bits:
+
+- índice do tile.
+- paleta.
+- prioridade.
+- flip horizontal.
+- flip vertical.
+
+A aplicação deve exportar tilemaps como dados estruturados, não apenas bytes.
+
+8.8 Sprites
+
+Master System suporta até 64 sprites. Limitação comum: até 8 sprites por scanline. Sprites podem ser 8x8 ou 8x16 conforme registrador. A tabela de atributos contém posições e tile index.
+
+A ferramenta deve detectar:
+
+- SAT base via VDP register 5.
+- tamanho de sprite via VDP register 1.
+- base de padrões de sprite via VDP register 6.
+- sentinel de fim de sprites quando usado.
+
+8.9 CRAM e paleta
+
+Master System usa 32 entradas de cor:
+
+- 16 para background.
+- 16 para sprites.
+
+Cada cor é codificada em 6 bits: 2 bits por componente RGB. Portanto há 64 cores possíveis.
+
+Game Gear usa paleta 12-bit, mas isso é extensão futura.
+
+8.10 Interrupções do VDP
+
+O VDP pode gerar:
+
+- VBlank interrupt.
+- Line interrupt.
+
+Leitura do status port ($BF) reconhece/limpa determinados estados. Em emulação assistida, isso precisa ser modelado para que loops de espera e handlers funcionem.
+
+================================================================================
+9. PSG — SOM SN76489
+================================================================================
+
+O PSG oferece:
+
+- 3 canais de tom quadrado.
+- 1 canal de ruído.
+- Volume independente por canal.
+- Escrita por latch/data na porta $7E, com espelhos possíveis.
+
+Formato conceitual de escrita:
+
+- Byte com bit 7 = 1: latch/data byte.
+- Bits indicam canal, tipo de registrador e parte do valor.
+- Bytes seguintes com bit 7 = 0 completam dados.
+
+A aplicação deve:
+
+- Identificar writes para PSG.
+- Separar dados musicais de código quando possível.
+- Detectar engines sonoras comuns.
+- Exportar eventos de som em formato intermediário.
+- Não assumir que dados de música são lineares; muitas engines usam comandos e tabelas.
+
+================================================================================
+10. CONTROLES E INPUT
+================================================================================
+
+Portas comuns:
+
+$DC: joystick 1 e parte do joystick 2.
+$DD: restante do joystick 2 e sinais diversos.
+
+Bits normalmente representam:
+
+- Cima.
+- Baixo.
+- Esquerda.
+- Direita.
+- Botão 1.
+- Botão 2.
+- Reset ou sinais especiais dependendo do modelo.
+
+Para emulação assistida, deve haver camada de input configurável, permitindo simular botões para atravessar menus e descobrir bancos/código.
+
+================================================================================
+11. BIOS
+================================================================================
+
+A BIOS pode:
+
+- Inicializar hardware.
+- Mostrar tela inicial.
+- Verificar cartucho.
+- Conferir header/checksum.
+- Iniciar jogo.
+- Servir como fonte de rotinas ou comportamento esperado.
+
+A aplicação deve suportar:
+
+- Carregar BIOS separada.
+- Mapear BIOS no espaço inicial conforme modelo.
+- Detectar quando BIOS desabilita a si mesma e passa controle à ROM.
+- Comparar boot com e sem BIOS.
+- Registrar entry point real após boot.
+
+Não basta iniciar sempre em $0000 da ROM se o objetivo é fidelidade com BIOS.
+
+================================================================================
+12. DESCOMPILAÇÃO — PIPELINE RECOMENDADO
+================================================================================
+
+12.1 Etapa 1: Loader
+
+Responsável por:
+
+- Ler arquivo ROM.
+- Ler BIOS opcional.
+- Identificar plataforma provável.
+- Calcular tamanho.
+- Detectar header.
+- Detectar mapper.
+- Construir mapa inicial de memória.
+
+12.2 Etapa 2: Decoder Z80
+
+Responsável por:
+
+- Transformar bytes em instruções.
+- Suportar todos os prefixos.
+- Suportar opcodes não documentados.
+- Informar tamanho, ciclos, flags afetadas, registradores lidos/escritos.
+- Classificar instrução: controle de fluxo, memória, I/O, aritmética, bit op etc.
+
+Estrutura sugerida:
+
+struct Instruction {
+    AddressRef address;
+    uint8_t bytes[4];
+    uint8_t size;
+    Mnemonic mnemonic;
+    Operand operands[3];
+    FlowType flow;
+    FlagEffect flags;
+    uint8_t cycles_min;
+    uint8_t cycles_max;
+};
+
+12.3 Etapa 3: Análise de entry points
+
+Entry points iniciais:
+
+- $0000 reset.
+- $0038 interrupt IM1.
+- $0066 NMI se aplicável.
+- Endereço após BIOS.
+- Call targets.
+- Jump targets.
+- Tabelas detectadas.
+
+12.4 Etapa 4: Recursive descent disassembly
+
+Evitar desmontagem linear pura. Use fila de endereços:
+
+while queue not empty:
+    addr = pop()
+    decode instruction
+    mark code
+    if CALL target conhecido: enqueue(target)
+    if JP/JR condicional: enqueue(target) e enqueue(next)
+    if JP absoluto: enqueue(target)
+    if RET: encerrar bloco
+    if instrução troca banco: registrar estado
+
+12.5 Etapa 5: Análise de dados
+
+Classificar bytes não usados como código:
+
+- Tabelas de ponteiros.
+- Dados comprimidos.
+- Tiles 4bpp.
+- Tilemaps.
+- Paletas.
+- Música.
+- Texto.
+- Scripts.
+
+12.6 Etapa 6: Emulação assistida
+
+Necessária para:
+
+- Código alcançado por ponteiros indiretos.
+- Trocas de banco dinâmicas.
+- Rotinas chamadas por tabelas.
+- Descompressão de gráficos.
+- Escritas reais em VDP/PSG.
+
+A emulação não precisa inicialmente ser perfeita como um emulador comercial, mas deve ser fiel o bastante para rastrear:
+
+- PC.
+- registradores.
+- RAM.
+- mapper.
+- portas I/O.
+- VDP command state.
+- writes em VRAM/CRAM.
+
+12.7 Etapa 7: IR intermediário
+
+Para recompilação e análise, crie uma IR:
+
+- BasicBlock.
+- Function.
+- ControlFlowGraph.
+- DataReference.
+- HardwareAccess.
+- BankSwitchEvent.
+- AssetReference.
+
+Não tente ir direto de binário para C++ de alto nível. Primeiro reconstrua assembly estruturado e metadados.
+
+12.8 Etapa 8: Recompilação
+
+Dois modos:
+
+Modo A — Roundtrip assembly:
+- Gera assembly Z80 recompilável.
+- Preserva layout e bytes sempre que possível.
+- Ideal para hacks e modificações seguras.
+
+Modo B — Rebuild reestruturado:
+- Reorganiza código/dados.
+- Permite labels novos.
+- Recalcula endereços.
+- Exige relocations e controle de bancos.
+
+Comece pelo Modo A. O Modo B é muito mais difícil.
+
+================================================================================
+13. RECOMPILAÇÃO FIEL
+================================================================================
+
+Para recompilar sem quebrar ROM:
+
+- Preservar ordem dos bancos.
+- Preservar bytes desconhecidos.
+- Preservar alignment.
+- Preservar tabelas de ponteiros.
+- Recalcular jumps relativos JR/DJNZ.
+- Recalcular chamadas absolutas se código mover.
+- Atualizar checksum do header.
+- Validar por comparação binária.
+
+Estratégia recomendada:
+
+1. Desmontar apenas código conhecido.
+2. Emitir DB para regiões desconhecidas.
+3. Gerar labels para destinos conhecidos.
+4. Recompilar.
+5. Comparar ROM gerada com ROM original.
+6. Só então permitir edição.
+
+================================================================================
+14. PROBLEMAS REAIS EM DESCOMPILAÇÃO DE JOGOS Z80
+================================================================================
+
+14.1 Código misturado com dados
+
+ROMs frequentemente misturam:
+
+- código.
+- tabelas.
+- gráficos comprimidos.
+- ponteiros.
+- scripts.
+
+Um disassembler linear vai errar. Use recursive descent + heurísticas + marcação manual.
+
+14.2 Código indireto
+
+Exemplos:
+
+JP (HL)
+CALL por tabela simulada
+RET para endereço manipulado
+RST usado como dispatcher
+
+A solução é emulação assistida e análise de padrões.
+
+14.3 Bankswitching
+
+O mesmo endereço CPU pode significar bancos diferentes. Sem modelar mapper, a análise fica errada.
+
+14.4 Código automodificável
+
+Menos comum em ROM, mas RAM pode conter rotinas copiadas e executadas. Detecte writes em RAM seguidos de execução.
+
+14.5 Dados comprimidos
+
+Gráficos frequentemente são comprimidos. A aplicação deve detectar rotinas de descompressão e registrar resultado em VRAM durante emulação.
+
+================================================================================
+15. ARQUITETURA DA APLICAÇÃO EM C++
+================================================================================
+
+15.1 Módulos principais
+
+/core
+- tipos básicos.
+- endianness.
+- logging.
+- sistema de erros.
+
+/z80
+- decoder.
+- tabela de opcodes.
+- modelo de registradores.
+- flags.
+- emulador opcional.
+- disassembler textual.
+
+/platform
+- SG1000.
+- SC3000.
+- MarkIII.
+- MasterSystem.
+- GameGear futuro.
+
+/memory
+- mapa CPU.
+- ROM banks.
+- RAM.
+- BIOS mapping.
+- mapper.
+
+/vdp
+- estado de VDP.
+- command word.
+- VRAM.
+- CRAM.
+- registradores.
+- decoder de tiles/tilemaps/sprites.
+
+/psg
+- decoder SN76489.
+- stream de eventos.
+
+/analysis
+- recursive descent.
+- CFG.
+- detecção de funções.
+- detecção de assets.
+- análise de bancos.
+
+/recompiler
+- emissor assembly.
+- labels.
+- relocations.
+- rebuild de ROM.
+- checksum.
+
+/ui ou /cli
+- comandos.
+- exportação.
+- relatórios.
+
+/tests
+- testes de opcode.
+- testes de ROM pequena.
+- testes de roundtrip.
+
+15.2 Classes sugeridas
+
+class RomImage
+class BiosImage
+class PlatformProfile
+class MemoryBus
+class Mapper
+class Z80Decoder
+class Z80CpuState
+class Disassembler
+class Analyzer
+class ControlFlowGraph
+class VdpState
+class PsgState
+class AssetExtractor
+class AsmEmitter
+class RomBuilder
+class ReportWriter
+
+15.3 Representação de bytes
+
+Nunca perca o offset original. Cada item analisado deve saber:
+
+- offset no arquivo.
+- endereço CPU.
+- banco.
+- tamanho.
+- tipo inferido.
+- confiança da inferência.
+
+Exemplo:
+
+enum class RegionType {
+    Unknown,
+    Code,
+    Data,
+    PointerTable,
+    TileData,
+    TileMap,
+    Palette,
+    SoundData,
+    Text,
+    CompressedData
+};
+
+struct RomRegion {
+    uint32_t offset;
+    uint32_t size;
+    uint16_t cpu_addr;
+    uint16_t bank;
+    RegionType type;
+    float confidence;
+};
+
+================================================================================
+16. MODELO DE MAPPER
+================================================================================
+
+Interface recomendada:
+
+class Mapper {
+public:
+    virtual uint8_t read(uint16_t cpuAddr) = 0;
+    virtual void write(uint16_t cpuAddr, uint8_t value) = 0;
+    virtual uint32_t translate(uint16_t cpuAddr) const = 0;
+    virtual BankState state() const = 0;
+};
+
+Mappers a considerar:
+
+- ROM sem mapper, até 48 KB.
+- Sega mapper padrão.
+- Codemasters mapper.
+- Cart RAM.
+- Casos especiais/homebrew.
+
+A aplicação deve permitir seleção manual do mapper quando a detecção automática falhar.
+
+================================================================================
+17. VDP COMO FONTE DE EXTRAÇÃO DE ASSETS
+================================================================================
+
+A melhor forma de extrair gráficos não é apenas procurar padrões na ROM. Muitos jogos comprimem gráficos e só revelam o layout real quando escrevem na VRAM.
+
+Modo recomendado:
+
+1. Emular até pontos definidos: boot, menu, fase, tela de título.
+2. Registrar todos os OUT para $BF/$BE.
+3. Reconstruir VRAM e CRAM.
+4. Exportar:
+   - tiles como PNG.
+   - tilemaps como JSON/TMX.
+   - sprites como PNG/metadata.
+   - paletas como JSON/GPL.
+
+Formato JSON sugerido:
+
+{
+  "platform": "MasterSystem",
+  "vram_snapshot": "title_screen.vram",
+  "cram_snapshot": "title_screen.cram",
+  "tiles": [
+    {"index": 0, "address": "0x0000", "format": "sms_4bpp"}
+  ],
+  "tilemaps": [
+    {"name": "name_table", "address": "0x3800", "width": 32, "height": 28}
+  ]
+}
+
+================================================================================
+18. FORMATO DE SAÍDA DO DISASSEMBLER
+================================================================================
+
+Exemplo de assembly gerado:
+
+.bank 0
+.org $0000
+Reset:
+    di
+    im 1
+    ld sp, $DFF0
+    call InitVDP
+    jp Main
+
+.org $0038
+IRQ_Handler:
+    push af
+    in a, ($BF) ; lê status VDP e reconhece IRQ
+    pop af
+    ei
+    reti
+
+UnknownData_0123:
+    db $12, $34, $56
+
+TileData_2000:
+    incbin "assets/tiles/title_tiles.bin"
+
+Comentários automáticos úteis:
+
+- marcar portas I/O.
+- marcar troca de banco.
+- marcar escrita em registrador VDP.
+- marcar suspeita de ponteiro.
+
+================================================================================
+19. VALIDAÇÃO E TESTES
+================================================================================
+
+19.1 Testes de CPU
+
+- Tabela completa de opcodes.
+- Prefixos CB, DD, FD, ED, DDCB, FDCB.
+- Flags.
+- Timing aproximado.
+- Instruções não documentadas.
+
+19.2 Testes de roundtrip
+
+Para cada ROM:
+
+1. Desmontar.
+2. Reemitir assembly.
+3. Montar.
+4. Comparar SHA-256 com original.
+
+Meta inicial: ROM gerada idêntica quando nenhuma modificação for feita.
+
+19.3 Testes de VDP
+
+- Escrita em VRAM.
+- Leitura de VRAM.
+- Escrita em CRAM.
+- Escrita em registradores.
+- Leitura de status.
+- Interrupção VBlank.
+- Line interrupt.
+
+19.4 Testes de mapper
+
+- ROM 32 KB sem mapper.
+- ROM 128 KB com Sega mapper.
+- ROM com RAM de cartucho.
+- ROM com mapper alternativo.
+
+================================================================================
+20. ROADMAP DE DESENVOLVIMENTO
+================================================================================
+
+Fase 1 — Base sólida
+
+- Loader de ROM.
+- Detecção de header.
+- Decoder Z80 completo.
+- Disassembler linear e recursive descent simples.
+- Exportação TXT/ASM.
+
+Fase 2 — Master System real
+
+- Mapper Sega.
+- Mapa de memória correto.
+- Portas I/O conhecidas.
+- Detecção de VDP/PSG writes.
+- Labels automáticos.
+
+Fase 3 — Recompilação roundtrip
+
+- Emissão ASM.
+- Rebuild binário.
+- Checksum.
+- Comparação com original.
+
+Fase 4 — VDP e assets
+
+- Emulação parcial de VDP.
+- Reconstrução de VRAM/CRAM.
+- Exportação de tiles, tilemaps, sprites e paletas.
+
+Fase 5 — Emulação assistida
+
+- Execução Z80 suficiente para boot/jogo.
+- Rastreamento de bancos.
+- Rastreamento de IRQ.
+- Detecção dinâmica de código.
+
+Fase 6 — UI e edição
+
+- Interface para navegar bancos.
+- Visualizador de assembly.
+- Visualizador de tiles.
+- Editor de labels.
+- Exportação/reimportação de assets.
+
+================================================================================
+21. REGRAS PRÁTICAS PARA NÃO FAZER BESTEIRA NO PROJETO
+================================================================================
+
+1. Não comece tentando gerar C++ de alto nível. Primeiro gere assembly recompilável.
+2. Não ignore bankswitching.
+3. Não ignore opcodes não documentados.
+4. Não trate VRAM como se estivesse no mapa normal da CPU.
+5. Não assuma que todo byte não alcançado é dado; pode ser código chamado indiretamente.
+6. Não assuma que todo dado gráfico está cru na ROM; pode estar comprimido.
+7. Não reordene código/dados no começo. Preserve layout.
+8. Não confie só no header para detectar mapper.
+9. Não esqueça checksum se quiser bootar via BIOS.
+10. Não faça decoder parcial de Z80. Decoder incompleto destrói a confiabilidade da ferramenta.
+
+================================================================================
+22. FONTES CONSULTADAS E LINKS ÚTEIS
+================================================================================
+
+1. Zilog Z80 CPU User Manual
+https://www.zilog.com/docs/z80/um0080.pdf
+Uso: referência oficial para instruções, registradores, modos de endereçamento e comportamento do Z80.
+
+2. The Undocumented Z80 Documented — Sean Young / Archive.org text
+https://archive.org/stream/Undocumented_Z80_Documented/Undocumented_Z80_Documented_djvu.txt
+Uso: referência sobre opcodes e efeitos não documentados do Z80.
+
+3. Z80-documented-v0.91.pdf — CPCWiki
+https://www.cpcwiki.eu/index.php/File:Z80-documented-v0.91.pdf
+Uso: referência ao PDF v0.91 indicado pelo nome do arquivo dentro do RAR.
+
+4. SMS Official Docs — Software Reference Manual for the SEGA Mark III Console
+https://www.smspower.org/Development/SMSOfficialDocs
+Uso: referência oficial/transcrita para CPU, VDP, memória, I/O e PSG do Mark III/Master System.
+
+5. SMS Power Documents
+https://www.smspower.org/Development/Documents
+Uso: índice de documentos técnicos sobre SMS, GG, SG-1000, SC-3000 e ferramentas.
+
+6. Sega Master System Technical Information — Richard Talbot-Watkins
+https://www.smspower.org/uploads/Development/richard.txt
+Uso: resumo técnico de VRAM, sprites, VDP, memória e arquitetura geral.
+
+7. Sega Master System VDP documentation — Charles MacDonald / mirror GitHub
+https://github.com/franckverrot/EmulationResources/blob/master/consoles/sms-gg/Sega%20Master%20System%20VDP%20documentation.txt
+Uso: detalhes de portas VDP, command word, VRAM/CRAM e comportamento de registradores.
+
+8. Sega Master System Architecture — Rodrigo Copetti
+https://www.copetti.org/writings/consoles/master-system/
+Uso: explicação arquitetural de alto nível sobre CPU, memória, VDP, PSG e comparação com outros consoles.
+
+9. Retro Game Coders — Sega Master System & Game Gear
+https://docs.retrogamecoders.com/platforms/sega/
+Uso: referência rápida de portas, mapa de memória e header.
+
+10. 8bitworkshop — Sega Master System
+https://8bitworkshop.com/docs/platforms/sms/index.html
+Uso: referência prática de desenvolvimento e mapeamento.
+
+================================================================================
+23. CONCLUSÃO
+================================================================================
+
+A aplicação ideal deve ser construída como uma ferramenta de engenharia reversa específica para plataformas Sega 8-bit, não como um simples conversor de bytes para assembly.
+
+O núcleo obrigatório é:
+
+- Decoder Z80 completo.
+- Modelo de memória com bancos.
+- Conhecimento de hardware Master System/Mark III/SG-1000.
+- VDP/PSG rastreáveis por I/O.
+- Recompilação roundtrip.
+- Emulação assistida para descobrir código e assets dinâmicos.
+
+A prioridade correta é:
+
+1. Carregar ROM/BIOS.
+2. Desmontar Z80 corretamente.
+3. Modelar bancos e memória.
+4. Gerar assembly recompilável.
+5. Validar binário idêntico.
+6. Só depois avançar para extração avançada de assets e recompilação reestruturada.
+
+Sem isso, a ferramenta vira só um visualizador bonito, mas tecnicamente frágil. Com isso, ela pode virar uma base real para modding, preservação, estudo e reconstrução de jogos da linha SG/Master System.
