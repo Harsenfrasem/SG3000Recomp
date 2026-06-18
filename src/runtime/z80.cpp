@@ -563,22 +563,29 @@ void block_compare(Z80State& cpu, Bus& bus, s16 step) {
         (cpu.bc() != 0 ? flag_pv : 0));
 }
 
-void set_block_io_flags(Z80State& cpu) {
-    cpu.f = static_cast<u8>(flag_n | (cpu.b == 0 ? flag_z : 0) | (cpu.b & (flag_s | flag_y | flag_x)));
+void set_block_io_flags(Z80State& cpu, u8 value, u8 addend) {
+    const u16 sum = static_cast<u16>(value + addend);
+    cpu.f = static_cast<u8>((cpu.b & (flag_s | flag_y | flag_x)) |
+        (cpu.b == 0 ? flag_z : 0) |
+        ((value & 0x80) != 0 ? flag_n : 0) |
+        (sum > 0xFF ? (flag_h | flag_c) : 0) |
+        parity(static_cast<u8>((sum & 0x07) ^ cpu.b)));
 }
 
 void ini(Z80State& cpu, Bus& bus, s16 step) {
-    bus.write(cpu.hl(), bus.input(cpu.c));
+    const u8 value = bus.input(cpu.c);
+    bus.write(cpu.hl(), value);
     cpu.set_hl(static_cast<u16>(cpu.hl() + step));
     cpu.b = static_cast<u8>(cpu.b - 1);
-    set_block_io_flags(cpu);
+    set_block_io_flags(cpu, value, static_cast<u8>(cpu.c + step));
 }
 
 void outi(Z80State& cpu, Bus& bus, s16 step) {
-    bus.output(cpu.c, bus.read(cpu.hl()));
+    const u8 value = bus.read(cpu.hl());
+    bus.output(cpu.c, value);
     cpu.set_hl(static_cast<u16>(cpu.hl() + step));
     cpu.b = static_cast<u8>(cpu.b - 1);
-    set_block_io_flags(cpu);
+    set_block_io_flags(cpu, value, cpu.l);
 }
 
 void set_in_flags(Z80State& cpu, u8 value) {

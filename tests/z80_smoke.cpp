@@ -420,6 +420,53 @@ void test_vblank_interrupt_im1() {
     assert(console.cpu().a == 0x77);
 }
 
+void test_ed_block_io_exact_flags() {
+    {
+        const std::array<u8, 2> rom{0xED, 0xA2}; // ini
+        Console console(ConsoleModel::SMS);
+        console.load_rom(rom);
+        console.cpu().set_bc(0x297E);
+        console.cpu().set_hl(0xC000);
+        execute_one(console.cpu(), console.bus());
+        assert(console.cpu().b == 0x28);
+        assert(console.bus().read(0xC000) == 0x00); // V counter at first line
+        assert(console.cpu().f == 0x28); // X/Y from B; odd parity clears P/V
+    }
+    {
+        const std::array<u8, 2> rom{0xED, 0xAA}; // ind
+        Console console(ConsoleModel::SMS);
+        console.load_rom(rom);
+        console.cpu().set_bc(0x297E);
+        console.cpu().set_hl(0xC001);
+        execute_one(console.cpu(), console.bus());
+        assert(console.cpu().b == 0x28);
+        assert(console.cpu().hl() == 0xC000);
+        assert(console.cpu().f == 0x2C); // X/Y plus even parity
+    }
+    {
+        const std::array<u8, 2> rom{0xED, 0xA3}; // outi
+        Console console(ConsoleModel::SMS);
+        console.load_rom(rom);
+        console.cpu().set_bc(0x017F);
+        console.cpu().set_hl(0xC000);
+        console.bus().write(0xC000, 0xFF);
+        execute_one(console.cpu(), console.bus());
+        assert(console.cpu().b == 0);
+        assert(console.cpu().f == 0x57); // Z,H,P/V,N,C
+    }
+    {
+        const std::array<u8, 2> rom{0xED, 0xAB}; // outd
+        Console console(ConsoleModel::SMS);
+        console.load_rom(rom);
+        console.cpu().set_bc(0x297F);
+        console.cpu().set_hl(0xC001);
+        console.bus().write(0xC001, 0x7F);
+        execute_one(console.cpu(), console.bus());
+        assert(console.cpu().b == 0x28);
+        assert(console.cpu().f == 0x28);
+    }
+}
+
 void test_ed_decrementing_block_transfer_and_search() {
     const std::vector<u8> rom = {
         0x21, 0x02, 0xC0, // ld hl,$c002
@@ -2530,6 +2577,7 @@ int main() {
     test_z80_undocumented_xy_flags();
     test_ed_nibble_rotates();
     test_ed_block_io();
+    test_ed_block_io_exact_flags();
     test_ed_port_register_io();
     test_vblank_interrupt_im1();
     test_vdp_line_interrupt_im1();
