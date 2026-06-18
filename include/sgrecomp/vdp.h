@@ -37,6 +37,9 @@ enum class VdpAccessKind {
 enum class VdpVideoMode {
     SmsMode4,
     TmsGraphics1,
+    TmsText,
+    TmsGraphics2,
+    TmsMulticolor,
 };
 
 struct VdpAccess {
@@ -130,17 +133,23 @@ private:
     void render_scanline(int line);
     void render_mode4_scanline(int line);
     void render_tms_graphics1_scanline(int line);
+    void render_tms_text_scanline(int line);
+    void render_tms_graphics2_scanline(int line);
+    void render_tms_multicolor_scanline(int line);
     void render_sprites(int line);
     void render_tms_sprites(int line);
     u8 background_color_index(u16 pattern, int bit) const;
     u32 cram_color(u8 index) const;
     u32 tms_color(u8 index) const;
+    u32 tms_display_color(u8 index) const;
     u8 backdrop_color_index() const;
     u32 backdrop_color() const;
     bool left_column_blank_enabled() const;
     u16 name_table_base() const;
     u16 background_pattern_base() const;
     u16 sprite_pattern_base() const;
+    bool is_tms_mode() const;
+    void update_tms_video_mode();
     void log_access(VdpAccessKind kind, u16 address, u8 value);
 };
 

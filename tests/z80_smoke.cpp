@@ -649,6 +649,99 @@ void test_sg3000_vdp_tms_graphics1_background_pixel() {
     assert(vdp.framebuffer()[1] == 0xFF000000);
 }
 
+void test_sg3000_vdp_tms_text_mode() {
+    Console console(ConsoleModel::SG3000);
+    Vdp& vdp = console.vdp();
+    vdp.write_control(0x50);
+    vdp.write_control(0x81); // display enabled + M1 text mode
+    vdp.write_control(0x02);
+    vdp.write_control(0x82); // name table at $0800
+    vdp.write_control(0x00);
+    vdp.write_control(0x84); // pattern table at $0000
+    vdp.write_control(0xF1);
+    vdp.write_control(0x87); // white text on black
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x40);
+    vdp.write_data(0x80); // first glyph pixel set
+    vdp.write_control(0x00);
+    vdp.write_control(0x48);
+    vdp.write_data(0x00); // first character uses glyph zero
+
+    vdp.tick(228);
+    assert(vdp.video_mode() == VdpVideoMode::TmsText);
+    assert(vdp.framebuffer()[0] == 0xFF000000); // 8-pixel border
+    assert(vdp.framebuffer()[8] == 0xFFFFFFFF);
+    assert(vdp.framebuffer()[9] == 0xFF000000);
+}
+
+void test_sg3000_vdp_tms_graphics2_mode() {
+    Console console(ConsoleModel::SG3000);
+    Vdp& vdp = console.vdp();
+    vdp.write_control(0x48);
+    vdp.write_control(0x81); // display enabled + M2 Graphics II
+    vdp.write_control(0x0E);
+    vdp.write_control(0x82); // name table at $3800
+    vdp.write_control(0xFF);
+    vdp.write_control(0x83); // color table at $2000
+    vdp.write_control(0x03);
+    vdp.write_control(0x84); // pattern table at $0000
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x40);
+    vdp.write_data(0x80);
+    vdp.write_control(0x00);
+    vdp.write_control(0x60);
+    vdp.write_data(0xF1);
+    vdp.write_control(0x00);
+    vdp.write_control(0x78);
+    vdp.write_data(0x00);
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x48); // second Graphics II section pattern
+    vdp.write_data(0x80);
+    vdp.write_control(0x00);
+    vdp.write_control(0x68); // second Graphics II section colors
+    vdp.write_data(0xF4);
+    vdp.write_control(0x00);
+    vdp.write_control(0x79); // name table row 8
+    vdp.write_data(0x00);
+
+    vdp.tick(228 * 65);
+    assert(vdp.video_mode() == VdpVideoMode::TmsGraphics2);
+    assert(vdp.framebuffer()[0] == 0xFFFFFFFF);
+    assert(vdp.framebuffer()[1] == 0xFF000000);
+    assert(vdp.framebuffer()[64 * Vdp::width] == 0xFFFFFFFF);
+    assert(vdp.framebuffer()[64 * Vdp::width + 1] == 0xFF5455ED);
+}
+
+void test_sg3000_vdp_tms_multicolor_mode() {
+    Console console(ConsoleModel::SG3000);
+    Vdp& vdp = console.vdp();
+    vdp.write_control(0x02);
+    vdp.write_control(0x80); // M3 multicolor
+    vdp.write_control(0x40);
+    vdp.write_control(0x81); // display enabled
+    vdp.write_control(0x02);
+    vdp.write_control(0x82); // name table at $0800
+    vdp.write_control(0x00);
+    vdp.write_control(0x84); // pattern table at $0000
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x40);
+    vdp.write_data(0xF4); // white left block, blue right block
+    vdp.write_control(0x00);
+    vdp.write_control(0x48);
+    vdp.write_data(0x00);
+
+    vdp.tick(228);
+    assert(vdp.video_mode() == VdpVideoMode::TmsMulticolor);
+    assert(vdp.framebuffer()[0] == 0xFFFFFFFF);
+    assert(vdp.framebuffer()[3] == 0xFFFFFFFF);
+    assert(vdp.framebuffer()[4] == 0xFF5455ED);
+    assert(vdp.framebuffer()[7] == 0xFF5455ED);
+}
+
 void test_sg3000_vdp_tms_sprite_pixel() {
     Console console(ConsoleModel::SG3000);
     Vdp& vdp = console.vdp();
@@ -2299,6 +2392,9 @@ int main() {
     test_vdp_display_disabled_uses_backdrop_color();
     test_vdp_backdrop_uses_register7_color();
     test_sg3000_vdp_tms_graphics1_background_pixel();
+    test_sg3000_vdp_tms_text_mode();
+    test_sg3000_vdp_tms_graphics2_mode();
+    test_sg3000_vdp_tms_multicolor_mode();
     test_sg3000_vdp_tms_sprite_pixel();
     test_vdp_name_table_register_masks_low_bit();
     test_vdp_scroll_lock_and_left_blank();

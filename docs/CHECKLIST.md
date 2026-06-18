@@ -216,7 +216,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] VRAM, CRAM, registradores e portas iniciais.
 - [x] TMS9918/SG-3000 Graphics I inicial: background tilemap 1bpp, color table e paleta TMS.
 - [x] TMS9918/SG-3000 sprites iniciais: SAT, pattern table, cor, sentinel, overflow/collision basicos.
-- [ ] TMS9918/SG-3000 modes.
+- [x] TMS9918/SG-3000: modos padrao Graphics I, Graphics II, Text e Multicolor selecionados por M1/M2/M3.
 - [ ] SMS Mode 4 tile renderer completo.
 - [x] Mode 4: hscroll/vscroll basicos, lock de topo, lock de direita por coluna de tela e coluna esquerda em branco.
 - [x] Mode 4: backdrop por registrador 7, mask de name table e blanking aplicado tambem sobre sprites.
