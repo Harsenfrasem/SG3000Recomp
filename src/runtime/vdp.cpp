@@ -384,6 +384,7 @@ void Vdp::render_sprites(int line) {
                 }
                 if (sprite_pixels[static_cast<std::size_t>(x)]) {
                     status_ |= 0x20;
+                    continue;
                 }
                 sprite_pixels[static_cast<std::size_t>(x)] = true;
                 if (scanline_bg_priority_[static_cast<std::size_t>(x)]) {
@@ -463,6 +464,7 @@ void Vdp::render_tms_sprites(int line) {
                 }
                 if (sprite_pixels[static_cast<std::size_t>(x)]) {
                     status_ |= 0x20;
+                    continue;
                 }
                 sprite_pixels[static_cast<std::size_t>(x)] = true;
                 framebuffer_[line * width + x] = tms_color(color);
