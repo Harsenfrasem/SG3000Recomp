@@ -47,13 +47,19 @@ HostFrameResult HostRuntime::run_frame(const HostInputState& input) {
 
     const u64 start_cycle = console_.cpu().cycles;
     const u64 target_cycle = start_cycle + config_.cycles_per_frame();
-    run_until_cycle(target_cycle);
+    std::size_t instructions = 0;
+    u16 pc_min = 0xFFFF;
+    u16 pc_max = 0;
+    run_until_cycle(target_cycle, instructions, pc_min, pc_max);
 
     const HostFrameResult result{
         frame_index_,
         start_cycle,
         console_.cpu().cycles,
         audio_.size() / 2,
+        instructions,
+        instructions == 0 ? u16{0} : pc_min,
+        instructions == 0 ? u16{0} : pc_max,
         console_.cpu().halted,
     };
     ++frame_index_;
@@ -77,8 +83,11 @@ void HostRuntime::apply_input(const HostInputState& input) {
     previous_pause_ = input.pause;
 }
 
-void HostRuntime::run_until_cycle(u64 target_cycle) {
+void HostRuntime::run_until_cycle(u64 target_cycle, std::size_t& instructions, u16& pc_min, u16& pc_max) {
     while (console_.cpu().cycles < target_cycle) {
+        pc_min = std::min(pc_min, console_.cpu().pc);
+        pc_max = std::max(pc_max, console_.cpu().pc);
+        ++instructions;
         const u64 before = console_.cpu().cycles;
         console_.bus().set_cycle(before);
         console_.vdp().set_cycle(before);

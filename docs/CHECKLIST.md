@@ -272,6 +272,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Backend Win32 inicial para desenvolvimento no Windows.
 - [x] HostRuntime headless com framebuffer, input por frame e buffer de audio.
 - [x] Roteiro CSV deterministico de input por frame no host headless.
+- [x] Log CSV por frame com hash do framebuffer, faixa de PC, mapper e audio nao-zero.
 - [x] Save RAM em arquivo local pelo smoke runner.
 - [x] Save RAM em arquivo local pelo host Win32.
 - [x] Estado serializavel inicial para save states.

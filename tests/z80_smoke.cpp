@@ -2125,6 +2125,9 @@ void test_host_runtime_frame_audio_and_input() {
     assert(frame.frame_index == 0);
     assert(frame.end_cycle >= host.config().cycles_per_frame());
     assert(frame.stereo_samples > 700);
+    assert(frame.instructions > 0);
+    assert(frame.pc_min == 0x0000);
+    assert(frame.pc_max >= 0x0011);
     assert(host.audio().size() == frame.stereo_samples * 2);
     assert((host.console().bus().read(0xC000) & 0x01) == 0);
     assert((host.console().bus().read(0xC000) & 0x10) == 0);

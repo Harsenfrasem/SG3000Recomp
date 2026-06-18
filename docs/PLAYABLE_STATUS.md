@@ -27,7 +27,7 @@ Do not call a title playable until all items below are demonstrated together:
 ## Next Diagnostic Order
 
 1. Use the deterministic headless input script to reproduce title-screen progression on the first private test title.
-2. Capture per-frame framebuffer hashes, PC ranges, mapper state, and non-zero audio counts.
+2. Use the per-frame diagnostic log to compare framebuffer hashes, PC ranges, mapper state, and non-zero audio counts.
 3. Fix remaining mapper/VDP differences using the first title that reaches gameplay.
 4. Validate accurate versus enhanced sprite rendering in a scene with visible flicker.
 5. Only then broaden the compatibility matrix and GUI workflow.

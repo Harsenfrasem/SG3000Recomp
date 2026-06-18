@@ -64,6 +64,9 @@ struct HostFrameResult {
     u64 start_cycle = 0;
     u64 end_cycle = 0;
     std::size_t stereo_samples = 0;
+    std::size_t instructions = 0;
+    u16 pc_min = 0;
+    u16 pc_max = 0;
     bool halted = false;
 };
 
@@ -103,7 +106,7 @@ private:
     bool previous_pause_ = false;
 
     void apply_input(const HostInputState& input);
-    void run_until_cycle(u64 target_cycle);
+    void run_until_cycle(u64 target_cycle, std::size_t& instructions, u16& pc_min, u16& pc_max);
     void tick_devices(int elapsed_cycles);
     void append_audio_samples(int elapsed_cycles);
 };

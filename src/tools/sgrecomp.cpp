@@ -40,6 +40,7 @@ struct AddressRange {
 struct Options {
     std::filesystem::path input;
     std::filesystem::path input_script;
+    std::filesystem::path dump_frame_log;
     std::filesystem::path bios;
     std::filesystem::path dump_frame;
     std::filesystem::path dump_frame_bmp;
@@ -311,7 +312,7 @@ void print_usage() {
               << "                [--load-state state.sgstate] [--save-state state.sgstate] [--force-state]\n"
               << "                [--dump-coverage pcs.csv] [--disable-sprite-limit] [--reduce-flicker] [--enable-fm]\n"
               << "       sgrecomp <rom.sms|rom.sg> --run-host [--frames n] [--input-script input.csv] [--bios bios.sms] [--video-standard ntsc|pal] [--audio-sample-rate hz]\n"
-              << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp] [--dump-audio audio.wav]\n"
+              << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp] [--dump-audio audio.wav] [--dump-frame-log frames.csv]\n"
               << "       sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--dump-analysis analysis.txt]\n";
 }
 
@@ -457,6 +458,10 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--input-script" && i + 1 < argc) {
             opts.input_script = argv[++i];
+            continue;
+        }
+        if (arg == "--dump-frame-log" && i + 1 < argc) {
+            opts.dump_frame_log = argv[++i];
             continue;
         }
         if (arg == "--audio-sample-rate" && i + 1 < argc) {
@@ -1716,9 +1721,56 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
     const HostInputScript input_script = opts.input_script.empty()
         ? HostInputScript{}
         : parse_host_input_script(read_text_file(opts.input_script));
+    std::ofstream frame_log;
+    if (!opts.dump_frame_log.empty()) {
+        frame_log.open(opts.dump_frame_log);
+        if (!frame_log) {
+            throw std::runtime_error("cannot open frame log output");
+        }
+        frame_log << "frame,start_cycle,end_cycle,instructions,pc_min,pc_max,framebuffer_fnv1a64,"
+                  << "audio_frames,nonzero_audio_samples,mapper,memory_control,bank0,bank1,bank2,bank3,bank4,bank5,"
+                  << "cartridge_ram,cartridge_ram_bank\n";
+    }
     HostFrameResult result{};
     for (std::size_t frame = 0; frame < opts.host_frames; ++frame) {
+        const std::size_t audio_start = host.audio().size();
         result = host.run_frame(input_script.state_for_frame(frame));
+        if (frame_log) {
+            constexpr u64 offset_basis = 14695981039346656037ULL;
+            constexpr u64 prime = 1099511628211ULL;
+            u64 framebuffer_hash = offset_basis;
+            for (const u32 pixel : host.framebuffer()) {
+                for (int shift = 0; shift < 32; shift += 8) {
+                    framebuffer_hash ^= static_cast<u8>((pixel >> shift) & 0xFF);
+                    framebuffer_hash *= prime;
+                }
+            }
+            const auto nonzero_audio = std::count_if(host.audio().begin() + static_cast<std::ptrdiff_t>(audio_start),
+                host.audio().end(), [](s16 value) { return value != 0; });
+            const auto mapper = host.console().bus().mapper_snapshot();
+            std::array<u8, 6> banks{{0, 1, 2, 0, 0, 0}};
+            if (mapper.mapper == CartridgeMapper::SMapper) {
+                std::copy(mapper.smapper_slots.begin(), mapper.smapper_slots.end(), banks.begin());
+            } else if (mapper.mapper == CartridgeMapper::CMapper) {
+                std::copy(mapper.cmapper_slots.begin(), mapper.cmapper_slots.end(), banks.begin());
+            } else if (mapper.mapper == CartridgeMapper::KMapper) {
+                banks[2] = mapper.kmapper_slot2;
+            } else if (mapper.mapper == CartridgeMapper::K8KMapper) {
+                banks = mapper.k8k_slots;
+            }
+            frame_log << result.frame_index << ',' << result.start_cycle << ',' << result.end_cycle << ','
+                      << result.instructions << ",0x" << std::hex << std::setw(4) << std::setfill('0') << result.pc_min
+                      << ",0x" << std::setw(4) << result.pc_max << ',' << std::setw(16) << framebuffer_hash
+                      << std::dec << std::setfill(' ') << ',' << (host.audio().size() - audio_start) / 2 << ','
+                      << nonzero_audio << ',' << cartridge_mapper_name(mapper.mapper) << ",0x"
+                      << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(mapper.memory_control)
+                      << std::dec << std::setfill(' ');
+            for (u8 bank : banks) {
+                frame_log << ',' << static_cast<int>(bank);
+            }
+            frame_log << ',' << (mapper.cartridge_ram_enabled ? 1 : 0) << ','
+                      << static_cast<int>(mapper.cartridge_ram_bank) << '\n';
+        }
     }
 
     const auto& framebuffer = host.framebuffer();
@@ -1751,6 +1803,9 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
     if (!opts.input_script.empty()) {
         std::cout << "input script: " << opts.input_script.string()
                   << " (" << input_script.events().size() << " events)\n";
+    }
+    if (!opts.dump_frame_log.empty()) {
+        std::cout << "frame log dumped: " << opts.dump_frame_log.string() << "\n";
     }
 
     if (!opts.dump_frame.empty()) {

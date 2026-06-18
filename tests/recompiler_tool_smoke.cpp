@@ -141,6 +141,7 @@ int main() {
     const std::filesystem::path host_frame_path = output_dir / "host_frame.bmp";
     const std::filesystem::path host_audio_path = output_dir / "host_audio.wav";
     const std::filesystem::path host_input_path = output_dir / "host_input.csv";
+    const std::filesystem::path host_frame_log_path = output_dir / "host_frames.csv";
     const std::filesystem::path host_config_path = output_dir / "host_config.toml";
     const std::filesystem::path host_config_audio_path = output_dir / "host_config_audio.wav";
     const std::filesystem::path host_sram_rom_path = output_dir / "host_sram_fixture.sms";
@@ -481,11 +482,15 @@ int main() {
     const std::string host_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(audio_rom_path)
         + " --run-host --frames 2 --dump-frame-bmp " + quote(host_frame_path)
         + " --audio-sample-rate 22050 --input-script " + quote(host_input_path)
-        + " --dump-audio " + quote(host_audio_path);
+        + " --dump-audio " + quote(host_audio_path) + " --dump-frame-log " + quote(host_frame_log_path);
     assert(run_command(host_command) == 0);
 
     const auto host_frame = read_binary(host_frame_path);
     assert(host_frame.size() > 54);
+    const std::string host_frame_log = read_text(host_frame_log_path);
+    assert(contains(host_frame_log, "frame,start_cycle,end_cycle,instructions,pc_min,pc_max,framebuffer_fnv1a64"));
+    assert(contains(host_frame_log, "\n0,"));
+    assert(contains(host_frame_log, "\n1,"));
     assert(host_frame[0] == 'B');
     assert(host_frame[1] == 'M');
 
