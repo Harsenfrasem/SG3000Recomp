@@ -30,6 +30,7 @@
 - Ignored `DD`/`FD` prefixes for unaffected instructions, including repeated/mixed prefix chains
 - Undefined `ED` encodings as two-byte, 8-cycle NOPs
 - Runtime X/Y flags for 8-bit ALU, INC/DEC, CB rotate/shift/BIT, indexed BIT, 16-bit arithmetic, accumulator control, `LD A,I/R`, and block transfer/search
+- Generated C++ X/Y flags for directly emitted ALU, INC/DEC, 16-bit add, accumulator rotate, and LDI/LDIR paths
 - `halt`
 - CB-prefixed `rlc`, `rrc`, `rl`, `rr`, `sla`, `sra`, `sll`, `srl`, `bit`, `res`, `set`
 
@@ -46,7 +47,6 @@
 ## Next Opcode Families
 
 - Exact undocumented flag behavior for ED block I/O and remaining rare prefix cases.
-- Mirror the runtime X/Y behavior in every directly emitted recompiler helper.
 - Remaining DD/FD rare mirrored semantics and cycle conformance.
 - Pause/NMI source wiring and exact interrupt timing.
 - Flag parity conformance tests against a known Z80 suite.

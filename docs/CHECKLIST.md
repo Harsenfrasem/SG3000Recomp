@@ -174,6 +174,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Prefixo `ED` restante parcial: block I/O, `adc hl,rr`, `sbc hl,rr`, `rrd/rld`.
 - [x] Prefixo `ED`: aliases documentados/nao documentados, block transfer/search nos dois sentidos e encodings indefinidos como NOP.
 - [x] Runtime Z80: flags X/Y em ALU, INC/DEC, CB/BIT, BIT indexado, 16-bit, controle do acumulador e block transfer/search.
+- [x] Recompilador direto: helpers e caminhos levantados preservam X/Y nas familias emitidas, com binario gerado executado em teste.
 - [ ] Prefixo `ED`: flags exatas de block I/O e ciclos contra suite externa conhecida.
 - [x] Prefixos `DD/FD` iniciais: IX/IY, stack, `jp (ix/iy)`, loads absolutos, deslocamento `ld/inc/dec/alu`, `DD/FD CB`, `IXH/IXL/IYH/IYL`.
 - [x] Prefixos `DD/FD`: fallback de prefixo ignorado para opcodes nao afetados e varredura completa sem caminhos nao implementados.
@@ -316,6 +317,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [ ] ROMs sinteticas para mapper, VDP, PSG e input.
 - [ ] Comparacao de traces com emulador de referencia.
 - [x] Testes do gerador C++ compilando o arquivo emitido.
+- [x] Teste do gerador C++ linkando/executando o binario emitido e validando estado/flags.
 - [x] Teste do relatorio de analise estatica do gerador.
 - [x] Teste do dump WAV do smoke runner.
 - [x] Teste do dump VGM PSG do smoke runner.

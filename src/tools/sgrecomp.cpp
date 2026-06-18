@@ -2053,7 +2053,7 @@ void emit_instruction_body(std::ostream& out, const std::array<u8, 0x10000>& ima
         break;
     case 0x17:
         out << "{ const bool carry = (cpu.a & 0x80) != 0; cpu.a = static_cast<sgrecomp::u8>((cpu.a << 1) | (cpu.f & 0x01)); "
-            << "cpu.f = static_cast<sgrecomp::u8>((cpu.f & 0x84) | (carry ? 0x01 : 0)); cpu.pc = 0x"
+            << "cpu.f = static_cast<sgrecomp::u8>((cpu.f & 0x84) | (cpu.a & 0x28) | (carry ? 0x01 : 0)); cpu.pc = 0x"
             << std::setw(4) << (pc + 1) << "; cpu.cycles += 4; return; }\n";
         break;
     case 0x18: {
@@ -2084,7 +2084,7 @@ void emit_instruction_body(std::ostream& out, const std::array<u8, 0x10000>& ima
         break;
     case 0x19:
         out << "{ const auto lhs = cpu.hl(); const auto rhs = cpu.de(); const auto sum = static_cast<unsigned>(lhs + rhs); "
-            << "const auto result = static_cast<sgrecomp::u16>(sum); cpu.f = static_cast<sgrecomp::u8>((cpu.f & 0x84) | "
+            << "const auto result = static_cast<sgrecomp::u16>(sum); cpu.f = static_cast<sgrecomp::u8>((cpu.f & 0x84) | ((result >> 8) & 0x28) | "
             << "(((lhs ^ rhs ^ result) & 0x1000) ? 0x10 : 0) | (sum > 0xffff ? 0x01 : 0)); "
             << "cpu.set_hl(result); cpu.pc = 0x" << std::setw(4) << (pc + 1)
             << "; cpu.cycles += 11; return; }\n";
@@ -2241,18 +2241,20 @@ void emit_instruction_body(std::ostream& out, const std::array<u8, 0x10000>& ima
                 << "; cpu.cycles += 8; return;\n";
             break;
         case 0xA0:
-            out << "bus.write(cpu.de(), bus.read(cpu.hl())); cpu.set_hl(static_cast<sgrecomp::u16>(cpu.hl() + 1)); "
+            out << "{ const auto value = bus.read(cpu.hl()); bus.write(cpu.de(), value); cpu.set_hl(static_cast<sgrecomp::u16>(cpu.hl() + 1)); "
                 << "cpu.set_de(static_cast<sgrecomp::u16>(cpu.de() + 1)); cpu.set_bc(static_cast<sgrecomp::u16>(cpu.bc() - 1)); "
-                << "cpu.f = static_cast<sgrecomp::u8>((cpu.f & 0xe9) | (cpu.bc() != 0 ? 0x04 : 0)); cpu.pc = 0x"
-                << std::setw(4) << (pc + 2) << "; cpu.cycles += 16; return;\n";
+                << "const auto sum = static_cast<sgrecomp::u8>(cpu.a + value); "
+                << "cpu.f = static_cast<sgrecomp::u8>((cpu.f & 0xc1) | (sum & 0x08) | ((sum & 0x02) ? 0x20 : 0) | (cpu.bc() != 0 ? 0x04 : 0)); cpu.pc = 0x"
+                << std::setw(4) << (pc + 2) << "; cpu.cycles += 16; return; }\n";
             break;
         case 0xB0:
-            out << "bus.write(cpu.de(), bus.read(cpu.hl())); cpu.set_hl(static_cast<sgrecomp::u16>(cpu.hl() + 1)); "
+            out << "{ const auto value = bus.read(cpu.hl()); bus.write(cpu.de(), value); cpu.set_hl(static_cast<sgrecomp::u16>(cpu.hl() + 1)); "
                 << "cpu.set_de(static_cast<sgrecomp::u16>(cpu.de() + 1)); cpu.set_bc(static_cast<sgrecomp::u16>(cpu.bc() - 1)); "
-                << "cpu.f = static_cast<sgrecomp::u8>((cpu.f & 0xe9) | (cpu.bc() != 0 ? 0x04 : 0)); "
+                << "const auto sum = static_cast<sgrecomp::u8>(cpu.a + value); "
+                << "cpu.f = static_cast<sgrecomp::u8>((cpu.f & 0xc1) | (sum & 0x08) | ((sum & 0x02) ? 0x20 : 0) | (cpu.bc() != 0 ? 0x04 : 0)); "
                 << "if (cpu.bc() != 0) { cpu.pc = 0x" << std::setw(4) << pc
                 << "; cpu.cycles += 21; } else { cpu.pc = 0x" << std::setw(4) << (pc + 2)
-                << "; cpu.cycles += 16; } return;\n";
+                << "; cpu.cycles += 16; } return; }\n";
             break;
         default:
             out << "sgrecomp::execute_one(cpu, bus); return;\n";
@@ -2303,7 +2305,7 @@ void emit_instruction_body(std::ostream& out, const std::array<u8, 0x10000>& ima
             const u8 pair = static_cast<u8>((opcode >> 4) & 0x03);
             out << "{ const auto lhs = cpu.hl(); const auto rhs = " << rp_read_expr(pair)
                 << "; const auto sum = static_cast<unsigned>(lhs + rhs); const auto result = static_cast<sgrecomp::u16>(sum); "
-                << "cpu.f = static_cast<sgrecomp::u8>((cpu.f & 0x84) | (((lhs ^ rhs ^ result) & 0x1000) ? 0x10 : 0) | "
+                << "cpu.f = static_cast<sgrecomp::u8>((cpu.f & 0x84) | ((result >> 8) & 0x28) | (((lhs ^ rhs ^ result) & 0x1000) ? 0x10 : 0) | "
                 << "(sum > 0xffff ? 0x01 : 0)); cpu.set_hl(result); cpu.pc = 0x" << std::setw(4) << (pc + 1)
                 << "; cpu.cycles += 11; return; }\n";
         } else if ((opcode & 0xCF) == 0x0B) {
@@ -2441,7 +2443,9 @@ void generate_cpp(
     out << "constexpr sgrecomp::u8 kFlagC = 0x01;\n";
     out << "constexpr sgrecomp::u8 kFlagN = 0x02;\n";
     out << "constexpr sgrecomp::u8 kFlagPV = 0x04;\n";
+    out << "constexpr sgrecomp::u8 kFlagX = 0x08;\n";
     out << "constexpr sgrecomp::u8 kFlagH = 0x10;\n";
+    out << "constexpr sgrecomp::u8 kFlagY = 0x20;\n";
     out << "constexpr sgrecomp::u8 kFlagZ = 0x40;\n";
     out << "constexpr sgrecomp::u8 kFlagS = 0x80;\n\n";
     out << "sgrecomp::u8 sgrecomp_parity(sgrecomp::u8 value) {\n";
@@ -2452,7 +2456,7 @@ void generate_cpp(
     out << "sgrecomp::u8 sgrecomp_add8(sgrecomp::Z80State& cpu, sgrecomp::u8 lhs, sgrecomp::u8 rhs) {\n";
     out << "    const unsigned sum = lhs + rhs;\n";
     out << "    const auto result = static_cast<sgrecomp::u8>(sum);\n";
-    out << "    cpu.f = static_cast<sgrecomp::u8>((result & kFlagS) | (result == 0 ? kFlagZ : 0) |\n";
+    out << "    cpu.f = static_cast<sgrecomp::u8>((result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? kFlagZ : 0) |\n";
     out << "        (((lhs ^ rhs ^ result) & 0x10) ? kFlagH : 0) |\n";
     out << "        (((~(lhs ^ rhs) & (lhs ^ result)) & 0x80) ? kFlagPV : 0) |\n";
     out << "        (sum > 0xff ? kFlagC : 0));\n";
@@ -2462,7 +2466,7 @@ void generate_cpp(
     out << "    const auto carry = static_cast<sgrecomp::u8>(cpu.f & kFlagC);\n";
     out << "    const unsigned sum = lhs + rhs + carry;\n";
     out << "    const auto result = static_cast<sgrecomp::u8>(sum);\n";
-    out << "    cpu.f = static_cast<sgrecomp::u8>((result & kFlagS) | (result == 0 ? kFlagZ : 0) |\n";
+    out << "    cpu.f = static_cast<sgrecomp::u8>((result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? kFlagZ : 0) |\n";
     out << "        (((lhs ^ rhs ^ result) & 0x10) ? kFlagH : 0) |\n";
     out << "        (((~(lhs ^ rhs) & (lhs ^ result)) & 0x80) ? kFlagPV : 0) |\n";
     out << "        (sum > 0xff ? kFlagC : 0));\n";
@@ -2471,7 +2475,7 @@ void generate_cpp(
     out << "sgrecomp::u8 sgrecomp_sub8(sgrecomp::Z80State& cpu, sgrecomp::u8 lhs, sgrecomp::u8 rhs) {\n";
     out << "    const unsigned diff = lhs - rhs;\n";
     out << "    const auto result = static_cast<sgrecomp::u8>(diff);\n";
-    out << "    cpu.f = static_cast<sgrecomp::u8>(kFlagN | (result & kFlagS) | (result == 0 ? kFlagZ : 0) |\n";
+    out << "    cpu.f = static_cast<sgrecomp::u8>(kFlagN | (result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? kFlagZ : 0) |\n";
     out << "        (((lhs ^ rhs ^ result) & 0x10) ? kFlagH : 0) |\n";
     out << "        ((((lhs ^ rhs) & (lhs ^ result)) & 0x80) ? kFlagPV : 0) |\n";
     out << "        (diff & 0x100 ? kFlagC : 0));\n";
@@ -2481,7 +2485,7 @@ void generate_cpp(
     out << "    const auto carry = static_cast<sgrecomp::u8>(cpu.f & kFlagC);\n";
     out << "    const unsigned diff = lhs - rhs - carry;\n";
     out << "    const auto result = static_cast<sgrecomp::u8>(diff);\n";
-    out << "    cpu.f = static_cast<sgrecomp::u8>(kFlagN | (result & kFlagS) | (result == 0 ? kFlagZ : 0) |\n";
+    out << "    cpu.f = static_cast<sgrecomp::u8>(kFlagN | (result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? kFlagZ : 0) |\n";
     out << "        (((lhs ^ rhs ^ result) & 0x10) ? kFlagH : 0) |\n";
     out << "        ((((lhs ^ rhs) & (lhs ^ result)) & 0x80) ? kFlagPV : 0) |\n";
     out << "        (diff & 0x100 ? kFlagC : 0));\n";
@@ -2489,17 +2493,17 @@ void generate_cpp(
     out << "}\n\n";
     out << "sgrecomp::u8 sgrecomp_and8(sgrecomp::Z80State& cpu, sgrecomp::u8 lhs, sgrecomp::u8 rhs) {\n";
     out << "    const auto result = static_cast<sgrecomp::u8>(lhs & rhs);\n";
-    out << "    cpu.f = static_cast<sgrecomp::u8>((result & kFlagS) | (result == 0 ? kFlagZ : 0) | kFlagH | sgrecomp_parity(result));\n";
+    out << "    cpu.f = static_cast<sgrecomp::u8>((result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? kFlagZ : 0) | kFlagH | sgrecomp_parity(result));\n";
     out << "    return result;\n";
     out << "}\n\n";
     out << "sgrecomp::u8 sgrecomp_xor8(sgrecomp::Z80State& cpu, sgrecomp::u8 lhs, sgrecomp::u8 rhs) {\n";
     out << "    const auto result = static_cast<sgrecomp::u8>(lhs ^ rhs);\n";
-    out << "    cpu.f = static_cast<sgrecomp::u8>((result & kFlagS) | (result == 0 ? kFlagZ : 0) | sgrecomp_parity(result));\n";
+    out << "    cpu.f = static_cast<sgrecomp::u8>((result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? kFlagZ : 0) | sgrecomp_parity(result));\n";
     out << "    return result;\n";
     out << "}\n\n";
     out << "sgrecomp::u8 sgrecomp_or8(sgrecomp::Z80State& cpu, sgrecomp::u8 lhs, sgrecomp::u8 rhs) {\n";
     out << "    const auto result = static_cast<sgrecomp::u8>(lhs | rhs);\n";
-    out << "    cpu.f = static_cast<sgrecomp::u8>((result & kFlagS) | (result == 0 ? kFlagZ : 0) | sgrecomp_parity(result));\n";
+    out << "    cpu.f = static_cast<sgrecomp::u8>((result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? kFlagZ : 0) | sgrecomp_parity(result));\n";
     out << "    return result;\n";
     out << "}\n\n";
     out << "void sgrecomp_cp8(sgrecomp::Z80State& cpu, sgrecomp::u8 lhs, sgrecomp::u8 rhs) {\n";
@@ -2507,13 +2511,13 @@ void generate_cpp(
     out << "}\n\n";
     out << "sgrecomp::u8 sgrecomp_inc8(sgrecomp::Z80State& cpu, sgrecomp::u8 value) {\n";
     out << "    const auto result = static_cast<sgrecomp::u8>(value + 1);\n";
-    out << "    cpu.f = static_cast<sgrecomp::u8>((cpu.f & kFlagC) | (result & kFlagS) | (result == 0 ? kFlagZ : 0) |\n";
+    out << "    cpu.f = static_cast<sgrecomp::u8>((cpu.f & kFlagC) | (result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? kFlagZ : 0) |\n";
     out << "        (((value ^ result) & 0x10) ? kFlagH : 0) | (value == 0x7f ? kFlagPV : 0));\n";
     out << "    return result;\n";
     out << "}\n\n";
     out << "sgrecomp::u8 sgrecomp_dec8(sgrecomp::Z80State& cpu, sgrecomp::u8 value) {\n";
     out << "    const auto result = static_cast<sgrecomp::u8>(value - 1);\n";
-    out << "    cpu.f = static_cast<sgrecomp::u8>((cpu.f & kFlagC) | kFlagN | (result & kFlagS) | (result == 0 ? kFlagZ : 0) |\n";
+    out << "    cpu.f = static_cast<sgrecomp::u8>((cpu.f & kFlagC) | kFlagN | (result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? kFlagZ : 0) |\n";
     out << "        (((value ^ result) & 0x10) ? kFlagH : 0) | (value == 0x80 ? kFlagPV : 0));\n";
     out << "    return result;\n";
     out << "}\n";

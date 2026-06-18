@@ -31,6 +31,10 @@
 #define SGRECOMP_CXX_COMPILER_ID ""
 #endif
 
+#ifndef SGRECOMP_RUNTIME_PATH
+#error "SGRECOMP_RUNTIME_PATH must be provided by CMake"
+#endif
+
 namespace {
 
 std::string quote(const std::filesystem::path& path) {
@@ -108,6 +112,24 @@ void compile_generated_cpp(const std::filesystem::path& generated, const std::fi
     assert(result == 0);
 }
 
+void compile_generated_executable(
+    const std::filesystem::path& generated,
+    const std::filesystem::path& harness,
+    const std::filesystem::path& executable) {
+    const std::filesystem::path include_dir = std::filesystem::path(SGRECOMP_SOURCE_DIR) / "include";
+    const std::filesystem::path runtime = SGRECOMP_RUNTIME_PATH;
+    std::string command = compiler_command_prefix();
+    const std::string compiler_id = SGRECOMP_CXX_COMPILER_ID;
+    if (compiler_id == "MSVC") {
+        command += " /nologo /EHsc /std:c++20 /I" + quote(include_dir) + " " + quote(generated)
+            + " " + quote(harness) + " " + quote(runtime) + " /Fe" + quote(executable);
+    } else {
+        command += " -std=c++20 -I" + quote(include_dir) + " " + quote(generated)
+            + " " + quote(harness) + " " + quote(runtime) + " -o " + quote(executable);
+    }
+    assert(run_command(command) == 0);
+}
+
 } // namespace
 
 int main() {
@@ -154,6 +176,10 @@ int main() {
     const std::filesystem::path state_reload_path = output_dir / "fixture_reload.sgstate";
     const std::filesystem::path state_mismatch_rom_path = output_dir / "state_mismatch.sms";
     const std::filesystem::path object_path = output_dir / "generated_fixture.obj";
+    const std::filesystem::path xy_rom_path = output_dir / "xy_fixture.sms";
+    const std::filesystem::path xy_generated_path = output_dir / "xy_generated.cpp";
+    const std::filesystem::path xy_harness_path = output_dir / "xy_harness.cpp";
+    const std::filesystem::path xy_executable_path = output_dir / "xy_generated_test.exe";
 
     const std::vector<unsigned char> rom = {
         0x31, 0x00, 0xC1,       // ld sp,$c100
@@ -234,7 +260,7 @@ int main() {
     assert(contains(generated, "cpu.b = static_cast<sgrecomp::u8>(cpu.b - 1);"));
     assert(contains(generated, "const auto value = cpu.bc(); bus.write(0xc000"));
     assert(contains(generated, "cpu.set_bc(sgrecomp::make_u16(lo, hi));"));
-    assert(contains(generated, "bus.write(cpu.de(), bus.read(cpu.hl()));"));
+    assert(contains(generated, "const auto value = bus.read(cpu.hl()); bus.write(cpu.de(), value);"));
     assert(contains(generated, "cpu.a = cpu.a_alt; cpu.f = cpu.f_alt;"));
     assert(contains(generated, "const bool carry = (cpu.a & 0x80) != 0; cpu.a = static_cast<sgrecomp::u8>((cpu.a << 1)"));
     assert(contains(generated, "const auto lhs = cpu.hl(); const auto rhs = cpu.de();"));
@@ -259,6 +285,24 @@ int main() {
 
     compile_generated_cpp(generated_path, object_path);
     assert(std::filesystem::exists(object_path));
+
+    write_binary(xy_rom_path, {0x3E, 0x10, 0xC6, 0x28, 0x76}); // ld a,$10; add a,$28; halt
+    const std::string xy_generate_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(xy_rom_path)
+        + " -o " + quote(xy_generated_path);
+    assert(run_command(xy_generate_command) == 0);
+    write_text(xy_harness_path,
+        "#include \"sgrecomp/console.h\"\n"
+        "extern \"C\" void sgrecomp_load_rom(sgrecomp::Bus&);\n"
+        "extern \"C\" void sgrecomp_run_instruction(sgrecomp::Z80State&, sgrecomp::Bus&);\n"
+        "int main() {\n"
+        "  sgrecomp::Console console(sgrecomp::ConsoleModel::SMS);\n"
+        "  sgrecomp_load_rom(console.bus());\n"
+        "  for (int i = 0; i < 4 && !console.cpu().halted; ++i)\n"
+        "    sgrecomp_run_instruction(console.cpu(), console.bus());\n"
+        "  return console.cpu().a == 0x38 && (console.cpu().f & 0x28) == 0x28 ? 0 : 1;\n"
+        "}\n");
+    compile_generated_executable(xy_generated_path, xy_harness_path, xy_executable_path);
+    assert(run_command(quote(xy_executable_path)) == 0);
 
     std::vector<unsigned char> header_rom(0x8000, 0x00);
     header_rom[0x0000] = 0x76; // halt
