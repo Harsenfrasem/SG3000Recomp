@@ -291,6 +291,8 @@ int main() {
         0xC6, 0x28,       // add a,$28
         0xED, 0x46,       // im 0 (two M1 fetches)
         0xDD, 0xE5,       // push ix (two M1 fetches)
+        0xFB,             // ei (IFF changes before the following instruction)
+        0x00,             // nop
         0x76,             // halt
     });
     const std::string xy_generate_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(xy_rom_path)
@@ -305,9 +307,10 @@ int main() {
         "  sgrecomp_load_rom(console.bus());\n"
         "  for (int i = 0; i < 8 && !console.cpu().halted; ++i)\n"
         "    sgrecomp_run_instruction(console.cpu(), console.bus());\n"
-        "  if (console.cpu().a != 0x38 || (console.cpu().f & 0x28) != 0x28 || console.cpu().r != 7) return 1;\n"
+        "  if (console.cpu().a != 0x38 || (console.cpu().f & 0x28) != 0x28 || console.cpu().r != 9) return 1;\n"
+        "  if (!console.cpu().iff1 || !console.cpu().iff2 || console.cpu().ei_pending) return 2;\n"
         "  sgrecomp_run_instruction(console.cpu(), console.bus());\n"
-        "  return console.cpu().r == 8 && console.cpu().cycles == 45 ? 0 : 2;\n"
+        "  return console.cpu().r == 10 && console.cpu().cycles == 53 ? 0 : 3;\n"
         "}\n");
     compile_generated_executable(xy_generated_path, xy_harness_path, xy_executable_path);
     assert(run_command(quote(xy_executable_path)) == 0);

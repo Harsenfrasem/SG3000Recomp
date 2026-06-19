@@ -32,6 +32,7 @@
 - Runtime X/Y flags for 8-bit ALU, INC/DEC, CB rotate/shift/BIT, indexed BIT, 16-bit arithmetic, accumulator control, `LD A,I/R`, and block transfer/search
 - Generated C++ X/Y flags for directly emitted ALU, INC/DEC, 16-bit add, accumulator rotate, and LDI/LDIR paths
 - Generated C++ refresh-register M1 accounting for base, ED/DD direct paths and HALT cycles without duplicating fallback increments
+- Generated dispatcher delayed-EI promotion before the following direct or fallback instruction, including HALT handling
 - ED block-I/O flags, including direction-dependent sum, H/C overflow, N from transferred data, X/Y from B, and parity formula
 - Runtime refresh register `R` with bit-7 preservation and M1 counts for CB/ED/DD/FD, indexed-CB, repeated prefixes, and HALT cycles
 - IRQ/NMI acknowledge state: R increment, HALT release, stack return address, IFF transitions, IM1 13-cycle and IM2 19-cycle service

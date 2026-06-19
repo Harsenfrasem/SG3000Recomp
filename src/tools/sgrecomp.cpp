@@ -2535,7 +2535,9 @@ void generate_cpp(
     out << "    bus.load_rom(kRom);\n";
     out << "}\n\n";
     out << "extern \"C\" void sgrecomp_run_instruction(sgrecomp::Z80State& cpu, sgrecomp::Bus& bus) {\n";
-    out << "    if (cpu.halted) { cpu.r = static_cast<sgrecomp::u8>((cpu.r & 0x80) | ((cpu.r + 1) & 0x7f)); cpu.cycles += 4; return; }\n";
+    out << "    if (cpu.halted) { if (cpu.ei_pending) { cpu.iff1 = true; cpu.iff2 = true; cpu.ei_pending = false; } "
+        << "cpu.r = static_cast<sgrecomp::u8>((cpu.r & 0x80) | ((cpu.r + 1) & 0x7f)); cpu.cycles += 4; return; }\n";
+    out << "    if (cpu.ei_pending) { cpu.iff1 = true; cpu.iff2 = true; cpu.ei_pending = false; }\n";
     out << "    switch (cpu.pc) {\n";
     for (const auto& block : blocks) {
         out << "    case 0x" << std::hex << std::setw(4) << std::setfill('0') << block.start
