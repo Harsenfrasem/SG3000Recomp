@@ -61,6 +61,7 @@ struct BusState {
     std::array<u8, 3> cmapper_slots{{0, 1, 2}};
     u8 kmapper_slot2 = 2;
     std::array<u8, 6> k8k_slots{{0, 1, 2, 3, 4, 5}};
+    bool auto_mapper_locked = false;
 };
 
 struct BusMapperSnapshot {
@@ -142,6 +143,7 @@ private:
     u8 cmapper_slots_[3] = {0, 1, 2};
     u8 kmapper_slot2_ = 2;
     u8 k8k_slots_[6] = {0, 1, 2, 3, 4, 5};
+    bool auto_mapper_locked_ = false;
     u64 current_cycle_ = 0;
     bool io_logging_enabled_ = false;
     std::vector<BusIoAccess> logged_io_;

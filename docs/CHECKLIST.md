@@ -220,7 +220,8 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [ ] Heuristicas de modelo/regiao para BIOS sem header padrao, validadas com imagens permitidas.
 - [ ] SMapper restante: variantes com write protect e EEPROM, quando identificadas por perfil/hardware.
 - [x] Perfis locais por hash podem forcar mapper em ROMs maiores sem guardar caminhos privados.
-- [ ] Refinar heuristica automatica de mapper para imagens sem perfil.
+- [x] Heuristica automatica trava na primeira familia de registradores comprovada e ignora writes com cartucho desconectado.
+- [ ] Refinar heuristica automatica para imagens ambiguas sem writes de mapper conclusivos.
 - [ ] CMapper completo: SRAM/EEPROM se necessario e edge cases por jogo.
 - [ ] KMapper/K8K completos usados por ROMs especificas.
 - [ ] SG-3000 cartridge layouts.
@@ -304,6 +305,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Save states com versao inicial e validacao de ROM hash/modelo.
 - [ ] Save states com compatibilidade longa, migracoes e validacao de BIOS/perfil.
 - [x] Save state v7 preserva o read buffer do VDP e continua lendo formatos v1-v6.
+- [x] Save state v8 preserva o lock da familia de mapper e continua lendo formatos v1-v7.
 - [x] Debug overlay de PC, FPS, frame, modo runtime e audio.
 - [x] Debug overlay com estado de pausa, volume e latencia.
 - [x] Debug overlay com timing de scanline/frame do VDP.

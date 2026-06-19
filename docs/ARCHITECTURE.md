@@ -20,6 +20,8 @@ VRAM reads use the VDP read buffer. A code-0 control command prefetches the addr
 
 The base Sega mapper keeps the first 1 KiB of slot 0 fixed to ROM bank 0, mirrors paging-register writes through work RAM at `$dffc-$dfff`, and exposes either ROM or one of two 16 KiB cartridge-RAM banks in slot 2. Cartridge RAM and automatic mapper detection are inactive while memory control disables the cartridge slot; writes to the disconnected address space cannot mutate SRAM or select another mapper.
 
+Automatic mapper selection starts from the size-based default and locks after the first recognized hardware-register family. Canonical Sega writes at `$fffc-$ffff` therefore prevent later incidental ROM-space writes from reclassifying the cartridge as Codemasters, Korean, or 8 KiB Korean hardware. Save-state version 8 persists this lock; older states derive it conservatively from their recorded mapper/register state.
+
 ## Pipeline
 
 ```text

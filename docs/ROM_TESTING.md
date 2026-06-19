@@ -46,6 +46,8 @@ The smoke runner also reports visited PCs, lit framebuffer pixels, the current P
 
 Use `--mapper auto|plain|smapper|cmapper|kmapper|k8k` when a ROM reaches code but stays blank. `auto` keeps small linear ROMs as `plain` and uses SMapper for larger banked SMS ROMs. The explicit modes are useful for local reverse-engineering matrices. Keep generated screenshots, logs, and per-ROM notes under ignored local folders such as `out/`.
 
+In `auto`, the first recognized mapper-register family locks the selection for the session and save state. This prevents later writes to unrelated ROM-space addresses from changing an already demonstrated Sega mapper. Use an explicit profile only when the boot trace provides no conclusive mapper writes or hardware is genuinely ambiguous.
+
 Local hash profiles accept the same mapper names through `mapper = "..."`. A matched profile overrides the CLI mapper, which makes the per-title choice deterministic across launches without storing the ROM path.
 
 FM support status: the runtime now exposes the expected local FM control path and can log writes to `$F0/$F1/$F2`. The current synthesis is still an approximation for plumbing and diagnostics, not a faithful YM2413/OPLL implementation.

@@ -8,7 +8,7 @@ namespace sgrecomp {
 namespace {
 
 constexpr u32 kMagic = 0x53534753; // SGSS
-constexpr u16 kVersion = 7;
+constexpr u16 kVersion = 8;
 
 class Writer {
 public:
@@ -208,6 +208,7 @@ void write_state(Writer& out, const ConsoleState& state, const SaveStateMetadata
     out.array_bytes(state.bus.cmapper_slots);
     out.u8v(state.bus.kmapper_slot2);
     out.array_bytes(state.bus.k8k_slots);
+    out.boolv(state.bus.auto_mapper_locked);
     out.array_bytes(state.vdp.vram);
     out.array_bytes(state.vdp.cram);
     out.array_bytes(state.vdp.registers);
@@ -273,6 +274,17 @@ SaveStateImage read_image(Reader& in) {
         in.array_bytes(state.bus.cmapper_slots);
         state.bus.kmapper_slot2 = in.u8v();
         in.array_bytes(state.bus.k8k_slots);
+        if (version >= 8) {
+            state.bus.auto_mapper_locked = in.boolv();
+        } else {
+            const bool non_default_sega_state = state.bus.smapper_control != 0
+                || state.bus.smapper_slots != std::array<u8, 3>{{0, 1, 2}};
+            state.bus.auto_mapper_locked = state.bus.requested_mapper != CartridgeMapper::Auto
+                || state.bus.mapper == CartridgeMapper::CMapper
+                || state.bus.mapper == CartridgeMapper::KMapper
+                || state.bus.mapper == CartridgeMapper::K8KMapper
+                || non_default_sega_state;
+        }
     }
     in.array_bytes(state.vdp.vram);
     in.array_bytes(state.vdp.cram);

@@ -2723,17 +2723,54 @@ void test_smapper_sram_respects_cartridge_visibility_and_active_mapper() {
     assert(!console.bus().cartridge_ram_enabled());
     assert(console.bus().read(0x8000) == 0xFF);
     console.bus().write(0x8000, 0x5A);
+    console.bus().write(0xFFFF, 0x03);
     assert(console.bus().debug_cartridge_ram()[0] == 0xA5);
 
     console.bus().output(0x3E, 0x00);
     assert(console.bus().cartridge_ram_enabled());
     assert(console.bus().read(0x8000) == 0xA5);
+    assert(console.bus().mapper_snapshot().smapper_slots[2] == 0x02);
 
     console.bus().set_mapper(CartridgeMapper::CMapper);
     assert(!console.bus().cartridge_ram_enabled());
     console.bus().write(0x8000, 0x01);
     assert(console.bus().read(0x8000) == 0x00);
     assert(console.bus().debug_cartridge_ram()[0] == 0xA5);
+}
+
+void test_auto_mapper_locks_after_first_hardware_family_evidence() {
+    std::vector<u8> rom(0x20000, 0x00);
+    for (std::size_t bank = 0; bank < 8; ++bank) {
+        rom[bank * 0x4000] = static_cast<u8>(0x10 + bank);
+    }
+
+    Console sega(ConsoleModel::SMS);
+    sega.load_rom(rom);
+    assert(sega.bus().mapper() == CartridgeMapper::SMapper);
+    sega.bus().write(0xFFFC, 0x80);
+    sega.bus().write(0xFFFE, 0x03);
+    assert(sega.bus().read(0x4000) == 0x13);
+    sega.bus().write(0x0003, 0xFF); // incidental ROM-space write must not select K8K
+    assert(sega.bus().mapper() == CartridgeMapper::SMapper);
+    assert(sega.bus().read(0x4000) == 0x13);
+
+    const BusState saved = sega.bus().save_state();
+    assert(saved.auto_mapper_locked);
+    const ConsoleState serialized = deserialize_console_state(serialize_console_state(sega.save_state()));
+    assert(serialized.bus.auto_mapper_locked);
+    Console restored(ConsoleModel::SMS);
+    restored.load_rom(rom);
+    restored.bus().load_state(saved);
+    restored.bus().write(0x0003, 0x7F);
+    assert(restored.bus().mapper() == CartridgeMapper::SMapper);
+    assert(restored.bus().read(0x4000) == 0x13);
+
+    Console codemasters(ConsoleModel::SMS);
+    codemasters.load_rom(rom);
+    codemasters.bus().write(0x4000, 0x03);
+    assert(codemasters.bus().mapper() == CartridgeMapper::CMapper);
+    codemasters.bus().write(0xA000, 0x07); // later noise cannot switch to KMapper
+    assert(codemasters.bus().mapper() == CartridgeMapper::CMapper);
 }
 
 void test_mapper_snapshot_reports_active_mapper_and_banks() {
@@ -3264,6 +3301,7 @@ int main() {
     test_smapper_loads_cartridge_ram();
     test_smapper_fixed_window_and_register_mirroring();
     test_smapper_sram_respects_cartridge_visibility_and_active_mapper();
+    test_auto_mapper_locks_after_first_hardware_family_evidence();
     test_mapper_snapshot_reports_active_mapper_and_banks();
     test_cmapper_banks_and_auto_detection();
     test_forced_kmapper_bank_switches_slot2();

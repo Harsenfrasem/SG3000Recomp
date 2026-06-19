@@ -14,6 +14,7 @@ This document records the current minimum-playability gate so work can resume af
 - Starting from a gameplay save state, an 18,000-frame NTSC run completed without exceptions. It produced 6,359 distinct framebuffer hashes and non-zero audio in every frame; the final ten seconds remained visually active.
 - Reloading the final gameplay state reproduced both the serialized state and framebuffer byte-for-byte. The selected title did not enable cartridge RAM, so an SRAM-specific gameplay round-trip is not applicable to this validation.
 - Accurate and `reduce_flicker` runs from the same gameplay state and input were compared for 1,200 frames. Both remained stable, and the enhanced path produced a distinct framebuffer in every compared frame.
+- Mapper-family locking fixed another private image whose valid Sega paging sequence was previously overridden by a later incidental write; `auto` now matches explicit SMapper output frame-for-frame and reaches a correct title screen with audio.
 
 ## Minimum Playability Gate
 
