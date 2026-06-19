@@ -288,6 +288,9 @@ struct AppState {
     HostFrameResult last_frame;
     std::string rom_hash;
     std::string profile_name;
+    std::filesystem::path quick_state_path;
+    SaveStateMetadata state_metadata;
+    std::string status_message;
     BITMAPINFO bitmap_info{};
     bool running = true;
     bool emulation_paused = false;
@@ -341,6 +344,23 @@ void write_binary_file(const std::filesystem::path& path, std::span<const u8> by
         throw std::runtime_error("cannot open output file");
     }
     file.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+}
+
+std::filesystem::path graphical_user_data_root() {
+    std::array<wchar_t, 32768> value{};
+    const DWORD length = GetEnvironmentVariableW(
+        L"LOCALAPPDATA", value.data(), static_cast<DWORD>(value.size()));
+    if (length > 0 && length < value.size()) {
+        return std::filesystem::path(value.data()) / L"SG3000Recomp";
+    }
+    return std::filesystem::temp_directory_path() / L"SG3000Recomp";
+}
+
+std::string hash_file_stem(std::string hash) {
+    std::replace_if(hash.begin(), hash.end(), [](char ch) {
+        return !(std::isalnum(static_cast<unsigned char>(ch)) != 0 || ch == '-' || ch == '_');
+    }, '-');
+    return hash;
 }
 
 void print_usage() {
@@ -547,6 +567,33 @@ void update_key(AppState& app, WPARAM key, bool pressed) {
     if (key == VK_F1 && pressed) {
         app.overlay_enabled = !app.overlay_enabled;
     }
+    if (key == VK_F5 && pressed && !app.quick_state_path.empty()) {
+        try {
+            const auto bytes = save_console_state(app.host->console(), app.state_metadata);
+            write_binary_file(app.quick_state_path, std::span<const u8>(bytes.data(), bytes.size()));
+            app.status_message = "quick save gravado (F5)";
+        } catch (const std::exception& error) {
+            app.status_message = std::string{"erro no quick save: "} + error.what();
+        }
+    }
+    if (key == VK_F9 && pressed && !app.quick_state_path.empty()) {
+        try {
+            if (!std::filesystem::exists(app.quick_state_path)) {
+                app.status_message = "quick save ainda nao existe";
+            } else {
+                const auto bytes = read_file(app.quick_state_path);
+                validate_save_state_metadata(read_save_state_metadata(bytes), app.state_metadata);
+                load_console_state(app.host->console(), bytes);
+                app.host->clear_audio();
+                if (app.audio) {
+                    app.audio->flush();
+                }
+                app.status_message = "quick save carregado (F9)";
+            }
+        } catch (const std::exception& error) {
+            app.status_message = std::string{"erro no quick load: "} + error.what();
+        }
+    }
     if (key == VK_SPACE && pressed) {
         app.emulation_paused = !app.emulation_paused;
         if (app.audio) {
@@ -663,7 +710,12 @@ std::string overlay_text(const AppState& app) {
     } else {
         out << "audio muted";
     }
-    out << "\nF1 overlay  Space pause  R reset  M mute  +/- volume";
+
+    if (!app.status_message.empty()) {
+        out << "\n" << app.status_message;
+    }
+    out << "\nF1 overlay  F5 salvar  F9 carregar"
+        << "\nSpace pause  R reset  M mute  +/- volume";
     return out.str();
 }
 
@@ -673,14 +725,14 @@ void draw_overlay(HDC dc, const AppState& app) {
     }
 
     const std::string text = overlay_text(app);
-    RECT background{8, 8, 680, 164};
+    RECT background{8, 8, 680, 190};
     HBRUSH brush = CreateSolidBrush(RGB(0, 0, 0));
     FillRect(dc, &background, brush);
     DeleteObject(brush);
 
     SetBkMode(dc, TRANSPARENT);
     SetTextColor(dc, RGB(220, 240, 220));
-    RECT text_rect{14, 12, 660, 154};
+    RECT text_rect{14, 12, 660, 184};
     DrawTextA(dc, text.c_str(), -1, &text_rect, DT_LEFT | DT_TOP | DT_NOCLIP);
 }
 
@@ -856,6 +908,18 @@ int run(int argc, char** argv) {
     }
     auto rom = normalize_rom_payload(read_file(opts.rom));
     const std::string rom_hash = rom_hash_fnv1a64(rom);
+    std::filesystem::path graphical_quick_state_path;
+    if (opts.gui_launch) {
+        const std::filesystem::path saves = graphical_user_data_root() / L"saves";
+        std::filesystem::create_directories(saves);
+        const std::string stem = hash_file_stem(rom_hash);
+        const std::filesystem::path automatic_sram = saves / (stem + ".sav");
+        graphical_quick_state_path = saves / (stem + ".sgstate");
+        if (std::filesystem::exists(automatic_sram)) {
+            opts.load_sram = automatic_sram;
+        }
+        opts.save_sram = automatic_sram;
+    }
     const CartridgeHeaderInfo header = analyze_cartridge_header(rom);
     if (opts.print_hash) {
         std::cout << rom_hash << "\n";
@@ -918,6 +982,7 @@ int run(int argc, char** argv) {
     app.quit_after_frames = opts.quit_after_frames;
     app.rom_hash = rom_hash;
     app.profile_name = profile_name;
+    app.quick_state_path = graphical_quick_state_path;
     if (bios) {
         app.host->load_bios(*bios);
     }
@@ -926,6 +991,7 @@ int run(int argc, char** argv) {
         app.host->console().bus().load_cartridge_ram(read_file(opts.load_sram));
     }
     const SaveStateMetadata expected_state_metadata{true, opts.model, rom_hash};
+    app.state_metadata = expected_state_metadata;
     if (!opts.load_state.empty()) {
         const auto state_bytes = read_file(opts.load_state);
         if (!opts.force_state) {

@@ -18,7 +18,19 @@ Nenhuma ROM ou BIOS é copiada para o projeto. Cancelar qualquer seletor encerra
 - `M`: mute.
 - `+` / `-`: volume.
 - `F1`: mostra ou oculta o overlay.
+- `F5`: grava quick-save.
+- `F9`: carrega o quick-save da mesma ROM.
+
+## Dados locais
+
+No fluxo gráfico, a SRAM é carregada automaticamente ao abrir a ROM e salva ao fechar a janela. SRAM e quick-save usam somente o hash da ROM e ficam em:
+
+```text
+%LOCALAPPDATA%\SG3000Recomp\saves\
+```
+
+O quick-load valida modelo e hash antes de restaurar o estado. Esses arquivos não guardam nem expõem o caminho da ROM.
 
 Usuários avançados ainda podem iniciar o mesmo executável pelo terminal com ROM, BIOS, mapper, perfil, saves e enhancements explícitos.
 
-Esta é a GUI mínima para testes de jogabilidade. Biblioteca local, configurações persistentes e gerenciamento visual de saves continuam como evolução posterior.
+Esta é a GUI mínima para testes de jogabilidade. Biblioteca local, configurações persistentes, screenshots e gerenciamento visual dos saves continuam como evolução posterior.

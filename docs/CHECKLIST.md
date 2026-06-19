@@ -99,7 +99,8 @@ Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
 - [x] Duplo clique no host abre seletores nativos de ROM e BIOS opcional sem copiar ou versionar arquivos.
 - [ ] Biblioteca local de jogos por hash/header, com apelidos configurados pelo usuario.
 - [ ] Tela de configuracao simples para modo fiel/enhanced e toggles de enhancements.
-- [ ] Gerenciamento de saves, screenshots, audio dumps e pastas locais ignoradas pelo Git.
+- [x] GUI: SRAM automatica e quick-save/load por hash em `%LOCALAPPDATA%`, com validacao de estado.
+- [ ] GUI: gerenciamento visual de saves, screenshots e audio dumps.
 - [ ] Perfis por jogo editaveis pela GUI.
 - [ ] Tela de logs/status com FPS, backend ativo, modelo, fallback/recompiler e avisos de compatibilidade.
 - [ ] Empacotamento Windows com instalador ou pasta portable.
@@ -319,6 +320,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] GUI inicial usa componentes Win32 nativos junto ao backend existente.
 - [x] Fluxo inicial abre ROM, permite BIOS local opcional e inicia o jogo sem terminal.
 - [ ] Persistir configuracoes em arquivo local ignoravel, sem caminhos sensiveis no repositorio.
+- [x] Persistir SRAM e quick state anonimos por hash fora do repositorio.
 - [ ] Controles visuais para enhancements opcionais.
 - [ ] Lista de jogos recentes usando somente dados locais do usuario.
 - [ ] Dialogo de compatibilidade explicando quando uma melhoria altera fidelidade.
