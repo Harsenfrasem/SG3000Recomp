@@ -321,7 +321,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Fluxo inicial abre ROM, permite BIOS local opcional e inicia o jogo sem terminal.
 - [ ] Persistir configuracoes em arquivo local ignoravel, sem caminhos sensiveis no repositorio.
 - [x] Persistir SRAM e quick state anonimos por hash fora do repositorio.
-- [ ] Controles visuais para enhancements opcionais.
+- [x] Controles visuais para pausa, reset, overlay e enhancements de vídeo opcionais.
 - [ ] Lista de jogos recentes usando somente dados locais do usuario.
 - [ ] Dialogo de compatibilidade explicando quando uma melhoria altera fidelidade.
 

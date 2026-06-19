@@ -302,6 +302,16 @@ struct AppState {
     u64 fps_window_frames = 0;
 };
 
+enum MenuCommand : UINT {
+    MenuFileExit = 1000,
+    MenuEmulationPause,
+    MenuEmulationReset,
+    MenuEnhancementReduceFlicker,
+    MenuEnhancementDisableSpriteLimit,
+    MenuViewOverlay,
+    MenuHelpControls,
+};
+
 std::vector<u8> read_file(const std::filesystem::path& path) {
     std::ifstream file(path, std::ios::binary);
     if (!file) {
@@ -552,6 +562,57 @@ u8 button_for_key(WPARAM key) {
     }
 }
 
+void set_emulation_paused(AppState& app, bool paused) {
+    app.emulation_paused = paused;
+    if (app.audio) {
+        app.audio->set_paused(paused);
+    }
+}
+
+void reset_emulation(AppState& app) {
+    app.host->reset();
+    app.last_frame = {};
+    app.rendered_frames = 0;
+    app.fps_window_frames = 0;
+    app.fps = 0.0;
+    app.status_message = "emulacao reiniciada";
+    if (app.audio) {
+        app.audio->flush();
+    }
+}
+
+void set_enhancement(AppState& app, MenuCommand command, bool enabled) {
+    auto config = app.host->console().enhancements();
+    if (command == MenuEnhancementReduceFlicker) {
+        config.reduce_flicker = enabled;
+        app.status_message = enabled ? "reducao de flicker ativada" : "reducao de flicker desativada";
+    } else if (command == MenuEnhancementDisableSpriteLimit) {
+        config.disable_sprite_limit = enabled;
+        app.status_message = enabled ? "limite de sprites desativado" : "limite de sprites restaurado";
+    }
+    if ((config.reduce_flicker || config.disable_sprite_limit) && config.mode == RuntimeMode::Accurate) {
+        config.mode = RuntimeMode::Enhanced;
+    } else if (!config.reduce_flicker && !config.disable_sprite_limit && config.mode == RuntimeMode::Enhanced) {
+        config.mode = RuntimeMode::Accurate;
+    }
+    app.host->console().set_enhancements(config);
+}
+
+void update_menu_checks(HWND hwnd, const AppState& app) {
+    const HMENU menu = GetMenu(hwnd);
+    if (menu == nullptr || !app.host) {
+        return;
+    }
+    const auto check = [menu](UINT command, bool checked) {
+        CheckMenuItem(menu, command, MF_BYCOMMAND | (checked ? MF_CHECKED : MF_UNCHECKED));
+    };
+    const auto& config = app.host->console().enhancements();
+    check(MenuEmulationPause, app.emulation_paused);
+    check(MenuEnhancementReduceFlicker, config.reduce_flicker);
+    check(MenuEnhancementDisableSpriteLimit, config.disable_sprite_limit);
+    check(MenuViewOverlay, app.overlay_enabled);
+}
+
 void update_key(AppState& app, WPARAM key, bool pressed) {
     const u8 button = button_for_key(key);
     if (button != 0) {
@@ -595,20 +656,10 @@ void update_key(AppState& app, WPARAM key, bool pressed) {
         }
     }
     if (key == VK_SPACE && pressed) {
-        app.emulation_paused = !app.emulation_paused;
-        if (app.audio) {
-            app.audio->set_paused(app.emulation_paused);
-        }
+        set_emulation_paused(app, !app.emulation_paused);
     }
     if (key == 'R' && pressed) {
-        app.host->reset();
-        app.last_frame = {};
-        app.rendered_frames = 0;
-        app.fps_window_frames = 0;
-        app.fps = 0.0;
-        if (app.audio) {
-            app.audio->flush();
-        }
+        reset_emulation(app);
     }
     if (key == 'M' && pressed && app.audio) {
         app.audio->set_muted(!app.audio->muted());
@@ -781,12 +832,52 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
     case WM_KEYDOWN:
         if (app != nullptr) {
             update_key(*app, wparam, true);
+            update_menu_checks(hwnd, *app);
+            InvalidateRect(hwnd, nullptr, FALSE);
         }
         return 0;
     case WM_KEYUP:
         if (app != nullptr) {
             update_key(*app, wparam, false);
         }
+        return 0;
+    case WM_COMMAND:
+        if (app == nullptr) {
+            break;
+        }
+        switch (LOWORD(wparam)) {
+        case MenuFileExit:
+            DestroyWindow(hwnd);
+            return 0;
+        case MenuEmulationPause:
+            set_emulation_paused(*app, !app->emulation_paused);
+            break;
+        case MenuEmulationReset:
+            reset_emulation(*app);
+            break;
+        case MenuEnhancementReduceFlicker:
+            set_enhancement(*app, MenuEnhancementReduceFlicker,
+                !app->host->console().enhancements().reduce_flicker);
+            break;
+        case MenuEnhancementDisableSpriteLimit:
+            set_enhancement(*app, MenuEnhancementDisableSpriteLimit,
+                !app->host->console().enhancements().disable_sprite_limit);
+            break;
+        case MenuViewOverlay:
+            app->overlay_enabled = !app->overlay_enabled;
+            break;
+        case MenuHelpControls:
+            MessageBoxW(hwnd,
+                L"Setas: direcional\nZ / X: botoes 1 e 2\nEnter: Pause/NMI do console\n"
+                L"Space: pausar emulacao\nR: reset\nM: mute\n+ / -: volume\n"
+                L"F1: overlay\nF5: salvar rapido\nF9: carregar rapido",
+                L"SG3000Recomp - Controles", MB_OK | MB_ICONINFORMATION);
+            return 0;
+        default:
+            return 0;
+        }
+        update_menu_checks(hwnd, *app);
+        InvalidateRect(hwnd, nullptr, FALSE);
         return 0;
     case WM_PAINT:
         if (app != nullptr && app->host) {
@@ -806,6 +897,30 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
     return DefWindowProc(hwnd, message, wparam, lparam);
 }
 
+HMENU create_application_menu() {
+    const HMENU menu = CreateMenu();
+    const HMENU file = CreatePopupMenu();
+    const HMENU emulation = CreatePopupMenu();
+    const HMENU enhancements = CreatePopupMenu();
+    const HMENU view = CreatePopupMenu();
+    const HMENU help = CreatePopupMenu();
+
+    AppendMenuW(file, MF_STRING, MenuFileExit, L"Sair");
+    AppendMenuW(emulation, MF_STRING, MenuEmulationPause, L"Pausar\tSpace");
+    AppendMenuW(emulation, MF_STRING, MenuEmulationReset, L"Resetar\tR");
+    AppendMenuW(enhancements, MF_STRING, MenuEnhancementReduceFlicker, L"Reduzir flicker");
+    AppendMenuW(enhancements, MF_STRING, MenuEnhancementDisableSpriteLimit, L"Desativar limite de sprites");
+    AppendMenuW(view, MF_STRING, MenuViewOverlay, L"Overlay de diagnostico\tF1");
+    AppendMenuW(help, MF_STRING, MenuHelpControls, L"Controles");
+
+    AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(file), L"Arquivo");
+    AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(emulation), L"Emulacao");
+    AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(enhancements), L"Melhorias");
+    AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(view), L"Exibicao");
+    AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(help), L"Ajuda");
+    return menu;
+}
+
 HWND create_main_window(HINSTANCE instance, AppState& app, int scale) {
     constexpr const char* class_name = "SG3000RecompHostWindow";
 
@@ -817,8 +932,9 @@ HWND create_main_window(HINSTANCE instance, AppState& app, int scale) {
     wc.hbrBackground = reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH));
     RegisterClass(&wc);
 
+    const HMENU menu = create_application_menu();
     RECT rect{0, 0, Vdp::width * scale, Vdp::height * scale};
-    AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
+    AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, TRUE);
 
     HWND hwnd = CreateWindowEx(
         0,
@@ -830,12 +946,14 @@ HWND create_main_window(HINSTANCE instance, AppState& app, int scale) {
         rect.right - rect.left,
         rect.bottom - rect.top,
         nullptr,
-        nullptr,
+        menu,
         instance,
         &app);
     if (hwnd == nullptr) {
+        DestroyMenu(menu);
         throw std::runtime_error("cannot create host window");
     }
+    update_menu_checks(hwnd, app);
     return hwnd;
 }
 

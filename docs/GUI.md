@@ -6,6 +6,10 @@ No Windows, abra `build\zig-debug\SG3000Recomp.exe` com duplo clique. `sgrecomp_
 2. Escolha se deseja carregar uma BIOS local. **Sim** abre o seletor de BIOS; **Não** inicia diretamente pelo cartucho.
 3. A janela do jogo abre com vídeo, teclado, áudio e overlay de diagnóstico.
 
+A barra de menus oferece pausa e reset, liga ou desliga o overlay e permite testar
+`reduce_flicker` e `disable_sprite_limit` durante o jogo. As marcas ao lado de cada
+opção mostram o estado ativo, inclusive quando ele veio da linha de comando ou de um perfil.
+
 Nenhuma ROM ou BIOS é copiada para o projeto. Cancelar qualquer seletor encerra o fluxo sem alterar arquivos.
 
 ## Controles
