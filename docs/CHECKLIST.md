@@ -111,6 +111,7 @@ Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
 - [x] Filtros por faixa/endereco e porta para logs de engenharia reversa.
 - [x] Trace filtrado por PC via cobertura, memoria, VDP e I/O por CSV.
 - [x] Dump legivel de tilemap e sprite table.
+- [x] Replay headless deterministico combina input com logs de I/O/memoria/VDP e dumps finais de VRAM/CRAM/tilemap/sprites.
 - [ ] Relatorio local por hash com camera, scroll, HUD, entidades e bancos.
 - [ ] Renderer enhanced separado do renderer fiel.
 - [ ] Experimento de viewport expansion por perfil.

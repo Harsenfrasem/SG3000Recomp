@@ -109,7 +109,7 @@ The current save-state format is version 7. It persists the VDP VRAM read buffer
 
 `--run-host` uses the headless host runtime path. It advances full frames, samples audio at the configured host rate, applies joypad state through the runtime API, and exposes the latest framebuffer for a future window backend. `HostRuntimeConfig` now drives the VDP scanline/frame timing used by the host loop; pass `--video-standard ntsc|pal` or set `video_standard = "pal"` in a local profile to switch frame timing without storing ROM paths. Use `--audio-sample-rate hz` or `audio_sample_rate = 48000` in a local profile to change host audio output rate.
 
-`--input-script` applies deterministic player and Pause state at frame boundaries. See `docs/INPUT_SCRIPT.md` for the CSV format.
+`--input-script` applies deterministic player and Pause state at frame boundaries. See `docs/INPUT_SCRIPT.md` for the CSV format. The `--run-host` replay path can combine that input with frame/audio dumps, VGM/FM capture, filtered I/O and memory/VDP logs, and final VRAM/CRAM/tilemap/sprite dumps so an interactive transition can be diagnosed without switching to a different execution path.
 
 `--dump-frame-log` writes deterministic per-frame diagnostics: framebuffer hash, executed PC range and instruction count, mapper/bank state, cycle range, and non-zero audio sample count.
 

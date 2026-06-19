@@ -166,6 +166,14 @@ int main() {
     const std::filesystem::path host_audio_path = output_dir / "host_audio.wav";
     const std::filesystem::path host_input_path = output_dir / "host_input.csv";
     const std::filesystem::path host_frame_log_path = output_dir / "host_frames.csv";
+    const std::filesystem::path host_vgm_path = output_dir / "host_audio.vgm";
+    const std::filesystem::path host_io_log_path = output_dir / "host_io.csv";
+    const std::filesystem::path host_memory_log_path = output_dir / "host_memory.csv";
+    const std::filesystem::path host_vdp_log_path = output_dir / "host_vdp.csv";
+    const std::filesystem::path host_vram_path = output_dir / "host_vram.bin";
+    const std::filesystem::path host_cram_path = output_dir / "host_cram.bin";
+    const std::filesystem::path host_tilemap_path = output_dir / "host_tilemap.csv";
+    const std::filesystem::path host_sprites_path = output_dir / "host_sprites.csv";
     const std::filesystem::path host_config_path = output_dir / "host_config.toml";
     const std::filesystem::path host_config_audio_path = output_dir / "host_config_audio.wav";
     const std::filesystem::path host_sram_rom_path = output_dir / "host_sram_fixture.sms";
@@ -585,7 +593,8 @@ int main() {
     const std::string host_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(audio_rom_path)
         + " --run-host --frames 2 --dump-frame-bmp " + quote(host_frame_path)
         + " --audio-sample-rate 22050 --input-script " + quote(host_input_path)
-        + " --dump-audio " + quote(host_audio_path) + " --dump-frame-log " + quote(host_frame_log_path);
+        + " --dump-audio " + quote(host_audio_path) + " --dump-vgm " + quote(host_vgm_path)
+        + " --dump-frame-log " + quote(host_frame_log_path);
     assert(run_command(host_command) == 0);
 
     const auto host_frame = read_binary(host_frame_path);
@@ -607,6 +616,26 @@ int main() {
         | (static_cast<unsigned>(host_wav_bytes[26]) << 16)
         | (static_cast<unsigned>(host_wav_bytes[27]) << 24);
     assert(sample_rate == 22050);
+    const auto host_vgm = read_binary(host_vgm_path);
+    assert(host_vgm.size() > 0x100);
+    assert(host_vgm[0] == 'V');
+    assert(host_vgm[1] == 'g');
+    assert(host_vgm.back() == 0x66);
+
+    const std::string host_diagnostic_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(debug_rom_path)
+        + " --run-host --frames 2 --dump-io-log " + quote(host_io_log_path)
+        + " --dump-memory-log " + quote(host_memory_log_path)
+        + " --dump-vdp-log " + quote(host_vdp_log_path)
+        + " --dump-vram " + quote(host_vram_path) + " --dump-cram " + quote(host_cram_path)
+        + " --dump-tilemap " + quote(host_tilemap_path) + " --dump-sprites " + quote(host_sprites_path);
+    assert(run_command(host_diagnostic_command) == 0);
+    assert(contains(read_text(host_io_log_path), "write,0xbf"));
+    assert(contains(read_text(host_memory_log_path), "ram,0xc000"));
+    assert(contains(read_text(host_vdp_log_path), "vram,0x0000,0xaa"));
+    assert(read_binary(host_vram_path).size() == 16 * 1024);
+    assert(read_binary(host_cram_path).size() == 32);
+    assert(contains(read_text(host_tilemap_path), "x,y,address,tile,palette,flip_x,flip_y,priority"));
+    assert(contains(read_text(host_sprites_path), "index,raw_y,x,y,tile,terminator"));
 
     write_text(host_config_path,
         "[target]\n"

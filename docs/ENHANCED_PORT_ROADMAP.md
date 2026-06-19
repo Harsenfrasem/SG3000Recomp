@@ -52,9 +52,9 @@ Melhorias profundas como viewport maior, cenario expandido, HUD reposicionado e 
 
 - [ ] Watchpoints de RAM, VRAM, CRAM e I/O por faixa.
 - [ ] Trace filtrado por PC, banco, porta e tipo de acesso.
-- [ ] Dump de tilemap/sprite table em formato local legivel.
+- [x] Dump de tilemap/sprite table em formato local legivel, inclusive no replay deterministico com input.
 - [ ] Overlay debug com registradores completos, banco ativo, fallback count e scanline.
-- [ ] Marcadores de frame para correlacionar input, camera, scroll e render.
+- [x] Marcadores de frame para correlacionar input, PC, mapper, audio e hash do framebuffer.
 
 ### 5. Enhanced renderer generico
 

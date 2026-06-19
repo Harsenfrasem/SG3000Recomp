@@ -345,6 +345,9 @@ void print_usage() {
               << "                [--dump-coverage pcs.csv] [--disable-sprite-limit] [--reduce-flicker] [--enable-fm]\n"
               << "       sgrecomp <rom.sms|rom.sg> --run-host [--frames n] [--input-script input.csv] [--bios bios.sms] [--video-standard ntsc|pal] [--audio-sample-rate hz]\n"
               << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp] [--dump-audio audio.wav] [--dump-frame-log frames.csv]\n"
+              << "                [--dump-vgm audio.vgm] [--dump-fm-log fm.csv] [--dump-io-log io.csv]\n"
+              << "                [--dump-memory-log memory.csv] [--dump-vdp-log vdp.csv]\n"
+              << "                [--dump-vram vram.bin] [--dump-cram cram.bin] [--dump-tilemap tilemap.csv] [--dump-sprites sprites.csv]\n"
               << "       sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--dump-analysis analysis.txt]\n"
               << "       sgrecomp <rom.sms> --rebuild-header output.sms\n"
               << "       sgrecomp <rom.sms> --generate-header output.sms [--header-region sms-japan|sms-export|gg-japan|gg-export|gg-international]\n"
@@ -1762,6 +1765,12 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
     runtime_config.audio_sample_rate = opts.audio_sample_rate;
     HostRuntime host(model, opts.enhancements, runtime_config);
     host.console().bus().set_mapper(opts.mapper);
+    host.console().psg().set_write_logging_enabled(!opts.dump_vgm.empty());
+    host.console().bus().set_fm_present(opts.enhancements.enable_fm || !opts.dump_fm_log.empty());
+    host.console().bus().set_io_logging_enabled(!opts.dump_io_log.empty());
+    host.console().bus().set_memory_logging_enabled(!opts.dump_memory_log.empty());
+    host.console().vdp().set_access_logging_enabled(!opts.dump_vdp_log.empty());
+    host.console().ym2413().set_write_logging_enabled(!opts.dump_fm_log.empty());
     if (bios != nullptr) {
         host.load_bios(*bios);
     }
@@ -1880,6 +1889,55 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
         write_audio_wav(opts.dump_audio, host.audio(), host.config().audio_sample_rate);
         std::cout << "audio dumped: " << opts.dump_audio.string()
                   << " (" << (host.audio().size() / 2) << " stereo samples)\n";
+    }
+    if (!opts.dump_vgm.empty()) {
+        write_psg_vgm(opts.dump_vgm, host.console().psg().logged_writes(), host.console().cpu().cycles);
+        std::cout << "vgm dumped: " << opts.dump_vgm.string()
+                  << " (" << host.console().psg().logged_writes().size() << " psg writes)\n";
+    }
+    if (!opts.dump_fm_log.empty()) {
+        write_fm_log_csv(opts.dump_fm_log, host.console().ym2413().logged_writes());
+        std::cout << "fm log dumped: " << opts.dump_fm_log.string()
+                  << " (" << host.console().ym2413().logged_writes().size() << " writes)\n";
+    }
+    if (!opts.dump_io_log.empty()) {
+        write_io_log_csv(opts.dump_io_log, host.console().bus().logged_io(), opts.io_port_filters);
+        std::cout << "io log dumped: " << opts.dump_io_log.string()
+                  << " (" << host.console().bus().logged_io().size() << " accesses)\n";
+    }
+    if (!opts.dump_memory_log.empty()) {
+        write_memory_log_csv(opts.dump_memory_log, host.console().bus().logged_memory(), opts.memory_filters);
+        std::cout << "memory log dumped: " << opts.dump_memory_log.string()
+                  << " (" << host.console().bus().logged_memory().size() << " writes)\n";
+    }
+    if (!opts.dump_vdp_log.empty()) {
+        write_vdp_log_csv(opts.dump_vdp_log, host.console().vdp().logged_accesses(), opts.vdp_filters);
+        std::cout << "vdp log dumped: " << opts.dump_vdp_log.string()
+                  << " (" << host.console().vdp().logged_accesses().size() << " writes)\n";
+    }
+    if (!opts.dump_vram.empty()) {
+        write_binary_dump(opts.dump_vram, host.console().vdp().debug_vram());
+        std::cout << "vram dumped: " << opts.dump_vram.string() << "\n";
+    }
+    if (!opts.dump_cram.empty()) {
+        write_binary_dump(opts.dump_cram, host.console().vdp().debug_cram());
+        std::cout << "cram dumped: " << opts.dump_cram.string() << "\n";
+    }
+    if (!opts.dump_tilemap.empty()) {
+        const auto tilemap = host.console().vdp().debug_tilemap();
+        write_tilemap_csv(opts.dump_tilemap, tilemap);
+        std::cout << "tilemap dumped: " << opts.dump_tilemap.string()
+                  << " (" << tilemap.size() << " entries)\n";
+    }
+    if (!opts.dump_sprites.empty()) {
+        const auto sprites = host.console().vdp().debug_sprites();
+        write_sprites_csv(opts.dump_sprites, sprites);
+        std::cout << "sprites dumped: " << opts.dump_sprites.string()
+                  << " (" << sprites.size() << " entries)\n";
+    }
+    if (!opts.dump_sram.empty()) {
+        write_binary_dump(opts.dump_sram, host.console().bus().debug_cartridge_ram());
+        std::cout << "sram dumped: " << opts.dump_sram.string() << "\n";
     }
     if (!opts.save_sram.empty()) {
         const auto& sram = host.console().bus().debug_cartridge_ram();
