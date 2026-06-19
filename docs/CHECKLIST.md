@@ -203,7 +203,8 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Espelhamento correto de RAM de 8 KiB.
 - [x] BIOS opcional local, carregada por `--bios` e ignorada pelo Git.
 - [x] Portas espelhadas de VDP/PSG/counters normalizadas no barramento (`0x40-0x7f`, `0x80-0xbf`).
-- [x] SMapper parcial: slots de ROM e SRAM de cartucho em dois bancos.
+- [x] SMapper base: slots de ROM, janela fixa de 1 KiB, registradores espelhados em RAM e SRAM de cartucho em dois bancos.
+- [x] SMapper: SRAM e autodeteccao de mapper respeitam o slot de cartucho habilitado pela porta `0x3E`.
 - [x] Load/save/dump local de SRAM de cartucho.
 - [x] Remocao automatica de header generico de 512 bytes.
 - [x] Deteccao inicial de header `TMR SEGA` em offsets comuns no relatorio `--dump-analysis`.
@@ -216,7 +217,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] K8K inicial com bancos de 8 KiB e registradores `0x0000-0x0003`.
 - [x] Deteccao de header de ROM, validacao de tamanho e geracao/rebuild de checksum e regiao.
 - [ ] Heuristicas de modelo/regiao para BIOS sem header padrao, validadas com imagens permitidas.
-- [ ] SMapper completo: edge cases de control, write protect, mirroring e variantes com EEPROM.
+- [ ] SMapper restante: variantes com write protect e EEPROM, quando identificadas por perfil/hardware.
 - [ ] Heuristicas/perfis locais para escolher mapper automaticamente em ROMs maiores sem guardar caminhos privados.
 - [ ] CMapper completo: SRAM/EEPROM se necessario e edge cases por jogo.
 - [ ] KMapper/K8K completos usados por ROMs especificas.

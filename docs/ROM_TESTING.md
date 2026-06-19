@@ -55,5 +55,6 @@ Current result from private local smoke testing:
 - A small private local set is available in ignored folders for smoke testing.
 - Multiple SMS-sized ROMs can load and execute hundreds of thousands of Z80 steps.
 - A private BIOS plus ROM smoke test reaches the configured step limit without hitting an unsupported opcode.
-- They still do not render playable output. The next blockers are richer VDP rendering, exact timing, mapper edge cases, host input, and audio backend plumbing.
+- One private image now reaches gameplay through deterministic input and completed a five-minute NTSC regression with continuous audio, save-state round-trip, and accurate/enhanced comparison. This remains a single-title result rather than a general compatibility claim.
+- The next compatibility blockers are additional-title replay coverage, external Z80/timing conformance, remaining mapper variants, VDP edge cases, and faithful FM audio.
 - Recent private tests helped prioritize V counter reads, mapper RAM preservation, RAM mirroring, cartridge SRAM, local BIOS overlay, IX/IY handling, indexed CB operations, `IXH/IXL/IYH/IYL`, `daa`, delayed `ei`, NMI service, and additional ED instructions.

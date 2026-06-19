@@ -133,7 +133,7 @@ void Bus::write(u16 address, u8 value) {
         return;
     }
 
-    if (model_ == ConsoleModel::SMS && requested_mapper_ == CartridgeMapper::Auto) {
+    if (model_ == ConsoleModel::SMS && cartridge_enabled() && requested_mapper_ == CartridgeMapper::Auto) {
         if (address == 0x0000 || address == 0x4000 || address == 0x8000) {
             select_auto_mapper(CartridgeMapper::CMapper);
         } else if (address == 0xA000) {
@@ -429,7 +429,11 @@ void Bus::set_memory_control(u8 value) {
 }
 
 bool Bus::slot2_cartridge_ram_enabled() const {
-    return (smapper_control_ & 0x08) != 0;
+    const bool sega_mapper = mapper_ == CartridgeMapper::SMapper || mapper_ == CartridgeMapper::Auto;
+    return model_ == ConsoleModel::SMS
+        && sega_mapper
+        && cartridge_enabled()
+        && (smapper_control_ & 0x08) != 0;
 }
 
 bool Bus::has_copier_header(std::span<const u8> rom) {

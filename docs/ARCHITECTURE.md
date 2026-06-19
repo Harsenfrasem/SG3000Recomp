@@ -18,6 +18,8 @@ In the active 192-line Mode 4 path, vertical scroll wraps over the 32x28 name-ta
 
 VRAM reads use the VDP read buffer. A code-0 control command prefetches the addressed byte and advances the 14-bit address; each data-port read returns the buffered byte, prefetches the next byte, and advances with `$3fff` wrap. Save-state version 7 stores this buffer while older state versions load it as zero.
 
+The base Sega mapper keeps the first 1 KiB of slot 0 fixed to ROM bank 0, mirrors paging-register writes through work RAM at `$dffc-$dfff`, and exposes either ROM or one of two 16 KiB cartridge-RAM banks in slot 2. Cartridge RAM and automatic mapper detection are inactive while memory control disables the cartridge slot; writes to the disconnected address space cannot mutate SRAM or select another mapper.
+
 ## Pipeline
 
 ```text

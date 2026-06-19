@@ -2691,6 +2691,51 @@ void test_smapper_loads_cartridge_ram() {
     assert(console.bus().debug_cartridge_ram()[0x4000] == 0x33);
 }
 
+void test_smapper_fixed_window_and_register_mirroring() {
+    std::vector<u8> rom(0x10000, 0x00);
+    std::fill(rom.begin(), rom.begin() + 0x4000, 0x10);
+    std::fill(rom.begin() + 0xC000, rom.end(), 0x40);
+
+    Console console(ConsoleModel::SMS);
+    console.load_rom(rom);
+    console.bus().write(0xFFFD, 0x03); // map bank 3 into slot zero
+
+    assert(console.bus().read(0x0000) == 0x10);
+    assert(console.bus().read(0x03FF) == 0x10);
+    assert(console.bus().read(0x0400) == 0x40);
+    assert(console.bus().read(0xDFFD) == 0x03);
+    assert(console.bus().read(0xFFFD) == 0x03);
+}
+
+void test_smapper_sram_respects_cartridge_visibility_and_active_mapper() {
+    std::vector<u8> rom(0x10000, 0x00);
+    rom[0x8000] = 0x22;
+
+    Console console(ConsoleModel::SMS);
+    console.load_rom(rom);
+    console.bus().write(0xFFFC, 0x08);
+    console.bus().write(0x8000, 0xA5);
+    assert(console.bus().cartridge_ram_enabled());
+    assert(console.bus().debug_cartridge_ram()[0] == 0xA5);
+
+    console.bus().output(0x3E, 0x40); // disable the cartridge slot
+    assert(!console.bus().cartridge_enabled());
+    assert(!console.bus().cartridge_ram_enabled());
+    assert(console.bus().read(0x8000) == 0xFF);
+    console.bus().write(0x8000, 0x5A);
+    assert(console.bus().debug_cartridge_ram()[0] == 0xA5);
+
+    console.bus().output(0x3E, 0x00);
+    assert(console.bus().cartridge_ram_enabled());
+    assert(console.bus().read(0x8000) == 0xA5);
+
+    console.bus().set_mapper(CartridgeMapper::CMapper);
+    assert(!console.bus().cartridge_ram_enabled());
+    console.bus().write(0x8000, 0x01);
+    assert(console.bus().read(0x8000) == 0x00);
+    assert(console.bus().debug_cartridge_ram()[0] == 0xA5);
+}
+
 void test_mapper_snapshot_reports_active_mapper_and_banks() {
     std::vector<u8> rom(0x10000, 0x00);
     Console console(ConsoleModel::SMS);
@@ -3201,6 +3246,8 @@ int main() {
     test_memory_control_port_maps_bios_cart_and_ram();
     test_smapper_cartridge_ram_banks();
     test_smapper_loads_cartridge_ram();
+    test_smapper_fixed_window_and_register_mirroring();
+    test_smapper_sram_respects_cartridge_visibility_and_active_mapper();
     test_mapper_snapshot_reports_active_mapper_and_banks();
     test_cmapper_banks_and_auto_detection();
     test_forced_kmapper_bank_switches_slot2();

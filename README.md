@@ -95,7 +95,7 @@ If execution reaches an unsupported opcode, the tool prints the instruction, PC,
 
 Enhancements are off by default. Smoke summaries print the active mode and enhancement flags so compatibility tests can confirm whether they are running in accurate or enhanced mode.
 
-Mapper selection can be forced with `--mapper auto|plain|smapper|cmapper|kmapper|k8k` in both `sgrecomp` and `sgrecomp_host`. Use this when a ROM executes but stays blank; `auto` is the default, while explicit mapper modes are useful for local compatibility matrices.
+Mapper selection can be forced with `--mapper auto|plain|smapper|cmapper|kmapper|k8k` in both `sgrecomp` and `sgrecomp_host`. Use this when a ROM executes but stays blank; `auto` is the default, while explicit mapper modes are useful for local compatibility matrices. The base Sega mapper models its fixed 1 KiB window, mirrored paging registers, two cartridge-RAM banks, and cartridge-slot gating; EEPROM/write-protect variants remain profile-driven compatibility work.
 
 The runtime normalizes common SMS I/O mirrors: `0x40-0x7f` route counter reads and PSG writes, and `0x80-0xbf` route VDP data/control access by even/odd port.
 
