@@ -98,7 +98,7 @@ Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
 - [x] GUI inicial disponivel apos estabilizacao do host runtime com janela/audio.
 - [x] Duplo clique no host abre seletores nativos de ROM e BIOS opcional sem copiar ou versionar arquivos.
 - [ ] Biblioteca local de jogos por hash/header, com apelidos configurados pelo usuario.
-- [ ] Tela de configuracao simples para modo fiel/enhanced e toggles de enhancements.
+- [x] Tela de configuracao simples para modo fiel/enhanced e toggles de enhancements.
 - [x] GUI: SRAM automatica e quick-save/load por hash em `%LOCALAPPDATA%`, com validacao de estado.
 - [ ] GUI: gerenciamento visual de saves, screenshots e audio dumps.
 - [ ] Perfis por jogo editaveis pela GUI.
@@ -323,7 +323,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Persistir SRAM e quick state anonimos por hash fora do repositorio.
 - [x] Controles visuais para pausa, reset, overlay e enhancements de vídeo opcionais.
 - [ ] Lista de jogos recentes usando somente dados locais do usuario.
-- [ ] Dialogo de compatibilidade explicando quando uma melhoria altera fidelidade.
+- [x] Dialogo de compatibilidade explicando quando uma melhoria altera fidelidade.
 
 ## Enhancements Opcionais
 

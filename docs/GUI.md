@@ -9,6 +9,9 @@ No Windows, abra `build\zig-debug\SG3000Recomp.exe` com duplo clique. `sgrecomp_
 A barra de menus oferece pausa e reset, liga ou desliga o overlay e permite testar
 `reduce_flicker` e `disable_sprite_limit` durante o jogo. As marcas ao lado de cada
 opção mostram o estado ativo, inclusive quando ele veio da linha de comando ou de um perfil.
+O menu **Melhorias** também alterna explicitamente entre o modo fiel e o enhanced.
+Antes da primeira ativação enhanced da sessão, a GUI explica que essas opções podem
+alterar a aparência original e pede confirmação. Voltar ao modo fiel desliga as duas melhorias visuais.
 
 Nenhuma ROM ou BIOS é copiada para o projeto. Cancelar qualquer seletor encerra o fluxo sem alterar arquivos.
 
@@ -33,7 +36,7 @@ No fluxo gráfico, a SRAM é carregada automaticamente ao abrir a ROM e salva ao
 %LOCALAPPDATA%\SG3000Recomp\saves\
 ```
 
-O overlay, as melhorias de vídeo, mute e volume ficam em `settings.ini`, diretamente
+O modo de execução, overlay, melhorias de vídeo, mute e volume ficam em `settings.ini`, diretamente
 na pasta `SG3000Recomp`. O arquivo contém apenas opções; caminhos de ROM e BIOS não são salvos.
 
 O quick-load valida modelo e hash antes de restaurar o estado. Esses arquivos não guardam nem expõem o caminho da ROM.
