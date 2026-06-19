@@ -2618,6 +2618,78 @@ void test_hl_absolute_load_store() {
     assert(console.bus().read(0xC001) == 0x12);
 }
 
+void test_interrupt_acknowledge_state_and_cycles() {
+    {
+        Console console(ConsoleModel::SMS);
+        console.cpu().pc = 0x1234;
+        console.cpu().sp = 0xD000;
+        console.cpu().r = 0xFE;
+        console.cpu().iff1 = true;
+        console.cpu().iff2 = true;
+        console.cpu().interrupt_mode = 1;
+        console.cpu().halted = true;
+        assert(service_maskable_interrupt(console.cpu(), console.bus()));
+        assert(console.cpu().pc == 0x0038);
+        assert(console.cpu().sp == 0xCFFE);
+        assert(console.bus().read(0xCFFE) == 0x34);
+        assert(console.bus().read(0xCFFF) == 0x12);
+        assert(console.cpu().cycles == 13);
+        assert(console.cpu().r == 0xFF);
+        assert(!console.cpu().halted);
+        assert(!console.cpu().iff1 && !console.cpu().iff2);
+    }
+    {
+        Console console(ConsoleModel::SMS);
+        console.cpu().pc = 0x2345;
+        console.cpu().sp = 0xD000;
+        console.cpu().i = 0xC0;
+        console.cpu().r = 0x7F;
+        console.cpu().iff1 = true;
+        console.cpu().iff2 = true;
+        console.cpu().interrupt_mode = 2;
+        console.cpu().cycles = 7;
+        console.bus().write(0xC0FF, 0x78);
+        console.bus().write(0xC100, 0x56);
+        assert(service_maskable_interrupt(console.cpu(), console.bus()));
+        assert(console.cpu().pc == 0x5678);
+        assert(console.cpu().cycles == 26);
+        assert(console.cpu().r == 0x00);
+        assert(console.bus().read(0xCFFE) == 0x45);
+        assert(console.bus().read(0xCFFF) == 0x23);
+    }
+    {
+        Console console(ConsoleModel::SMS);
+        console.cpu().pc = 0x3456;
+        console.cpu().sp = 0xD000;
+        console.cpu().r = 0xFF;
+        console.cpu().iff1 = true;
+        console.cpu().iff2 = false;
+        console.cpu().ei_pending = true;
+        console.cpu().halted = true;
+        console.cpu().cycles = 5;
+        service_non_maskable_interrupt(console.cpu(), console.bus());
+        assert(console.cpu().pc == 0x0066);
+        assert(console.cpu().cycles == 16);
+        assert(console.cpu().r == 0x80);
+        assert(!console.cpu().halted);
+        assert(!console.cpu().ei_pending);
+        assert(!console.cpu().iff1 && console.cpu().iff2);
+        assert(console.bus().read(0xCFFE) == 0x56);
+        assert(console.bus().read(0xCFFF) == 0x34);
+    }
+    {
+        Console console(ConsoleModel::SMS);
+        console.cpu().pc = 0x4567;
+        console.cpu().iff1 = true;
+        console.cpu().ei_pending = true;
+        console.cpu().r = 0x22;
+        assert(!service_maskable_interrupt(console.cpu(), console.bus()));
+        assert(console.cpu().pc == 0x4567);
+        assert(console.cpu().r == 0x22);
+        assert(console.cpu().cycles == 0);
+    }
+}
+
 void setup_host_visible_pixel(Vdp& vdp) {
     vdp.write_control(0x00);
     vdp.write_control(0x80);
@@ -2864,6 +2936,7 @@ int main() {
     test_auto_mapper_uses_plain_for_small_linear_roms();
     test_copier_header_is_removed();
     test_ei_delay_and_nmi_service();
+    test_interrupt_acknowledge_state_and_cycles();
     test_bc_de_indirect_loads();
     test_hl_absolute_load_store();
     test_host_runtime_frame_audio_and_input();

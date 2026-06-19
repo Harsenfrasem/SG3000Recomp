@@ -1438,15 +1438,16 @@ bool service_maskable_interrupt(Z80State& cpu, Bus& bus) {
     cpu.halted = false;
     cpu.iff1 = false;
     cpu.iff2 = false;
+    increment_refresh(cpu);
     push16(cpu, bus, cpu.pc);
 
     if (cpu.interrupt_mode == 2) {
         cpu.pc = read16(bus, static_cast<u16>((static_cast<u16>(cpu.i) << 8) | 0xFF));
+        cpu.cycles += 19;
     } else {
         cpu.pc = 0x0038;
+        cpu.cycles += 13;
     }
-
-    cpu.cycles += 13;
     return true;
 }
 
@@ -1455,6 +1456,7 @@ void service_non_maskable_interrupt(Z80State& cpu, Bus& bus) {
     cpu.ei_pending = false;
     cpu.iff2 = cpu.iff1;
     cpu.iff1 = false;
+    increment_refresh(cpu);
     push16(cpu, bus, cpu.pc);
     cpu.pc = 0x0066;
     cpu.cycles += 11;
