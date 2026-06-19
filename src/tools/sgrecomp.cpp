@@ -1768,6 +1768,10 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
         load_console_state(host.console(), state_bytes);
     }
 
+    const bool bios_active_at_start = host.console().bus().bios_enabled();
+    bool bios_active_previous_frame = bios_active_at_start;
+    std::optional<std::size_t> bios_handoff_frame;
+
     const HostInputScript input_script = opts.input_script.empty()
         ? HostInputScript{}
         : parse_host_input_script(read_text_file(opts.input_script));
@@ -1778,13 +1782,19 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
             throw std::runtime_error("cannot open frame log output");
         }
         frame_log << "frame,start_cycle,end_cycle,instructions,pc_min,pc_max,framebuffer_fnv1a64,"
-                  << "audio_frames,nonzero_audio_samples,mapper,memory_control,bank0,bank1,bank2,bank3,bank4,bank5,"
+                  << "audio_frames,nonzero_audio_samples,mapper,memory_control,bios_enabled,cartridge_enabled,work_ram_enabled,"
+                  << "bank0,bank1,bank2,bank3,bank4,bank5,"
                   << "cartridge_ram,cartridge_ram_bank\n";
     }
     HostFrameResult result{};
     for (std::size_t frame = 0; frame < opts.host_frames; ++frame) {
         const std::size_t audio_start = host.audio().size();
         result = host.run_frame(input_script.state_for_frame(frame));
+        const bool bios_active = host.console().bus().bios_enabled();
+        if (bios_active_previous_frame && !bios_active && !bios_handoff_frame) {
+            bios_handoff_frame = result.frame_index;
+        }
+        bios_active_previous_frame = bios_active;
         if (frame_log) {
             constexpr u64 offset_basis = 14695981039346656037ULL;
             constexpr u64 prime = 1099511628211ULL;
@@ -1814,7 +1824,9 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
                       << std::dec << std::setfill(' ') << ',' << (host.audio().size() - audio_start) / 2 << ','
                       << nonzero_audio << ',' << cartridge_mapper_name(mapper.mapper) << ",0x"
                       << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(mapper.memory_control)
-                      << std::dec << std::setfill(' ');
+                      << std::dec << std::setfill(' ') << ',' << (mapper.bios_enabled ? 1 : 0)
+                      << ',' << (mapper.cartridge_enabled ? 1 : 0)
+                      << ',' << (mapper.work_ram_enabled ? 1 : 0);
             for (u8 bank : banks) {
                 frame_log << ',' << static_cast<int>(bank);
             }
@@ -1850,6 +1862,15 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
               << ", disable_sprite_limit=" << (opts.enhancements.disable_sprite_limit ? "on" : "off")
               << ", reduce_flicker=" << (opts.enhancements.reduce_flicker ? "on" : "off")
               << ", enable_fm=" << (opts.enhancements.enable_fm ? "on" : "off") << "\n";
+    if (bios == nullptr) {
+        std::cout << "bios: not loaded\n";
+    } else if (bios_handoff_frame) {
+        std::cout << "bios: active at start, handoff frame " << *bios_handoff_frame << "\n";
+    } else if (bios_active_at_start) {
+        std::cout << "bios: active at start, handoff not observed\n";
+    } else {
+        std::cout << "bios: loaded, already disabled by restored state\n";
+    }
     if (!opts.input_script.empty()) {
         std::cout << "input script: " << opts.input_script.string()
                   << " (" << input_script.events().size() << " events)\n";

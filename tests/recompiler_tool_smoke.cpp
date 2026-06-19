@@ -174,6 +174,10 @@ int main() {
     const std::filesystem::path host_cram_path = output_dir / "host_cram.bin";
     const std::filesystem::path host_tilemap_path = output_dir / "host_tilemap.csv";
     const std::filesystem::path host_sprites_path = output_dir / "host_sprites.csv";
+    const std::filesystem::path bios_handoff_rom_path = output_dir / "bios_handoff_rom.sms";
+    const std::filesystem::path bios_handoff_bios_path = output_dir / "bios_handoff_bios.sms";
+    const std::filesystem::path bios_handoff_frame_log_path = output_dir / "bios_handoff_frames.csv";
+    const std::filesystem::path bios_handoff_memory_log_path = output_dir / "bios_handoff_memory.csv";
     const std::filesystem::path host_config_path = output_dir / "host_config.toml";
     const std::filesystem::path host_config_audio_path = output_dir / "host_config_audio.wav";
     const std::filesystem::path host_sram_rom_path = output_dir / "host_sram_fixture.sms";
@@ -636,6 +640,44 @@ int main() {
     assert(read_binary(host_cram_path).size() == 32);
     assert(contains(read_text(host_tilemap_path), "x,y,address,tile,palette,flip_x,flip_y,priority"));
     assert(contains(read_text(host_sprites_path), "index,raw_y,x,y,tile,terminator"));
+
+    std::vector<unsigned char> bios_handoff_rom(0x4000, 0x00);
+    bios_handoff_rom[0x0000] = 0x3E; // ld a,$42 after BIOS handoff
+    bios_handoff_rom[0x0001] = 0x42;
+    bios_handoff_rom[0x0002] = 0x32; // ld ($c000),a
+    bios_handoff_rom[0x0003] = 0x00;
+    bios_handoff_rom[0x0004] = 0xC0;
+    bios_handoff_rom[0x0005] = 0x76; // halt
+    bios_handoff_rom[0x000F] = 0xC3; // fetched after OUT disables BIOS
+    bios_handoff_rom[0x0010] = 0x00;
+    bios_handoff_rom[0x0011] = 0x00;
+    write_binary(bios_handoff_rom_path, bios_handoff_rom);
+
+    std::vector<unsigned char> bios_handoff_bios(0x4000, 0x00);
+    const std::vector<unsigned char> bios_handoff_program = {
+        0x31, 0x00, 0xD0, // ld sp,$d000
+        0x01, 0xFF, 0xFF, // ld bc,$ffff
+        0x0B,             // loop: dec bc
+        0x78,             // ld a,b
+        0xB1,             // or c
+        0x20, 0xFB,       // jr nz,loop
+        0x3E, 0x08,       // ld a,$08: disable BIOS, keep cart/RAM enabled
+        0xD3, 0x3E,       // out ($3e),a
+    };
+    std::copy(bios_handoff_program.begin(), bios_handoff_program.end(), bios_handoff_bios.begin());
+    write_binary(bios_handoff_bios_path, bios_handoff_bios);
+
+    const std::string bios_handoff_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(bios_handoff_rom_path)
+        + " --run-host --frames 30 --bios " + quote(bios_handoff_bios_path)
+        + " --dump-frame-log " + quote(bios_handoff_frame_log_path)
+        + " --dump-memory-log " + quote(bios_handoff_memory_log_path) + " --watch 0xc000";
+    assert(run_command(bios_handoff_command) == 0);
+    const std::string bios_handoff_frames = read_text(bios_handoff_frame_log_path);
+    assert(contains(bios_handoff_frames,
+        "mapper,memory_control,bios_enabled,cartridge_enabled,work_ram_enabled"));
+    assert(contains(bios_handoff_frames, ",plain,0x00,1,1,1,"));
+    assert(contains(bios_handoff_frames, ",plain,0x08,0,1,1,"));
+    assert(contains(read_text(bios_handoff_memory_log_path), "ram,0xc000,0x0c000,0x42"));
 
     write_text(host_config_path,
         "[target]\n"

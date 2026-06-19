@@ -111,7 +111,7 @@ The current save-state format is version 8. It persists the automatic mapper-fam
 
 `--input-script` applies deterministic player and Pause state at frame boundaries. See `docs/INPUT_SCRIPT.md` for the CSV format. The `--run-host` replay path can combine that input with frame/audio dumps, VGM/FM capture, filtered I/O and memory/VDP logs, and final VRAM/CRAM/tilemap/sprite dumps so an interactive transition can be diagnosed without switching to a different execution path.
 
-`--dump-frame-log` writes deterministic per-frame diagnostics: framebuffer hash, executed PC range and instruction count, mapper/bank state, cycle range, and non-zero audio sample count.
+`--dump-frame-log` writes deterministic per-frame diagnostics: framebuffer hash, executed PC range and instruction count, mapper/bank state, BIOS/cartridge/work-RAM visibility, cycle range, and non-zero audio sample count. When a BIOS is loaded, the headless summary reports the frame where its overlay is disabled and execution hands off to the cartridge.
 
 `--rebuild-header` preserves an existing `TMR SEGA` header and updates its checksum. `--generate-header` writes a new header using the supplied region, five-digit hexadecimal product code, version, and ROM-size code. Both commands write a separate ROM image and reject sizes that the header cannot represent.
 

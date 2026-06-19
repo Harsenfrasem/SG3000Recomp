@@ -204,6 +204,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Escrita RAM em `0xC000-0xFFFF`.
 - [x] Espelhamento correto de RAM de 8 KiB.
 - [x] BIOS opcional local, carregada por `--bios` e ignorada pelo Git.
+- [x] Replay headless registra BIOS/cartucho/RAM por frame e reporta o handoff BIOS -> jogo.
 - [x] Portas espelhadas de VDP/PSG/counters normalizadas no barramento (`0x40-0x7f`, `0x80-0xbf`).
 - [x] SMapper base: slots de ROM, janela fixa de 1 KiB, registradores espelhados em RAM e SRAM de cartucho em dois bancos.
 - [x] SMapper: SRAM e autodeteccao de mapper respeitam o slot de cartucho habilitado pela porta `0x3E`.

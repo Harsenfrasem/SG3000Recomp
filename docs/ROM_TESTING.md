@@ -37,6 +37,7 @@ $env:PATH="$env:APPDATA\Python\Python314\Scripts;$env:PATH"
 ```
 
 `--bios` is intended for local smoke testing and disassembly only. Generated C++ still embeds only the ROM image, never the BIOS file.
+When a BIOS is supplied to `--run-host`, the summary reports its handoff frame. The frame CSV includes `bios_enabled`, `cartridge_enabled`, and `work_ram_enabled`, so BIOS animation can be separated from cartridge startup without relying on screenshots.
 ROM files with a generic 512-byte copier header are normalized before loading.
 `--dump-analysis` reports the detected `TMR SEGA` header offset, region/size byte, stored checksum, and checksum over the declared ROM size excluding the 16-byte header block. Use it before mapper/BIOS debugging to catch wrong-platform images or surprising size metadata.
 If the declared size exceeds the loaded image, analysis reports that the image does not fit and does not claim checksum validity. Use `--rebuild-header output.sms` to preserve existing metadata while repairing the checksum, or `--generate-header output.sms --header-region sms-export --product-code 00000 --header-version 0` to create a new header. These operations never overwrite the input image.
