@@ -12,6 +12,8 @@ The SG-3000 VDP path selects the four standard TMS9918 display modes from regist
 
 Sprite evaluation is ordered by SAT index in both SMS Mode 4 and TMS modes. Overlapping opaque pixels set the collision flag while retaining the lower-index sprite's color; optional sprite-limit enhancements change only how many evaluated sprites may render.
 
+Mode 4 horizontal scroll treats register 8 as a rightward screen displacement: the renderer samples background source coordinate `(screen_x - R8) & 0xff`. Top-row scroll lock suppresses that displacement for the protected lines, while right-column vertical lock remains based on the destination screen column.
+
 ## Pipeline
 
 ```text

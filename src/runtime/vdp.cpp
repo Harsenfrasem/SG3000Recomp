@@ -198,7 +198,7 @@ void Vdp::render_mode4_scanline(int line) {
             continue;
         }
 
-        const int scrolled_x = (x + horizontal_scroll) & 0xFF;
+        const int scrolled_x = (x - horizontal_scroll) & 0xFF;
         const int tile_x = scrolled_x / 8;
         const int vertical_scroll = (lock_right_vertical_scroll && x >= 24 * 8) ? 0 : registers_[9];
         const int y = (line + vertical_scroll) & 0xFF;

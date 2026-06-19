@@ -230,6 +230,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] TMS9918/SG-3000: modos padrao Graphics I, Graphics II, Text e Multicolor selecionados por M1/M2/M3.
 - [ ] SMS Mode 4 tile renderer completo.
 - [x] Mode 4: hscroll/vscroll basicos, lock de topo, lock de direita por coluna de tela e coluna esquerda em branco.
+- [x] Mode 4: sentido de R8 validado com wrap; origem usa `x - R8` e desloca o background para a direita.
 - [x] Mode 4: backdrop por registrador 7, mask de name table e blanking aplicado tambem sobre sprites.
 - [x] Sprites 8x8 iniciais com transparencia.
 - [x] Sprites: deslocamento horizontal, zoom inicial e wrap vertical.

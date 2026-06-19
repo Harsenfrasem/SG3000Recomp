@@ -1140,6 +1140,47 @@ void test_vdp_scroll_lock_and_left_blank() {
     assert(vdp.framebuffer()[8] == 0xFFFF0000);
 }
 
+void test_vdp_horizontal_scroll_moves_background_right() {
+    Vdp vdp;
+    vdp.write_control(0x40);
+    vdp.write_control(0x81); // display enabled
+    vdp.write_control(0x0E);
+    vdp.write_control(0x82); // name table at $3800
+    vdp.write_control(0x08);
+    vdp.write_control(0x88); // move background right by one tile
+
+    vdp.write_control(0x01);
+    vdp.write_control(0xC0);
+    vdp.write_data(0x03); // red
+    vdp.write_control(0x02);
+    vdp.write_control(0xC0);
+    vdp.write_data(0x0C); // green
+
+    vdp.write_control(0x20);
+    vdp.write_control(0x40); // tile 1: red first pixel
+    vdp.write_data(0x80);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+    vdp.write_control(0x40);
+    vdp.write_control(0x40); // tile 2: green first pixel
+    vdp.write_data(0x00);
+    vdp.write_data(0x80);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x78);
+    for (int tile_x = 0; tile_x < 32; ++tile_x) {
+        vdp.write_data(tile_x == 31 ? 0x01 : (tile_x == 0 ? 0x02 : 0x00));
+        vdp.write_data(0x00);
+    }
+
+    vdp.tick(228);
+    assert(vdp.framebuffer()[0] == 0xFFFF0000); // source x=248, tile 31
+    assert(vdp.framebuffer()[8] == 0xFF00FF00); // source x=0, tile 0
+}
+
 void test_vdp_left_column_blank_masks_sprites() {
     Vdp vdp;
     vdp.write_control(0x20);
@@ -1229,7 +1270,7 @@ void test_vdp_right_column_vertical_scroll_lock_uses_screen_column() {
     vdp.write_control(0x0E);
     vdp.write_control(0x82); // name table at $3800
     vdp.write_control(0x40);
-    vdp.write_control(0x88); // hscroll wraps the right-column source to tile 0
+    vdp.write_control(0x88); // hscroll selects source tile 16 at screen column 24
     vdp.write_control(0x08);
     vdp.write_control(0x89); // vscroll one tile
 
@@ -1256,7 +1297,7 @@ void test_vdp_right_column_vertical_scroll_lock_uses_screen_column() {
     vdp.write_control(0x00);
     vdp.write_control(0x78);
     for (int i = 0; i < 32 * 32; ++i) {
-        const u8 tile = i == 0 ? 0x02 : (i == 32 ? 0x01 : 0x00);
+        const u8 tile = i == 16 ? 0x02 : (i == 32 ? 0x01 : 0x00);
         vdp.write_data(tile);
         vdp.write_data(0x00);
     }
@@ -2882,6 +2923,7 @@ int main() {
     test_sg3000_vdp_tms_large_sprite_quadrants_and_zoom();
     test_vdp_name_table_register_masks_low_bit();
     test_vdp_scroll_lock_and_left_blank();
+    test_vdp_horizontal_scroll_moves_background_right();
     test_vdp_left_column_blank_masks_sprites();
     test_vdp_right_column_vertical_scroll_lock();
     test_vdp_right_column_vertical_scroll_lock_uses_screen_column();
