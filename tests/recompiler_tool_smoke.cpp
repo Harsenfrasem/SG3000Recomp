@@ -180,6 +180,10 @@ int main() {
     const std::filesystem::path xy_generated_path = output_dir / "xy_generated.cpp";
     const std::filesystem::path xy_harness_path = output_dir / "xy_harness.cpp";
     const std::filesystem::path xy_executable_path = output_dir / "xy_generated_test.exe";
+    const std::filesystem::path branch_rom_path = output_dir / "branch_fixture.sms";
+    const std::filesystem::path branch_generated_path = output_dir / "branch_generated.cpp";
+    const std::filesystem::path branch_harness_path = output_dir / "branch_harness.cpp";
+    const std::filesystem::path branch_executable_path = output_dir / "branch_generated_test.exe";
 
     const std::vector<unsigned char> rom = {
         0x31, 0x00, 0xC1,       // ld sp,$c100
@@ -314,6 +318,35 @@ int main() {
         "}\n");
     compile_generated_executable(xy_generated_path, xy_harness_path, xy_executable_path);
     assert(run_command(quote(xy_executable_path)) == 0);
+
+    write_binary(branch_rom_path, {
+        0x3E, 0x00,             // $0000: ld a,$00
+        0xFE, 0x00,             // $0002: cp $00 (Z set)
+        0xC4, 0x10, 0x00,       // $0004: call nz,$0010 (not taken)
+        0xCC, 0x10, 0x00,       // $0007: call z,$0010 (taken)
+        0x76,                   // $000a: halt
+        0x00, 0x00, 0x00, 0x00, 0x00,
+        0xC9,                   // $0010: ret
+    });
+    const std::string branch_generate_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(branch_rom_path)
+        + " -o " + quote(branch_generated_path);
+    assert(run_command(branch_generate_command) == 0);
+    write_text(branch_harness_path,
+        "#include \"sgrecomp/console.h\"\n"
+        "extern \"C\" void sgrecomp_load_rom(sgrecomp::Bus&);\n"
+        "extern \"C\" void sgrecomp_run_instruction(sgrecomp::Z80State&, sgrecomp::Bus&);\n"
+        "int main() {\n"
+        "  sgrecomp::Console console(sgrecomp::ConsoleModel::SMS);\n"
+        "  sgrecomp_load_rom(console.bus());\n"
+        "  for (int i = 0; i < 8 && !console.cpu().halted; ++i)\n"
+        "    sgrecomp_run_instruction(console.cpu(), console.bus());\n"
+        "  if (!console.cpu().halted || console.cpu().pc != 0x000b || console.cpu().sp != 0xdff0) return 1;\n"
+        "  if (console.cpu().cycles != 55 || console.cpu().r != 6 || (console.cpu().f & 0x40) == 0) return 2;\n"
+        "  sgrecomp_run_instruction(console.cpu(), console.bus());\n"
+        "  return console.cpu().cycles == 59 && console.cpu().r == 7 ? 0 : 3;\n"
+        "}\n");
+    compile_generated_executable(branch_generated_path, branch_harness_path, branch_executable_path);
+    assert(run_command(quote(branch_executable_path)) == 0);
 
     std::vector<unsigned char> header_rom(0x8000, 0x00);
     header_rom[0x0000] = 0x76; // halt

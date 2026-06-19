@@ -36,6 +36,8 @@
 - ED block-I/O flags, including direction-dependent sum, H/C overflow, N from transferred data, X/Y from B, and parity formula
 - Runtime refresh register `R` with bit-7 preservation and M1 counts for CB/ED/DD/FD, indexed-CB, repeated prefixes, and HALT cycles
 - IRQ/NMI acknowledge state: R increment, HALT release, stack return address, IFF transitions, IM1 13-cycle and IM2 19-cycle service
+- Conditional cycle matrix for all eight `RET`/`JP`/`CALL` conditions, all four conditional `JR` forms, `DJNZ`, and final/repeating block instructions
+- Generated executable validation for taken and untaken conditional `CALL`, including PC, SP, cycles, and refresh register state
 - `halt`
 - CB-prefixed `rlc`, `rrc`, `rl`, `rr`, `sla`, `sra`, `sll`, `srl`, `bit`, `res`, `set`
 
@@ -55,4 +57,4 @@
 - Remaining DD/FD rare mirrored semantics and cycle conformance.
 - Remaining interrupt priority edge cases and external trace conformance.
 - Flag parity conformance tests against a known Z80 suite.
-- Cycle-count validation for taken and untaken branches.
+- Remaining per-opcode cycle-count conformance against a known external Z80 suite.

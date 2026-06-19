@@ -186,10 +186,12 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Runtime Z80: registrador R preserva bit 7 e conta M1 em prefixos, cadeias DD/FD e ciclos de HALT.
 - [x] Recompilador direto: contagem M1 do registrador R em base, ED/DD e HALT sem duplicar o fallback, validada no binario gerado.
 - [x] Recompilador direto: atraso de EI promove IFF1/IFF2 antes da instrucao seguinte, inclusive NOP/HALT e fallback.
+- [x] Ciclos condicionais: matriz local cobre `RET`/`JP`/`CALL` nas 8 condicoes, `JR`, `DJNZ` e block repeat/final.
+- [x] Recompilador direto: `CALL` tomado/nao tomado validado no binario gerado com PC, SP, ciclos e registrador R.
 - [x] Interrupts: NMI ligado ao Pause.
 - [ ] Interrupts: prioridades e timing restantes contra trace externo.
 - [ ] Testar todas as flags contra suite externa conhecida de Z80; vetores sinteticos locais cobrem X/Y das familias principais.
-- [ ] Validar cycle counts por opcode e por branch tomado/nao tomado.
+- [ ] Validar cycle counts restantes por opcode contra suite externa conhecida.
 
 ## Memoria e Cartucho
 

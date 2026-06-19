@@ -684,6 +684,92 @@ void test_z80_refresh_register_and_prefix_cycles() {
     }
 }
 
+void test_z80_conditional_and_block_cycle_counts() {
+    const auto flags_for_condition = [](int condition, bool taken) -> u8 {
+        const u8 mask = condition < 2 ? 0x40
+            : condition < 4 ? 0x01
+            : condition < 6 ? 0x04 : 0x80;
+        const bool condition_when_set = (condition & 1) != 0;
+        return taken == condition_when_set ? mask : 0;
+    };
+
+    for (int condition = 0; condition < 8; ++condition) {
+        for (const bool taken : {false, true}) {
+            {
+                const std::array<u8, 1> rom{static_cast<u8>(0xC0 | (condition << 3))};
+                Console console(ConsoleModel::SMS);
+                console.load_rom(rom);
+                console.cpu().f = flags_for_condition(condition, taken);
+                console.cpu().sp = 0xC000;
+                console.bus().write(0xC000, 0x34);
+                console.bus().write(0xC001, 0x12);
+                execute_one(console.cpu(), console.bus());
+                assert(console.cpu().cycles == (taken ? 11 : 5));
+                assert(console.cpu().pc == (taken ? 0x1234 : 0x0001));
+                assert(console.cpu().sp == (taken ? 0xC002 : 0xC000));
+            }
+            {
+                const std::array<u8, 3> rom{static_cast<u8>(0xC2 | (condition << 3)), 0x34, 0x12};
+                Console console(ConsoleModel::SMS);
+                console.load_rom(rom);
+                console.cpu().f = flags_for_condition(condition, taken);
+                execute_one(console.cpu(), console.bus());
+                assert(console.cpu().cycles == 10);
+                assert(console.cpu().pc == (taken ? 0x1234 : 0x0003));
+            }
+            {
+                const std::array<u8, 3> rom{static_cast<u8>(0xC4 | (condition << 3)), 0x34, 0x12};
+                Console console(ConsoleModel::SMS);
+                console.load_rom(rom);
+                console.cpu().f = flags_for_condition(condition, taken);
+                console.cpu().sp = 0xC100;
+                execute_one(console.cpu(), console.bus());
+                assert(console.cpu().cycles == (taken ? 17 : 10));
+                assert(console.cpu().pc == (taken ? 0x1234 : 0x0003));
+                assert(console.cpu().sp == (taken ? 0xC0FE : 0xC100));
+                if (taken) {
+                    assert(console.bus().read(0xC0FE) == 0x03);
+                    assert(console.bus().read(0xC0FF) == 0x00);
+                }
+            }
+        }
+    }
+
+    for (int condition = 0; condition < 4; ++condition) {
+        for (const bool taken : {false, true}) {
+            const std::array<u8, 2> rom{static_cast<u8>(0x20 | (condition << 3)), 0x02};
+            Console console(ConsoleModel::SMS);
+            console.load_rom(rom);
+            console.cpu().f = flags_for_condition(condition, taken);
+            execute_one(console.cpu(), console.bus());
+            assert(console.cpu().cycles == (taken ? 12 : 7));
+            assert(console.cpu().pc == (taken ? 0x0004 : 0x0002));
+        }
+    }
+
+    for (const bool taken : {false, true}) {
+        const std::array<u8, 2> rom{0x10, 0x02}; // djnz +2
+        Console console(ConsoleModel::SMS);
+        console.load_rom(rom);
+        console.cpu().b = taken ? 2 : 1;
+        execute_one(console.cpu(), console.bus());
+        assert(console.cpu().cycles == (taken ? 13 : 8));
+        assert(console.cpu().pc == (taken ? 0x0004 : 0x0002));
+    }
+
+    for (const bool repeats : {false, true}) {
+        const std::array<u8, 2> rom{0xED, 0xB0}; // ldir
+        Console console(ConsoleModel::SMS);
+        console.load_rom(rom);
+        console.cpu().set_hl(0xC000);
+        console.cpu().set_de(0xC010);
+        console.cpu().set_bc(repeats ? 2 : 1);
+        execute_one(console.cpu(), console.bus());
+        assert(console.cpu().cycles == (repeats ? 21 : 16));
+        assert(console.cpu().pc == (repeats ? 0x0000 : 0x0002));
+    }
+}
+
 void test_vdp_line_interrupt_im1() {
     std::vector<u8> rom(0x80, 0x00);
     rom[0x00] = 0x3E; // ld a,$01
@@ -2988,6 +3074,7 @@ int main() {
     test_all_z80_opcode_pages_have_runtime_behavior();
     test_z80_undocumented_xy_flags();
     test_z80_refresh_register_and_prefix_cycles();
+    test_z80_conditional_and_block_cycle_counts();
     test_ed_nibble_rotates();
     test_ed_block_io();
     test_ed_block_io_exact_flags();
