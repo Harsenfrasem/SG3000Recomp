@@ -8,7 +8,7 @@ namespace sgrecomp {
 namespace {
 
 constexpr u32 kMagic = 0x53534753; // SGSS
-constexpr u16 kVersion = 8;
+constexpr u16 kVersion = 9;
 
 class Writer {
 public:
@@ -180,13 +180,20 @@ Z80State read_cpu(Reader& in) {
 void write_metadata(Writer& out, const SaveStateMetadata& metadata) {
     out.u8v(static_cast<u8>(metadata.model == ConsoleModel::SG3000 ? 1 : 0));
     out.stringv(metadata.rom_hash);
+    out.stringv(metadata.bios_hash);
+    out.stringv(metadata.profile_fingerprint);
 }
 
-SaveStateMetadata read_metadata(Reader& in) {
+SaveStateMetadata read_metadata(Reader& in, u16 version) {
     SaveStateMetadata metadata;
     metadata.present = true;
     metadata.model = in.u8v() == 1 ? ConsoleModel::SG3000 : ConsoleModel::SMS;
     metadata.rom_hash = in.stringv();
+    if (version >= 9) {
+        metadata.environment_identity_present = true;
+        metadata.bios_hash = in.stringv();
+        metadata.profile_fingerprint = in.stringv();
+    }
     return metadata;
 }
 
@@ -255,7 +262,7 @@ SaveStateImage read_image(Reader& in) {
 
     SaveStateImage image;
     if (version >= 2) {
-        image.metadata = read_metadata(in);
+        image.metadata = read_metadata(in, version);
     }
 
     ConsoleState state;
@@ -370,6 +377,15 @@ void validate_save_state_metadata(const SaveStateMetadata& actual, const SaveSta
     }
     if (actual.model != expected.model) {
         throw std::runtime_error("save state console model does not match the loaded model");
+    }
+    if (!actual.environment_identity_present) {
+        return;
+    }
+    if (actual.bios_hash != expected.bios_hash) {
+        throw std::runtime_error("save state BIOS hash does not match the loaded BIOS");
+    }
+    if (actual.profile_fingerprint != expected.profile_fingerprint) {
+        throw std::runtime_error("save state profile does not match the loaded profile");
     }
 }
 

@@ -3130,7 +3130,12 @@ void test_console_save_state_round_trip_restores_runtime_state() {
     run_until_halt(console);
     assert(console.bus().read(0xC000) == 0x42);
 
-    const SaveStateMetadata metadata{true, ConsoleModel::SMS, "fnv1a64:test"};
+    SaveStateMetadata metadata;
+    metadata.present = true;
+    metadata.model = ConsoleModel::SMS;
+    metadata.rom_hash = "fnv1a64:test";
+    metadata.bios_hash = "fnv1a64:bios";
+    metadata.profile_fingerprint = "fnv1a64:profile";
     const auto bytes = save_console_state(console, metadata);
     console.bus().write(0xC000, 0x99);
     console.cpu().a = 0x11;
@@ -3150,9 +3155,43 @@ void test_console_save_state_round_trip_restores_runtime_state() {
     assert(restored.vdp.video_mode == VdpVideoMode::SmsMode4);
     const auto image = deserialize_console_state_image(bytes);
     assert(image.metadata.present);
+    assert(image.metadata.environment_identity_present);
     assert(image.metadata.model == ConsoleModel::SMS);
     assert(image.metadata.rom_hash == "fnv1a64:test");
+    assert(image.metadata.bios_hash == "fnv1a64:bios");
+    assert(image.metadata.profile_fingerprint == "fnv1a64:profile");
     validate_save_state_metadata(image.metadata, metadata);
+
+    const auto rejects_metadata = [&](SaveStateMetadata expected) {
+        try {
+            validate_save_state_metadata(image.metadata, expected);
+        } catch (const std::runtime_error&) {
+            return true;
+        }
+        return false;
+    };
+    SaveStateMetadata wrong_bios = metadata;
+    wrong_bios.bios_hash = "fnv1a64:other-bios";
+    assert(rejects_metadata(wrong_bios));
+    SaveStateMetadata wrong_profile = metadata;
+    wrong_profile.profile_fingerprint = "fnv1a64:other-profile";
+    assert(rejects_metadata(wrong_profile));
+
+    std::vector<u8> legacy_v8 = bytes;
+    const std::size_t extended_metadata_offset = 9 + metadata.rom_hash.size();
+    const std::size_t extended_metadata_size = 2 + metadata.bios_hash.size()
+        + 2 + metadata.profile_fingerprint.size();
+    legacy_v8.erase(
+        legacy_v8.begin() + static_cast<std::ptrdiff_t>(extended_metadata_offset),
+        legacy_v8.begin() + static_cast<std::ptrdiff_t>(extended_metadata_offset + extended_metadata_size));
+    legacy_v8[4] = 8;
+    legacy_v8[5] = 0;
+    const auto legacy_image = deserialize_console_state_image(legacy_v8);
+    assert(legacy_image.metadata.present);
+    assert(!legacy_image.metadata.environment_identity_present);
+    assert(legacy_image.metadata.rom_hash == metadata.rom_hash);
+    assert(legacy_image.state.cpu.a == 0x42);
+    validate_save_state_metadata(legacy_image.metadata, wrong_bios);
 }
 
 void test_game_profile_hash_and_parse() {
@@ -3189,6 +3228,14 @@ void test_game_profile_hash_and_parse() {
     assert(profile->audio_sample_rate == 48000);
     assert(profile->has_video_standard);
     assert(profile->video_standard == HostVideoStandard::Pal);
+    const std::string profile_fingerprint = game_profile_fingerprint(*profile);
+    assert(profile_fingerprint.rfind("fnv1a64:", 0) == 0);
+    GameProfile renamed_profile = *profile;
+    renamed_profile.name = "renamed local test";
+    assert(game_profile_fingerprint(renamed_profile) == profile_fingerprint);
+    GameProfile changed_profile = *profile;
+    changed_profile.audio_sample_rate = 44100;
+    assert(game_profile_fingerprint(changed_profile) != profile_fingerprint);
     const auto host_config = host_runtime_config_for_video_standard(profile->video_standard);
     assert(host_config.scanlines_per_frame == 313);
 

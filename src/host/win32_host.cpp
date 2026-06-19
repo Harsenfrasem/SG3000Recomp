@@ -1200,10 +1200,12 @@ int run(int argc, char** argv) {
         std::cout << "warning: cartridge header identifies a Game Gear image; SMS host support is not expected to be faithful yet\n";
     }
     std::string profile_name;
+    std::string profile_fingerprint;
     if (!opts.profile.empty()) {
         const auto profiles = GameProfileDatabase::load(opts.profile);
         if (const GameProfile* profile = profiles.find_by_hash(rom_hash)) {
             profile_name = profile->name.empty() ? profile->hash : profile->name;
+            profile_fingerprint = game_profile_fingerprint(*profile);
             if (profile->has_model) {
                 opts.model = profile->model;
             }
@@ -1249,7 +1251,12 @@ int run(int argc, char** argv) {
     if (!opts.load_sram.empty()) {
         app.host->console().bus().load_cartridge_ram(read_file(opts.load_sram));
     }
-    const SaveStateMetadata expected_state_metadata{true, opts.model, rom_hash};
+    SaveStateMetadata expected_state_metadata;
+    expected_state_metadata.present = true;
+    expected_state_metadata.model = opts.model;
+    expected_state_metadata.rom_hash = rom_hash;
+    expected_state_metadata.bios_hash = bios ? rom_hash_fnv1a64(*bios) : std::string{};
+    expected_state_metadata.profile_fingerprint = profile_fingerprint;
     app.state_metadata = expected_state_metadata;
     if (!opts.load_state.empty()) {
         const auto state_bytes = read_file(opts.load_state);

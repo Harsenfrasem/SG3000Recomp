@@ -39,7 +39,9 @@ No fluxo gráfico, a SRAM é carregada automaticamente ao abrir a ROM e salva ao
 O modo de execução, overlay, melhorias de vídeo, mute e volume ficam em `settings.ini`, diretamente
 na pasta `SG3000Recomp`. O arquivo contém apenas opções; caminhos de ROM e BIOS não são salvos.
 
-O quick-load valida modelo e hash antes de restaurar o estado. Esses arquivos não guardam nem expõem o caminho da ROM.
+O quick-load valida modelo, ROM, BIOS e configuração de perfil antes de restaurar estados
+novos. Estados antigos continuam legíveis com a identidade disponível em sua versão.
+Esses arquivos não guardam nem expõem caminhos locais.
 
 Usuários avançados ainda podem iniciar o mesmo executável pelo terminal com ROM, BIOS, mapper, perfil, saves e enhancements explícitos.
 

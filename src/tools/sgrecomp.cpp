@@ -1540,7 +1540,11 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
     if (!opts.load_sram.empty()) {
         bus.load_cartridge_ram(read_file(opts.load_sram));
     }
-    const SaveStateMetadata expected_state_metadata{true, model, rom_hash_fnv1a64(rom)};
+    SaveStateMetadata expected_state_metadata;
+    expected_state_metadata.present = true;
+    expected_state_metadata.model = model;
+    expected_state_metadata.rom_hash = rom_hash_fnv1a64(rom);
+    expected_state_metadata.bios_hash = bios != nullptr ? rom_hash_fnv1a64(*bios) : std::string{};
     if (!opts.load_state.empty()) {
         const SaveStateImage image = deserialize_console_state_image(read_file(opts.load_state));
         if (!opts.force_state) {
@@ -1759,7 +1763,11 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
     if (!opts.load_sram.empty()) {
         host.console().bus().load_cartridge_ram(read_file(opts.load_sram));
     }
-    const SaveStateMetadata expected_state_metadata{true, model, rom_hash_fnv1a64(rom)};
+    SaveStateMetadata expected_state_metadata;
+    expected_state_metadata.present = true;
+    expected_state_metadata.model = model;
+    expected_state_metadata.rom_hash = rom_hash_fnv1a64(rom);
+    expected_state_metadata.bios_hash = bios != nullptr ? rom_hash_fnv1a64(*bios) : std::string{};
     if (!opts.load_state.empty()) {
         const auto state_bytes = read_file(opts.load_state);
         if (!opts.force_state) {

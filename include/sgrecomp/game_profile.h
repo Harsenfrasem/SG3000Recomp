@@ -43,5 +43,6 @@ private:
 };
 
 std::string rom_hash_fnv1a64(std::span<const u8> rom);
+std::string game_profile_fingerprint(const GameProfile& profile);
 
 } // namespace sgrecomp

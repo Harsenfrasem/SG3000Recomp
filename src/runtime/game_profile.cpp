@@ -102,6 +102,24 @@ std::string rom_hash_fnv1a64(std::span<const u8> rom) {
     return out.str();
 }
 
+std::string game_profile_fingerprint(const GameProfile& profile) {
+    std::ostringstream canonical;
+    canonical << "hash=" << profile.hash
+              << ";model=" << profile.has_model << ':' << static_cast<int>(profile.model)
+              << ";mapper=" << profile.has_mapper << ':' << static_cast<int>(profile.mapper)
+              << ";enhancements=" << profile.has_enhancements
+              << ':' << static_cast<int>(profile.enhancements.mode)
+              << ':' << profile.enhancements.disable_sprite_limit
+              << ':' << profile.enhancements.reduce_flicker
+              << ':' << profile.enhancements.enable_fm
+              << ";audio_latency=" << profile.has_audio_latency_ms << ':' << profile.audio_latency_ms
+              << ";audio_rate=" << profile.has_audio_sample_rate << ':' << profile.audio_sample_rate
+              << ";video_standard=" << profile.has_video_standard << ':' << static_cast<int>(profile.video_standard);
+    const std::string text = canonical.str();
+    return rom_hash_fnv1a64(std::span<const u8>(
+        reinterpret_cast<const u8*>(text.data()), text.size()));
+}
+
 GameProfileDatabase GameProfileDatabase::parse(std::string_view text) {
     GameProfileDatabase database;
     GameProfile current;

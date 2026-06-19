@@ -13,6 +13,9 @@ struct SaveStateMetadata {
     bool present = false;
     ConsoleModel model = ConsoleModel::SMS;
     std::string rom_hash;
+    bool environment_identity_present = false;
+    std::string bios_hash;
+    std::string profile_fingerprint;
 };
 
 struct SaveStateImage {

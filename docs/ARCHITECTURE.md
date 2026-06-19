@@ -24,6 +24,12 @@ With a local BIOS loaded, its overlay is active before cartridge execution. A me
 
 Automatic mapper selection starts from the size-based default and locks after the first recognized hardware-register family. Canonical Sega writes at `$fffc-$ffff` therefore prevent later incidental ROM-space writes from reclassifying the cartridge as Codemasters, Korean, or 8 KiB Korean hardware. Save-state version 8 persists this lock; older states derive it conservatively from their recorded mapper/register state.
 
+Save-state version 9 adds hashes for the active BIOS and matched profile configuration.
+New states therefore reject a load when ROM, model, BIOS presence/content, or effective
+profile settings differ. No local path is serialized. States from versions 1 through 8
+remain readable; because those formats did not record BIOS/profile identity, validation
+falls back to the model and ROM hash information available in the older file.
+
 ## Pipeline
 
 ```text

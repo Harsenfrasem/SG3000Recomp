@@ -306,7 +306,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Save RAM em arquivo local pelo host Win32.
 - [x] Estado serializavel inicial para save states.
 - [x] Save states com versao inicial e validacao de ROM hash/modelo.
-- [ ] Save states com compatibilidade longa, migracoes e validacao de BIOS/perfil.
+- [x] Save states v9 com migracao de v1-v8 e validacao de ROM, modelo, BIOS e perfil.
 - [x] Save state v7 preserva o read buffer do VDP e continua lendo formatos v1-v6.
 - [x] Save state v8 preserva o lock da familia de mapper e continua lendo formatos v1-v7.
 - [x] Debug overlay de PC, FPS, frame, modo runtime e audio.
