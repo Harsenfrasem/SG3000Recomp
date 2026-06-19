@@ -302,6 +302,14 @@ struct AppState {
     u64 fps_window_frames = 0;
 };
 
+struct GraphicalSettings {
+    bool overlay = true;
+    bool reduce_flicker = false;
+    bool disable_sprite_limit = false;
+    bool muted = false;
+    int volume_percent = 100;
+};
+
 enum MenuCommand : UINT {
     MenuFileExit = 1000,
     MenuEmulationPause,
@@ -364,6 +372,66 @@ std::filesystem::path graphical_user_data_root() {
         return std::filesystem::path(value.data()) / L"SG3000Recomp";
     }
     return std::filesystem::temp_directory_path() / L"SG3000Recomp";
+}
+
+bool parse_setting_bool(const std::string& value, bool fallback) {
+    if (value == "1" || value == "true") {
+        return true;
+    }
+    if (value == "0" || value == "false") {
+        return false;
+    }
+    return fallback;
+}
+
+GraphicalSettings load_graphical_settings(const std::filesystem::path& path) {
+    GraphicalSettings settings;
+    std::ifstream file(path);
+    std::string line;
+    while (std::getline(file, line)) {
+        const std::size_t separator = line.find('=');
+        if (separator == std::string::npos) {
+            continue;
+        }
+        const std::string key = line.substr(0, separator);
+        const std::string value = line.substr(separator + 1);
+        if (key == "overlay") {
+            settings.overlay = parse_setting_bool(value, settings.overlay);
+        } else if (key == "reduce_flicker") {
+            settings.reduce_flicker = parse_setting_bool(value, settings.reduce_flicker);
+        } else if (key == "disable_sprite_limit") {
+            settings.disable_sprite_limit = parse_setting_bool(value, settings.disable_sprite_limit);
+        } else if (key == "muted") {
+            settings.muted = parse_setting_bool(value, settings.muted);
+        } else if (key == "volume_percent") {
+            try {
+                settings.volume_percent = std::clamp(std::stoi(value), 0, 100);
+            } catch (const std::exception&) {
+                // Keep the default when a local setting was edited incorrectly.
+            }
+        }
+    }
+    return settings;
+}
+
+void save_graphical_settings(
+    const std::filesystem::path& path,
+    const AppState& app,
+    const GraphicalSettings& previous) {
+    std::filesystem::create_directories(path.parent_path());
+    std::ofstream file(path, std::ios::trunc);
+    if (!file) {
+        throw std::runtime_error("cannot save graphical settings");
+    }
+    const auto& enhancements = app.host->console().enhancements();
+    const bool muted = app.audio ? app.audio->muted() : previous.muted;
+    const int volume = app.audio ? app.audio->volume_percent() : previous.volume_percent;
+    file << "version=1\n"
+         << "overlay=" << (app.overlay_enabled ? 1 : 0) << "\n"
+         << "reduce_flicker=" << (enhancements.reduce_flicker ? 1 : 0) << "\n"
+         << "disable_sprite_limit=" << (enhancements.disable_sprite_limit ? 1 : 0) << "\n"
+         << "muted=" << (muted ? 1 : 0) << "\n"
+         << "volume_percent=" << volume << "\n";
 }
 
 std::string hash_file_stem(std::string hash) {
@@ -1024,6 +1092,17 @@ int run(int argc, char** argv) {
     if (opts.gui_launch && !complete_graphical_launch_options(opts)) {
         return 0;
     }
+    const std::filesystem::path graphical_settings_path = graphical_user_data_root() / L"settings.ini";
+    GraphicalSettings graphical_settings;
+    if (opts.gui_launch) {
+        graphical_settings = load_graphical_settings(graphical_settings_path);
+        opts.overlay = graphical_settings.overlay;
+        opts.enhancements.reduce_flicker = graphical_settings.reduce_flicker;
+        opts.enhancements.disable_sprite_limit = graphical_settings.disable_sprite_limit;
+        if (opts.enhancements.reduce_flicker || opts.enhancements.disable_sprite_limit) {
+            opts.enhancements.mode = RuntimeMode::Enhanced;
+        }
+    }
     auto rom = normalize_rom_payload(read_file(opts.rom));
     const std::string rom_hash = rom_hash_fnv1a64(rom);
     std::filesystem::path graphical_quick_state_path;
@@ -1130,6 +1209,9 @@ int run(int argc, char** argv) {
         if (!app.audio->open(app.host->config().audio_sample_rate, opts.audio_latency_ms)) {
             std::cerr << "sgrecomp_host: audio device unavailable, continuing muted\n";
             app.audio.reset();
+        } else if (opts.gui_launch) {
+            app.audio->set_volume_percent(graphical_settings.volume_percent);
+            app.audio->set_muted(graphical_settings.muted);
         }
     }
 
@@ -1138,6 +1220,13 @@ int run(int argc, char** argv) {
     const std::string window_title = "SG3000Recomp - " + opts.rom.filename().string();
     SetWindowTextA(hwnd, window_title.c_str());
     run_message_loop(hwnd, app);
+    if (opts.gui_launch) {
+        try {
+            save_graphical_settings(graphical_settings_path, app, graphical_settings);
+        } catch (const std::exception& error) {
+            std::cerr << "sgrecomp_host: " << error.what() << "\n";
+        }
+    }
     if (!opts.save_sram.empty()) {
         const auto& sram = app.host->console().bus().debug_cartridge_ram();
         write_binary_file(opts.save_sram, std::span<const u8>(sram.data(), sram.size()));
