@@ -15,6 +15,7 @@ This document records the current minimum-playability gate so work can resume af
 - Reloading the final gameplay state reproduced both the serialized state and framebuffer byte-for-byte. The selected title did not enable cartridge RAM, so an SRAM-specific gameplay round-trip is not applicable to this validation.
 - Accurate and `reduce_flicker` runs from the same gameplay state and input were compared for 1,200 frames. Both remained stable, and the enhanced path produced a distinct framebuffer in every compared frame.
 - Mapper-family locking fixed another private image whose valid Sega paging sequence was previously overridden by a later incidental write; `auto` now matches explicit SMapper output frame-for-frame and reaches a correct title screen with audio.
+- Three images initially classified as static after a 300-frame splash baseline reached active gameplay under a longer 1,200-frame deterministic input probe. All three produced non-zero audio and remained exception-free, bringing the current private gameplay reachability count to four images.
 
 ## Minimum Playability Gate
 
@@ -31,7 +32,7 @@ Do not call a title playable until all items below are demonstrated together:
 
 ## Next Diagnostic Order
 
-1. Repeat the deterministic gameplay gate on additional private images and permitted homebrew fixtures.
+1. Extend the three new gameplay probes into longer stability/save-state/enhancement comparisons.
 2. Use replay diagnostics to isolate titles that remain static, silent, or blocked before gameplay.
 3. Fix mapper/VDP differences only from reproducible traces, then add synthetic regressions.
 4. Validate SRAM round-trips on a title that actually enables cartridge RAM.

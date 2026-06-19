@@ -21,7 +21,7 @@ This repository is intentionally not a clone of any existing recompilation proje
 
 Full compatibility requires completing external Z80 conformance, mapper variants, remaining VDP edge cases, faithful FM synthesis, timing validation, and ROM database heuristics.
 
-The runtime now reaches active gameplay in a deterministic private regression and completed a five-minute NTSC session with continuous audio, save-state round-trip, and accurate/enhanced comparison. This is a single-title playability milestone, not a blanket compatibility claim. The evidence and remaining expansion gates are tracked in `docs/PLAYABLE_STATUS.md`.
+The runtime now reaches active gameplay in four deterministic private regressions. One completed a five-minute NTSC session with continuous audio, save-state round-trip, and accurate/enhanced comparison; the other three completed shorter 1,200-frame gameplay probes with audio. This is a compatibility milestone, not a blanket compatibility claim. The evidence and remaining expansion gates are tracked in `docs/PLAYABLE_STATUS.md`.
 
 ## Build
 

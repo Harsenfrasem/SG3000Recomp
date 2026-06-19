@@ -20,6 +20,7 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Corrigir inicializacao de RAM para permitir boot de software que le estado antes da limpeza explicita.
 - [x] Corrigir pattern table de background Mode 4 para `0x0000`, ignorando R4 nesse caminho.
 - [x] Validacao privada local produz telas/titulos reconheciveis em multiplas imagens sem versionar artefatos.
+- [x] Replay deterministico alcanca gameplay em quatro imagens privadas; uma possui gate completo de cinco minutos.
 - [x] Host Win32 possui video, teclado, Pause/NMI, audio e toggles de enhancement por CLI/perfil.
 - [x] Script headless de input por frame para automatizar entrada em gameplay.
 - [x] Validar uma sessao jogavel privada de cinco minutos com input, audio e enhancement, sem versionar artefatos proprietarios.
