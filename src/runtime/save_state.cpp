@@ -8,7 +8,7 @@ namespace sgrecomp {
 namespace {
 
 constexpr u32 kMagic = 0x53534753; // SGSS
-constexpr u16 kVersion = 6;
+constexpr u16 kVersion = 7;
 
 class Writer {
 public:
@@ -226,6 +226,7 @@ void write_state(Writer& out, const ConsoleState& state, const SaveStateMetadata
     out.i32v(state.vdp.timing.cpu_cycles_per_scanline);
     out.i32v(state.vdp.timing.scanlines_per_frame);
     out.u8v(static_cast<u8>(state.vdp.video_mode));
+    out.u8v(state.vdp.read_buffer);
     out.array_bytes(state.psg.tone);
     out.array_bytes(state.psg.volume);
     out.array_bytes(state.psg.counters);
@@ -247,7 +248,7 @@ SaveStateImage read_image(Reader& in) {
         throw std::runtime_error("not an SG3000Recomp save state");
     }
     const u16 version = in.u16v();
-    if (version != 1 && version != 2 && version != 3 && version != 4 && version != 5 && version != kVersion) {
+    if (version < 1 || version > kVersion) {
         throw std::runtime_error("unsupported save state version");
     }
 
@@ -296,6 +297,9 @@ SaveStateImage read_image(Reader& in) {
     }
     if (version >= 6) {
         state.vdp.video_mode = static_cast<VdpVideoMode>(in.u8v());
+    }
+    if (version >= 7) {
+        state.vdp.read_buffer = in.u8v();
     }
     in.array_bytes(state.psg.tone);
     in.array_bytes(state.psg.volume);

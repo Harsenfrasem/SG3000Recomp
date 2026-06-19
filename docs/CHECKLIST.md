@@ -223,6 +223,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 ## VDP
 
 - [x] VRAM, CRAM, registradores e portas iniciais.
+- [x] Leitura VRAM bufferizada: command prefetch, incremento/wrap de endereco e latch persistido no save state v7.
 - [x] TMS9918/SG-3000 Graphics I inicial: background tilemap 1bpp, color table e paleta TMS.
 - [x] TMS9918/SG-3000 sprites iniciais: SAT, pattern table, cor, sentinel, overflow/collision basicos.
 - [x] TMS9918/SG-3000 sprites 16x16 compostos por quatro patterns e zoom 32x32.
@@ -293,6 +294,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Estado serializavel inicial para save states.
 - [x] Save states com versao inicial e validacao de ROM hash/modelo.
 - [ ] Save states com compatibilidade longa, migracoes e validacao de BIOS/perfil.
+- [x] Save state v7 preserva o read buffer do VDP e continua lendo formatos v1-v6.
 - [x] Debug overlay de PC, FPS, frame, modo runtime e audio.
 - [x] Debug overlay com estado de pausa, volume e latencia.
 - [x] Debug overlay com timing de scanline/frame do VDP.

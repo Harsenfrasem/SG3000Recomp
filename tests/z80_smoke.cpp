@@ -737,6 +737,49 @@ void test_vdp_data_port_clears_pending_control_latch() {
     assert(vdp.debug_registers()[2] == 0x00);
 }
 
+void test_vdp_buffered_vram_reads_and_state_round_trip() {
+    Vdp vdp;
+    vdp.write_control(0x34);
+    vdp.write_control(0x52); // VRAM write at $1234
+    vdp.write_data(0xAA);
+    vdp.write_data(0xBB);
+
+    vdp.write_control(0x34);
+    vdp.write_control(0x12); // VRAM read command prefetches $1234
+    VdpState prefetched = vdp.save_state();
+    assert(prefetched.address == 0x1235);
+    assert(prefetched.read_buffer == 0xAA);
+    assert(vdp.read_data() == 0xAA);
+    VdpState after_first = vdp.save_state();
+    assert(after_first.address == 0x1236);
+    assert(after_first.read_buffer == 0xBB);
+    assert(vdp.read_data() == 0xBB);
+
+    Vdp wrapped;
+    wrapped.write_control(0xFF);
+    wrapped.write_control(0x7F); // VRAM write at $3fff
+    wrapped.write_data(0x5A);
+    wrapped.write_data(0xA5); // wraps to $0000
+    wrapped.write_control(0xFF);
+    wrapped.write_control(0x3F); // read command at $3fff, address wraps immediately
+    assert(wrapped.save_state().address == 0x0000);
+    assert(wrapped.read_data() == 0x5A);
+    assert(wrapped.read_data() == 0xA5);
+
+    Console source(ConsoleModel::SMS);
+    source.vdp().write_control(0x00);
+    source.vdp().write_control(0x50); // VRAM write at $1000
+    source.vdp().write_data(0x3C);
+    source.vdp().write_control(0x00);
+    source.vdp().write_control(0x10); // prefetch $1000
+    const auto bytes = serialize_console_state(source.save_state());
+    const ConsoleState decoded = deserialize_console_state(bytes);
+    Vdp restored;
+    restored.load_state(decoded.vdp);
+    assert(restored.save_state().address == 0x1001);
+    assert(restored.read_data() == 0x3C);
+}
+
 void test_vdp_line_irq_is_not_status_overflow_bit() {
     Vdp vdp;
     vdp.write_control(0x10);
@@ -2952,6 +2995,7 @@ int main() {
     test_vblank_interrupt_im1();
     test_vdp_line_interrupt_im1();
     test_vdp_data_port_clears_pending_control_latch();
+    test_vdp_buffered_vram_reads_and_state_round_trip();
     test_vdp_line_irq_is_not_status_overflow_bit();
     test_vdp_sprite_overflow_status_does_not_raise_line_irq();
     test_pause_triggers_nmi();

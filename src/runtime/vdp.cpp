@@ -26,7 +26,8 @@ constexpr u32 kTmsPalette[16] = {
 } // namespace
 
 u8 Vdp::read_data() {
-    const u8 value = vram_[address_ & 0x3FFF];
+    const u8 value = read_buffer_;
+    read_buffer_ = vram_[address_ & 0x3FFF];
     address_ = static_cast<u16>((address_ + 1) & 0x3FFF);
     pending_control_ = false;
     return value;
@@ -79,6 +80,10 @@ void Vdp::write_control(u8 value) {
     const u8 code = static_cast<u8>((value >> 6) & 0x03);
     code_ = code;
     address_ = static_cast<u16>(((value & 0x3F) << 8) | latch_);
+    if (code == 0) {
+        read_buffer_ = vram_[address_ & 0x3FFF];
+        address_ = static_cast<u16>((address_ + 1) & 0x3FFF);
+    }
     if (code == 2) {
         const u8 reg = static_cast<u8>(value & 0x0F);
         registers_[reg] = latch_;
@@ -634,6 +639,7 @@ VdpState Vdp::save_state() const {
         line_irq_pending_,
         timing_,
         video_mode_,
+        read_buffer_,
     };
 }
 
@@ -655,6 +661,7 @@ void Vdp::load_state(const VdpState& state) {
     line_irq_pending_ = state.line_irq_pending;
     set_timing(state.timing);
     video_mode_ = state.video_mode;
+    read_buffer_ = state.read_buffer;
 }
 
 void Vdp::log_access(VdpAccessKind kind, u16 address, u8 value) {

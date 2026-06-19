@@ -115,6 +115,7 @@ private:
     u16 address_ = 0;
     u8 latch_ = 0;
     u8 code_ = 0;
+    u8 read_buffer_ = 0;
     bool pending_control_ = false;
     u8 status_ = 0;
     int scanline_cycles_ = 0;
@@ -171,6 +172,7 @@ struct VdpState {
     bool line_irq_pending = false;
     VdpTimingConfig timing{};
     VdpVideoMode video_mode = VdpVideoMode::SmsMode4;
+    u8 read_buffer = 0;
 };
 
 } // namespace sgrecomp

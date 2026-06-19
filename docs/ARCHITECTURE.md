@@ -16,6 +16,8 @@ Mode 4 horizontal scroll treats register 8 as a rightward screen displacement: t
 
 In the active 192-line Mode 4 path, vertical scroll wraps over the 32x28 name-table surface at 224 pixels. Rows 28–31 are not pulled into the visible wrap; right-column vertical lock samples the unscrolled destination line within the same 224-pixel period.
 
+VRAM reads use the VDP read buffer. A code-0 control command prefetches the addressed byte and advances the 14-bit address; each data-port read returns the buffered byte, prefetches the next byte, and advances with `$3fff` wrap. Save-state version 7 stores this buffer while older state versions load it as zero.
+
 ## Pipeline
 
 ```text
