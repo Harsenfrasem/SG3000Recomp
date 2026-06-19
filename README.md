@@ -34,6 +34,8 @@ cmake --build --preset zig-debug
 ctest --preset zig-debug
 ```
 
+For the simplest Windows test, double-click `build\zig-debug\SG3000Recomp.exe`, choose a local ROM, and optionally choose a BIOS. No terminal command is required. `sgrecomp_host.exe` remains the equivalent technical/CLI name. See `docs/GUI.md` for controls and current limits.
+
 If your Visual Studio C++ tools are registered with CMake, this preset is also available:
 
 ```powershell
@@ -107,7 +109,7 @@ Save states are local binary snapshots of mutable runtime state. They do not emb
 
 The current save-state format is version 8. It persists the automatic mapper-family lock in addition to the VDP VRAM read buffer introduced in version 7, and remains able to read versions 1 through 7.
 
-`--run-host` uses the headless host runtime path. It advances full frames, samples audio at the configured host rate, applies joypad state through the runtime API, and exposes the latest framebuffer for a future window backend. `HostRuntimeConfig` now drives the VDP scanline/frame timing used by the host loop; pass `--video-standard ntsc|pal` or set `video_standard = "pal"` in a local profile to switch frame timing without storing ROM paths. Use `--audio-sample-rate hz` or `audio_sample_rate = 48000` in a local profile to change host audio output rate.
+`--run-host` uses the headless host runtime path. It advances full frames, samples audio at the configured host rate, applies joypad state through the runtime API, and exposes the latest framebuffer. `HostRuntimeConfig` drives the VDP scanline/frame timing used by the host loop; pass `--video-standard ntsc|pal` or set `video_standard = "pal"` in a local profile to switch frame timing without storing ROM paths. Use `--audio-sample-rate hz` or `audio_sample_rate = 48000` in a local profile to change host audio output rate.
 
 `--input-script` applies deterministic player and Pause state at frame boundaries. See `docs/INPUT_SCRIPT.md` for the CSV format. The `--run-host` replay path can combine that input with frame/audio dumps, VGM/FM capture, filtered I/O and memory/VDP logs, and final VRAM/CRAM/tilemap/sprite dumps so an interactive transition can be diagnosed without switching to a different execution path.
 

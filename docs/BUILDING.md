@@ -21,6 +21,8 @@ cmake --build --preset zig-debug
 ctest --preset zig-debug
 ```
 
+Após a build no Windows, `build\zig-debug\SG3000Recomp.exe` pode ser aberto diretamente. Sem argumentos, ele apresenta seletores gráficos para ROM e BIOS opcional. `sgrecomp_host.exe` é a cópia com nome técnico e mantém a interface avançada de linha de comando.
+
 This uses:
 
 - `cmake` from the Python user scripts directory.
@@ -43,6 +45,8 @@ If that fails with “generator could not find Visual Studio”, open the Visual
 
 - `sgrecomp_runtime`: static runtime library.
 - `sgrecomp`: ROM analysis and C++ generation CLI.
+- `SG3000Recomp.exe`: executável amigável para duplo clique, seleção de ROM/BIOS e jogo.
+- `sgrecomp_host`: nome técnico equivalente do host Win32 para scripts e opções avançadas.
 - `sgrecomp_tests`: runtime smoke tests.
 
 ## ROM Diagnostics

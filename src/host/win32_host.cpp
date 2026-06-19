@@ -8,6 +8,7 @@
 #include "sgrecomp/save_state.h"
 
 #include <windows.h>
+#include <commdlg.h>
 #include <mmsystem.h>
 
 #include <algorithm>
@@ -54,6 +55,7 @@ struct Options {
     int audio_latency_ms = 80;
     u32 audio_sample_rate = 44100;
     std::size_t quit_after_frames = 0;
+    bool gui_launch = false;
 };
 
 class Win32Audio {
@@ -342,7 +344,8 @@ void write_binary_file(const std::filesystem::path& path, std::span<const u8> by
 }
 
 void print_usage() {
-    std::cout << "usage: sgrecomp_host <rom.sms|rom.sg> [--bios bios.sms] [--model sms|sg3000] [--mapper auto|plain|smapper|cmapper|kmapper|k8k]\n"
+    std::cout << "usage: sgrecomp_host                         (open graphical ROM/BIOS selectors)\n"
+              << "       sgrecomp_host <rom.sms|rom.sg> [--bios bios.sms] [--model sms|sg3000] [--mapper auto|plain|smapper|cmapper|kmapper|k8k]\n"
               << "                    [--video-standard ntsc|pal]\n"
               << "                    [--scale n] [--mute] [--no-overlay] [--audio-latency-ms n] [--audio-sample-rate hz]\n"
               << "                    [--load-sram save.sav] [--save-sram save.sav]\n"
@@ -355,6 +358,7 @@ void print_usage() {
 
 Options parse_args(int argc, char** argv) {
     Options opts;
+    opts.gui_launch = argc == 1;
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
         if (arg == "-h" || arg == "--help") {
@@ -456,10 +460,64 @@ Options parse_args(int argc, char** argv) {
         }
         throw std::runtime_error("unexpected argument: " + arg);
     }
-    if (opts.rom.empty()) {
+    if (opts.rom.empty() && !opts.gui_launch) {
         throw std::runtime_error("missing input ROM");
     }
     return opts;
+}
+
+std::optional<std::filesystem::path> choose_local_file(
+    const wchar_t* title,
+    const wchar_t* filter) {
+    std::array<wchar_t, 32768> path{};
+    OPENFILENAMEW dialog{};
+    dialog.lStructSize = sizeof(dialog);
+    dialog.lpstrFile = path.data();
+    dialog.nMaxFile = static_cast<DWORD>(path.size());
+    dialog.lpstrTitle = title;
+    dialog.lpstrFilter = filter;
+    dialog.nFilterIndex = 1;
+    dialog.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+    if (GetOpenFileNameW(&dialog)) {
+        return std::filesystem::path(path.data());
+    }
+    const DWORD error = CommDlgExtendedError();
+    if (error != 0) {
+        throw std::runtime_error("the Windows file selector failed");
+    }
+    return std::nullopt;
+}
+
+bool complete_graphical_launch_options(Options& opts) {
+    static constexpr wchar_t rom_filter[] =
+        L"ROMs Sega (*.sms;*.sg;*.bin;*.rom)\0*.sms;*.sg;*.bin;*.rom\0"
+        L"Todos os arquivos (*.*)\0*.*\0\0";
+    static constexpr wchar_t bios_filter[] =
+        L"BIOS Sega (*.sms;*.bin;*.rom)\0*.sms;*.bin;*.rom\0"
+        L"Todos os arquivos (*.*)\0*.*\0\0";
+
+    const auto rom = choose_local_file(L"Selecione a ROM para jogar", rom_filter);
+    if (!rom) {
+        return false;
+    }
+    opts.rom = *rom;
+
+    const int bios_choice = MessageBoxW(
+        nullptr,
+        L"Deseja selecionar uma BIOS?\n\nSim: escolher BIOS local\nNão: iniciar diretamente pelo cartucho",
+        L"SG3000Recomp - BIOS opcional",
+        MB_ICONQUESTION | MB_YESNOCANCEL);
+    if (bios_choice == IDCANCEL) {
+        return false;
+    }
+    if (bios_choice == IDYES) {
+        const auto bios = choose_local_file(L"Selecione a BIOS", bios_filter);
+        if (!bios) {
+            return false;
+        }
+        opts.bios = *bios;
+    }
+    return true;
 }
 
 u8 button_for_key(WPARAM key) {
@@ -793,6 +851,9 @@ void run_message_loop(HWND hwnd, AppState& app) {
 
 int run(int argc, char** argv) {
     Options opts = parse_args(argc, argv);
+    if (opts.gui_launch && !complete_graphical_launch_options(opts)) {
+        return 0;
+    }
     auto rom = normalize_rom_payload(read_file(opts.rom));
     const std::string rom_hash = rom_hash_fnv1a64(rom);
     const CartridgeHeaderInfo header = analyze_cartridge_header(rom);
@@ -890,6 +951,8 @@ int run(int argc, char** argv) {
 
     HINSTANCE instance = GetModuleHandle(nullptr);
     HWND hwnd = create_main_window(instance, app, opts.scale);
+    const std::string window_title = "SG3000Recomp - " + opts.rom.filename().string();
+    SetWindowTextA(hwnd, window_title.c_str());
     run_message_loop(hwnd, app);
     if (!opts.save_sram.empty()) {
         const auto& sram = app.host->console().bus().debug_cartridge_ram();

@@ -95,8 +95,8 @@ Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
 
 ### 6. GUI amigavel para usuario final
 
-- [ ] Criar GUI apos o host runtime com janela/audio estar estavel.
-- [ ] Seletor de ROM e BIOS locais sem copiar, versionar ou expor caminhos privados.
+- [x] GUI inicial disponivel apos estabilizacao do host runtime com janela/audio.
+- [x] Duplo clique no host abre seletores nativos de ROM e BIOS opcional sem copiar ou versionar arquivos.
 - [ ] Biblioteca local de jogos por hash/header, com apelidos configurados pelo usuario.
 - [ ] Tela de configuracao simples para modo fiel/enhanced e toggles de enhancements.
 - [ ] Gerenciamento de saves, screenshots, audio dumps e pastas locais ignoradas pelo Git.
@@ -107,7 +107,7 @@ Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
 ### 7. Engenharia reversa e enhanced ports por jogo
 
 - [x] Roadmap de engenharia reversa por hash em `docs/ENHANCED_PORT_ROADMAP.md`.
-- [ ] Inventario local privado por hash, fora do Git.
+- [x] Inventario local privado por hash, fora do Git.
 - [x] Log CSV de I/O por porta no smoke runner.
 - [x] Log CSV de writes RAM/cart/mapper no smoke runner.
 - [x] Log CSV de writes VRAM/CRAM/registradores VDP no smoke runner.
@@ -316,8 +316,8 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 
 ## GUI
 
-- [ ] Escolher toolkit GUI depois do backend de janela inicial.
-- [ ] Tela inicial com abrir ROM, escolher BIOS local opcional e iniciar.
+- [x] GUI inicial usa componentes Win32 nativos junto ao backend existente.
+- [x] Fluxo inicial abre ROM, permite BIOS local opcional e inicia o jogo sem terminal.
 - [ ] Persistir configuracoes em arquivo local ignoravel, sem caminhos sensiveis no repositorio.
 - [ ] Controles visuais para enhancements opcionais.
 - [ ] Lista de jogos recentes usando somente dados locais do usuario.

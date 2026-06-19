@@ -78,7 +78,14 @@ if(SGRECOMP_BUILD_HOST AND WIN32)
         src/host/win32_host.cpp
     )
 
-    target_link_libraries(sgrecomp_host PRIVATE sgrecomp_runtime user32 gdi32 winmm)
+    target_link_libraries(sgrecomp_host PRIVATE sgrecomp_runtime user32 gdi32 winmm comdlg32)
+
+    add_custom_command(TARGET sgrecomp_host POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "$<TARGET_FILE:sgrecomp_host>"
+            "$<TARGET_FILE_DIR:sgrecomp_host>/SG3000Recomp.exe"
+        COMMENT "Creating user-facing SG3000Recomp.exe"
+    )
 
     if(MSVC)
         target_compile_options(sgrecomp_host PRIVATE /W4 /permissive-)
@@ -176,6 +183,10 @@ endif()
 
 if(TARGET sgrecomp_host)
     install(TARGETS sgrecomp_host RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+    install(FILES "$<TARGET_FILE:sgrecomp_host>"
+        TYPE BIN
+        RENAME SG3000Recomp.exe
+    )
 endif()
 
 install(DIRECTORY include/ DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
