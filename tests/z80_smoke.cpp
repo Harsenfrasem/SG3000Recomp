@@ -1261,6 +1261,50 @@ void test_vdp_right_column_vertical_scroll_lock() {
     assert(vdp.framebuffer()[24 * 8] == 0xFF00FF00);
 }
 
+void test_vdp_vertical_scroll_wraps_at_224_pixels() {
+    Vdp vdp;
+    vdp.write_control(0x40);
+    vdp.write_control(0x81); // display enabled
+    vdp.write_control(0x0E);
+    vdp.write_control(0x82); // name table at $3800
+    vdp.write_control(0x28);
+    vdp.write_control(0x89); // line 191 samples source line 7 after 224 wrap
+
+    vdp.write_control(0x01);
+    vdp.write_control(0xC0);
+    vdp.write_data(0x03); // red
+    vdp.write_control(0x02);
+    vdp.write_control(0xC0);
+    vdp.write_data(0x0C); // green
+
+    vdp.write_control(0x3C);
+    vdp.write_control(0x40); // tile 1, row 7: red first pixel
+    vdp.write_data(0x80);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+    vdp.write_control(0x5C);
+    vdp.write_control(0x40); // tile 2, row 7: green first pixel
+    vdp.write_data(0x00);
+    vdp.write_data(0x80);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x78);
+    for (int row = 0; row < 32; ++row) {
+        for (int column = 0; column < 32; ++column) {
+            const u8 tile = row == 0 && column == 0 ? 0x01
+                : (row == 28 && column == 0 ? 0x02 : 0x00);
+            vdp.write_data(tile);
+            vdp.write_data(0x00);
+        }
+    }
+
+    vdp.tick(228 * 192);
+    assert(vdp.framebuffer()[191 * Vdp::width] == 0xFFFF0000);
+}
+
 void test_vdp_right_column_vertical_scroll_lock_uses_screen_column() {
     Vdp vdp;
     vdp.write_control(0x80);
@@ -2926,6 +2970,7 @@ int main() {
     test_vdp_horizontal_scroll_moves_background_right();
     test_vdp_left_column_blank_masks_sprites();
     test_vdp_right_column_vertical_scroll_lock();
+    test_vdp_vertical_scroll_wraps_at_224_pixels();
     test_vdp_right_column_vertical_scroll_lock_uses_screen_column();
     test_vdp_basic_sprite_pixel();
     test_vdp_sprite_shift_and_zoom();

@@ -231,6 +231,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [ ] SMS Mode 4 tile renderer completo.
 - [x] Mode 4: hscroll/vscroll basicos, lock de topo, lock de direita por coluna de tela e coluna esquerda em branco.
 - [x] Mode 4: sentido de R8 validado com wrap; origem usa `x - R8` e desloca o background para a direita.
+- [x] Mode 4: scroll vertical em tela 192 linhas envolve na name table 32x28, a cada 224 pixels.
 - [x] Mode 4: backdrop por registrador 7, mask de name table e blanking aplicado tambem sobre sprites.
 - [x] Sprites 8x8 iniciais com transparencia.
 - [x] Sprites: deslocamento horizontal, zoom inicial e wrap vertical.

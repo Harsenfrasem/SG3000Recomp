@@ -14,6 +14,8 @@ Sprite evaluation is ordered by SAT index in both SMS Mode 4 and TMS modes. Over
 
 Mode 4 horizontal scroll treats register 8 as a rightward screen displacement: the renderer samples background source coordinate `(screen_x - R8) & 0xff`. Top-row scroll lock suppresses that displacement for the protected lines, while right-column vertical lock remains based on the destination screen column.
 
+In the active 192-line Mode 4 path, vertical scroll wraps over the 32x28 name-table surface at 224 pixels. Rows 28–31 are not pulled into the visible wrap; right-column vertical lock samples the unscrolled destination line within the same 224-pixel period.
+
 ## Pipeline
 
 ```text
