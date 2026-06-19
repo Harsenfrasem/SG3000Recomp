@@ -3128,6 +3128,7 @@ void test_game_profile_hash_and_parse() {
         "name = \"local test\"\n"
         "hash = \"fnv1a64:d949aa186c0c4928\"\n"
         "model = \"sg3000\"\n"
+        "mapper = \"k8k\"\n"
         "mode = \"enhanced\"\n"
         "disable_sprite_limit = true\n"
         "enable_fm = true\n"
@@ -3139,6 +3140,8 @@ void test_game_profile_hash_and_parse() {
     assert(profile->name == "local test");
     assert(profile->has_model);
     assert(profile->model == ConsoleModel::SG3000);
+    assert(profile->has_mapper);
+    assert(profile->mapper == CartridgeMapper::K8KMapper);
     assert(profile->has_enhancements);
     assert(profile->enhancements.mode == RuntimeMode::Enhanced);
     assert(profile->enhancements.disable_sprite_limit);
@@ -3151,6 +3154,19 @@ void test_game_profile_hash_and_parse() {
     assert(profile->video_standard == HostVideoStandard::Pal);
     const auto host_config = host_runtime_config_for_video_standard(profile->video_standard);
     assert(host_config.scanlines_per_frame == 313);
+
+    assert(cartridge_mapper_from_name("NONE") == CartridgeMapper::Plain);
+    assert(cartridge_mapper_from_name("s") == CartridgeMapper::SMapper);
+    bool rejected_mapper = false;
+    try {
+        (void)GameProfileDatabase::parse(
+            "[profile]\n"
+            "hash = \"fnv1a64:0000000000000000\"\n"
+            "mapper = \"mystery\"\n");
+    } catch (const std::runtime_error&) {
+        rejected_mapper = true;
+    }
+    assert(rejected_mapper);
 }
 
 int main() {

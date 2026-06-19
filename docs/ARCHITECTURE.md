@@ -61,7 +61,7 @@ Planned execution modes:
 - `hybrid`: generated C++ where available, interpreter fallback elsewhere.
 - `enhanced`: accurate or hybrid execution plus explicit user-enabled improvements.
 
-The first enhancement target is sprite flicker reduction through `disable_sprite_limit` and `reduce_flicker`. Accurate mode keeps the original 8 rendered sprites per scanline. `reduce_flicker` expands this conservatively to 16 while preserving the overflow status bit, and `disable_sprite_limit` renders all visible sprites on the scanline. Later enhancements can add host-facing features, FM audio options, and per-game profiles. Profiles must identify software by hashes or public metadata and must not require committing ROM, BIOS, save, or local path data.
+The first enhancement target is sprite flicker reduction through `disable_sprite_limit` and `reduce_flicker`. Accurate mode keeps the original 8 rendered sprites per scanline. `reduce_flicker` expands this conservatively to 16 while preserving the overflow status bit, and `disable_sprite_limit` renders all visible sprites on the scanline. Later enhancements can add host-facing features, FM audio options, and per-game profiles. Profiles identify software by hash, can select a mapper and runtime options, and must not require committing ROM, BIOS, save, or local path data. A matched profile takes precedence over the corresponding host CLI option so the hash-specific configuration is reproducible.
 
 ## Static Analysis Report
 

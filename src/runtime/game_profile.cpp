@@ -145,6 +145,9 @@ GameProfileDatabase GameProfileDatabase::parse(std::string_view text) {
         } else if (key == "model") {
             current.model = parse_model(value);
             current.has_model = true;
+        } else if (key == "mapper") {
+            current.mapper = cartridge_mapper_from_name(lower_ascii(strip_quotes(value)));
+            current.has_mapper = true;
         } else if (key == "mode") {
             current.enhancements.mode = parse_runtime_mode(value);
             current.has_enhancements = true;

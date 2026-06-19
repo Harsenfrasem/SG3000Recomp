@@ -143,26 +143,7 @@ AddressRange parse_range(const std::string& text) {
 }
 
 CartridgeMapper parse_mapper(std::string text) {
-    text = lower_ascii(strip_quotes(std::move(text)));
-    if (text == "auto") {
-        return CartridgeMapper::Auto;
-    }
-    if (text == "plain" || text == "none" || text == "nomapper") {
-        return CartridgeMapper::Plain;
-    }
-    if (text == "smapper" || text == "s") {
-        return CartridgeMapper::SMapper;
-    }
-    if (text == "cmapper" || text == "c") {
-        return CartridgeMapper::CMapper;
-    }
-    if (text == "kmapper" || text == "k") {
-        return CartridgeMapper::KMapper;
-    }
-    if (text == "k8k" || text == "k8kmapper") {
-        return CartridgeMapper::K8KMapper;
-    }
-    throw std::runtime_error("unknown mapper: " + text);
+    return cartridge_mapper_from_name(lower_ascii(strip_quotes(std::move(text))));
 }
 
 HostVideoStandard parse_video_standard(std::string text) {

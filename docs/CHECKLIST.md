@@ -82,6 +82,7 @@ Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
 - [x] `GameProfile` para configurar compatibilidade e enhancements por jogo.
 - [x] Identificacao de jogo por hash sem incluir ROM/BIOS no repositorio.
 - [x] Carregamento de perfis locais no host por `--profile`.
+- [x] Perfil por hash pode selecionar mapper com a mesma nomenclatura da CLI e precedencia documentada.
 - [x] Flag `enable_fm` em `EnhancementConfig`, CLI, host e perfis.
 - [x] Portas FM iniciais: endereco `$F0`, dados `$F1` e controle/deteccao `$F2`.
 - [x] Smoke runner com log CSV local de escritas FM.
@@ -218,7 +219,8 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Deteccao de header de ROM, validacao de tamanho e geracao/rebuild de checksum e regiao.
 - [ ] Heuristicas de modelo/regiao para BIOS sem header padrao, validadas com imagens permitidas.
 - [ ] SMapper restante: variantes com write protect e EEPROM, quando identificadas por perfil/hardware.
-- [ ] Heuristicas/perfis locais para escolher mapper automaticamente em ROMs maiores sem guardar caminhos privados.
+- [x] Perfis locais por hash podem forcar mapper em ROMs maiores sem guardar caminhos privados.
+- [ ] Refinar heuristica automatica de mapper para imagens sem perfil.
 - [ ] CMapper completo: SRAM/EEPROM se necessario e edge cases por jogo.
 - [ ] KMapper/K8K completos usados por ROMs especificas.
 - [ ] SG-3000 cartridge layouts.

@@ -6,6 +6,9 @@
 #include "sgrecomp/ym2413.h"
 
 #include <algorithm>
+#include <cctype>
+#include <stdexcept>
+#include <string>
 
 namespace sgrecomp {
 
@@ -19,6 +22,20 @@ const char* cartridge_mapper_name(CartridgeMapper mapper) {
     case CartridgeMapper::K8KMapper: return "k8k";
     }
     return "unknown";
+}
+
+CartridgeMapper cartridge_mapper_from_name(std::string_view name) {
+    std::string normalized{name};
+    std::transform(normalized.begin(), normalized.end(), normalized.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    if (normalized == "auto") return CartridgeMapper::Auto;
+    if (normalized == "plain" || normalized == "none" || normalized == "nomapper") return CartridgeMapper::Plain;
+    if (normalized == "smapper" || normalized == "s") return CartridgeMapper::SMapper;
+    if (normalized == "cmapper" || normalized == "c") return CartridgeMapper::CMapper;
+    if (normalized == "kmapper" || normalized == "k") return CartridgeMapper::KMapper;
+    if (normalized == "k8k" || normalized == "k8kmapper") return CartridgeMapper::K8KMapper;
+    throw std::runtime_error("unknown mapper: " + normalized);
 }
 
 Bus::Bus(ConsoleModel model, Vdp& vdp, Psg& psg, Ym2413& ym2413, Joypad& joypad)

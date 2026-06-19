@@ -313,28 +313,7 @@ std::vector<u8> normalize_rom_payload(std::vector<u8> rom) {
 }
 
 CartridgeMapper parse_mapper(std::string text) {
-    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char ch) {
-        return static_cast<char>(std::tolower(ch));
-    });
-    if (text == "auto") {
-        return CartridgeMapper::Auto;
-    }
-    if (text == "plain" || text == "none" || text == "nomapper") {
-        return CartridgeMapper::Plain;
-    }
-    if (text == "smapper" || text == "s") {
-        return CartridgeMapper::SMapper;
-    }
-    if (text == "cmapper" || text == "c") {
-        return CartridgeMapper::CMapper;
-    }
-    if (text == "kmapper" || text == "k") {
-        return CartridgeMapper::KMapper;
-    }
-    if (text == "k8k" || text == "k8kmapper") {
-        return CartridgeMapper::K8KMapper;
-    }
-    throw std::runtime_error("unknown mapper: " + text);
+    return cartridge_mapper_from_name(text);
 }
 
 HostVideoStandard parse_video_standard(std::string text) {
@@ -843,6 +822,9 @@ int run(int argc, char** argv) {
             profile_name = profile->name.empty() ? profile->hash : profile->name;
             if (profile->has_model) {
                 opts.model = profile->model;
+            }
+            if (profile->has_mapper) {
+                opts.mapper = profile->mapper;
             }
             if (profile->has_enhancements) {
                 opts.enhancements = profile->enhancements;

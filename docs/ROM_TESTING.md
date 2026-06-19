@@ -46,6 +46,8 @@ The smoke runner also reports visited PCs, lit framebuffer pixels, the current P
 
 Use `--mapper auto|plain|smapper|cmapper|kmapper|k8k` when a ROM reaches code but stays blank. `auto` keeps small linear ROMs as `plain` and uses SMapper for larger banked SMS ROMs. The explicit modes are useful for local reverse-engineering matrices. Keep generated screenshots, logs, and per-ROM notes under ignored local folders such as `out/`.
 
+Local hash profiles accept the same mapper names through `mapper = "..."`. A matched profile overrides the CLI mapper, which makes the per-title choice deterministic across launches without storing the ROM path.
+
 FM support status: the runtime now exposes the expected local FM control path and can log writes to `$F0/$F1/$F2`. The current synthesis is still an approximation for plumbing and diagnostics, not a faithful YM2413/OPLL implementation.
 
 For enhanced-port research, keep per-game notes in ignored local folders and identify games by `fnv1a64` hash. The public repository should contain only generic tools, synthetic tests, and neutral profile examples. See `docs/ENHANCED_PORT_ROADMAP.md` for the staged workflow.

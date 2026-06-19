@@ -4,6 +4,7 @@
 
 #include <array>
 #include <span>
+#include <string_view>
 #include <vector>
 
 namespace sgrecomp {
@@ -36,6 +37,7 @@ enum class CartridgeMapper {
 };
 
 const char* cartridge_mapper_name(CartridgeMapper mapper);
+CartridgeMapper cartridge_mapper_from_name(std::string_view name);
 
 struct BusMemoryAccess {
     u64 cycle = 0;

@@ -18,6 +18,8 @@ struct GameProfile {
     std::string hash;
     bool has_model = false;
     ConsoleModel model = ConsoleModel::SMS;
+    bool has_mapper = false;
+    CartridgeMapper mapper = CartridgeMapper::Auto;
     bool has_enhancements = false;
     EnhancementConfig enhancements;
     bool has_audio_latency_ms = false;

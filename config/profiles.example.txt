@@ -5,6 +5,7 @@
 name = "example local profile"
 hash = "fnv1a64:0000000000000000"
 model = "sms"
+mapper = "auto"
 mode = "accurate"
 disable_sprite_limit = false
 reduce_flicker = false
