@@ -2731,6 +2731,36 @@ void test_memory_control_port_maps_bios_cart_and_ram() {
     assert(console.bus().read(0xC000) == 0x5A);
 }
 
+void test_memory_control_models_expansion_card_io_and_reserved_bits() {
+    const std::vector<u8> rom(0x8000, 0x00);
+    Console console(ConsoleModel::SMS);
+    console.load_rom(rom);
+    console.joypad().set_player1(static_cast<u8>(Joypad::Left | Joypad::Button1));
+
+    assert(console.bus().expansion_enabled());
+    assert(console.bus().card_enabled());
+    assert(console.bus().io_chip_enabled());
+    assert(console.bus().input(0xDC) != 0xFF);
+
+    console.bus().output(0x3E, 0xA4); // disable expansion, card, and I/O chip
+    assert(console.bus().memory_control() == 0xA4);
+    assert(!console.bus().expansion_enabled());
+    assert(!console.bus().card_enabled());
+    assert(!console.bus().io_chip_enabled());
+    assert(console.bus().cartridge_enabled());
+    assert(console.bus().work_ram_enabled());
+    assert(console.bus().input(0xDC) == 0xFF);
+    assert(console.bus().input(0xDD) == 0xFF);
+
+    console.bus().output(0x3E, 0x03); // reserved bits are retained without disabling hardware
+    const BusMapperSnapshot snapshot = console.bus().mapper_snapshot();
+    assert(snapshot.memory_control == 0x03);
+    assert(snapshot.expansion_enabled);
+    assert(snapshot.card_enabled);
+    assert(snapshot.io_chip_enabled);
+    assert(console.bus().input(0xDC) != 0xFF);
+}
+
 void test_smapper_cartridge_ram_banks() {
     std::vector<u8> rom(0x10000, 0x00);
     rom[0x8000] = 0x22;
@@ -3527,6 +3557,7 @@ int main() {
     test_bios_overlay_boots_before_rom();
     test_bios_can_disable_itself_with_memory_control_port();
     test_memory_control_port_maps_bios_cart_and_ram();
+    test_memory_control_models_expansion_card_io_and_reserved_bits();
     test_smapper_cartridge_ram_banks();
     test_smapper_loads_cartridge_ram();
     test_smapper_fixed_window_and_register_mirroring();

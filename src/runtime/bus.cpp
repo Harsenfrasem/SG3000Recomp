@@ -105,6 +105,9 @@ BusMapperSnapshot Bus::mapper_snapshot() const {
         bios_enabled_,
         cartridge_enabled(),
         work_ram_enabled(),
+        expansion_enabled(),
+        card_enabled(),
+        io_chip_enabled(),
         smapper_control_,
         {smapper_slots_[0], smapper_slots_[1], smapper_slots_[2]},
         {cmapper_slots_[0], cmapper_slots_[1], cmapper_slots_[2]},
@@ -126,6 +129,18 @@ bool Bus::cartridge_enabled() const {
 
 bool Bus::work_ram_enabled() const {
     return model_ != ConsoleModel::SMS || (memory_control_ & 0x10) == 0;
+}
+
+bool Bus::expansion_enabled() const {
+    return model_ != ConsoleModel::SMS || (memory_control_ & 0x80) == 0;
+}
+
+bool Bus::card_enabled() const {
+    return model_ != ConsoleModel::SMS || (memory_control_ & 0x20) == 0;
+}
+
+bool Bus::io_chip_enabled() const {
+    return model_ != ConsoleModel::SMS || (memory_control_ & 0x04) == 0;
 }
 
 bool Bus::cartridge_ram_enabled() const {
@@ -252,12 +267,12 @@ u8 Bus::input(u8 port) {
         return value;
     }
     if (port == 0xDC || port == 0xC0) {
-        const u8 value = joypad_.read_port_a();
+        const u8 value = io_chip_enabled() ? joypad_.read_port_a() : 0xFF;
         log_io(false, port, value);
         return value;
     }
     if (port == 0xDD || port == 0xC1) {
-        const u8 value = joypad_.read_port_b();
+        const u8 value = io_chip_enabled() ? joypad_.read_port_b() : 0xFF;
         log_io(false, port, value);
         return value;
     }

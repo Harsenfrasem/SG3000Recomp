@@ -22,6 +22,11 @@ The base Sega mapper keeps the first 1 KiB of slot 0 fixed to ROM bank 0, mirror
 
 With a local BIOS loaded, its overlay is active before cartridge execution. A memory-control write disables that overlay, after which instruction fetches come from the cartridge mapping. Deterministic frame logs expose BIOS, cartridge, and work-RAM visibility independently and the host summary reports the observed handoff frame.
 
+The SMS memory-control register at port `$3e` preserves all eight bits. Bits 7 through 2
+control expansion, cartridge, card, work RAM, BIOS, and the controller I/O chip;
+disabled memory sources read as open bus and a disabled I/O chip makes controller ports
+read `$ff`. Reserved bits 1–0 are retained for state/debugging without invented effects.
+
 Automatic mapper selection starts from the size-based default and locks after the first recognized hardware-register family. Canonical Sega writes at `$fffc-$ffff` therefore prevent later incidental ROM-space writes from reclassifying the cartridge as Codemasters, Korean, or 8 KiB Korean hardware. Save-state version 8 persists this lock; older states derive it conservatively from their recorded mapper/register state.
 
 Save-state version 9 adds hashes for the active BIOS and matched profile configuration.

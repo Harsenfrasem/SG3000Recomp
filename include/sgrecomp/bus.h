@@ -71,6 +71,9 @@ struct BusMapperSnapshot {
     bool bios_enabled = false;
     bool cartridge_enabled = true;
     bool work_ram_enabled = true;
+    bool expansion_enabled = true;
+    bool card_enabled = true;
+    bool io_chip_enabled = true;
     u8 smapper_control = 0;
     std::array<u8, 3> smapper_slots{{0, 1, 2}};
     std::array<u8, 3> cmapper_slots{{0, 1, 2}};
@@ -107,6 +110,9 @@ class Bus {
     }
     bool cartridge_enabled() const;
     bool work_ram_enabled() const;
+    bool expansion_enabled() const;
+    bool card_enabled() const;
+    bool io_chip_enabled() const;
     void set_bios_enabled(bool enabled);
     bool bios_enabled() const {
         return bios_enabled_;

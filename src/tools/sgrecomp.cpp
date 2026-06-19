@@ -1776,7 +1776,7 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
         }
         frame_log << "frame,start_cycle,end_cycle,instructions,pc_min,pc_max,framebuffer_fnv1a64,"
                   << "audio_frames,nonzero_audio_samples,mapper,memory_control,bios_enabled,cartridge_enabled,work_ram_"
-                     "enabled,"
+                     "enabled,expansion_enabled,card_enabled,io_chip_enabled,"
                   << "bank0,bank1,bank2,bank3,bank4,bank5,"
                   << "cartridge_ram,cartridge_ram_bank\n";
     }
@@ -1820,7 +1820,8 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
                       << ',' << cartridge_mapper_name(mapper.mapper) << ",0x" << std::hex << std::setw(2)
                       << std::setfill('0') << static_cast<int>(mapper.memory_control) << std::dec << std::setfill(' ')
                       << ',' << (mapper.bios_enabled ? 1 : 0) << ',' << (mapper.cartridge_enabled ? 1 : 0) << ','
-                      << (mapper.work_ram_enabled ? 1 : 0);
+                      << (mapper.work_ram_enabled ? 1 : 0) << ',' << (mapper.expansion_enabled ? 1 : 0) << ','
+                      << (mapper.card_enabled ? 1 : 0) << ',' << (mapper.io_chip_enabled ? 1 : 0);
             for (u8 bank : banks) {
                 frame_log << ',' << static_cast<int>(bank);
             }

@@ -827,6 +827,8 @@ std::string overlay_text(const AppState& app) {
         << std::setfill('0') << static_cast<int>(mapper.memory_control) << std::dec << " bios "
         << (mapper.bios_enabled ? "on" : "off") << " cart " << (mapper.cartridge_enabled ? "on" : "off") << " ram "
         << (mapper.work_ram_enabled ? "on" : "off");
+    out << " exp " << (mapper.expansion_enabled ? "on" : "off") << " card " << (mapper.card_enabled ? "on" : "off")
+        << " io " << (mapper.io_chip_enabled ? "on" : "off");
     if (mapper.mapper == CartridgeMapper::SMapper) {
         out << " slots " << static_cast<int>(mapper.smapper_slots[0]) << ","
             << static_cast<int>(mapper.smapper_slots[1]) << "," << static_cast<int>(mapper.smapper_slots[2]);
