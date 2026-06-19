@@ -2385,6 +2385,12 @@ void emit_instruction_body(std::ostream& out, const std::array<u8, 0x10000>& ima
 
 void emit_case(std::ostream& out, const std::array<u8, 0x10000>& image, u16 pc) {
     out << "    case 0x" << std::hex << std::setw(4) << std::setfill('0') << pc << ": ";
+    if (is_direct_emit_supported(image, pc)) {
+        const u8 opcode = image[pc];
+        const int m1_fetches = opcode == 0xCB || opcode == 0xED || opcode == 0xDD || opcode == 0xFD ? 2 : 1;
+        out << "cpu.r = static_cast<sgrecomp::u8>((cpu.r & 0x80) | ((cpu.r + " << m1_fetches
+            << ") & 0x7f)); ";
+    }
     emit_instruction_body(out, image, pc);
 }
 
@@ -2529,7 +2535,7 @@ void generate_cpp(
     out << "    bus.load_rom(kRom);\n";
     out << "}\n\n";
     out << "extern \"C\" void sgrecomp_run_instruction(sgrecomp::Z80State& cpu, sgrecomp::Bus& bus) {\n";
-    out << "    if (cpu.halted) { cpu.cycles += 4; return; }\n";
+    out << "    if (cpu.halted) { cpu.r = static_cast<sgrecomp::u8>((cpu.r & 0x80) | ((cpu.r + 1) & 0x7f)); cpu.cycles += 4; return; }\n";
     out << "    switch (cpu.pc) {\n";
     for (const auto& block : blocks) {
         out << "    case 0x" << std::hex << std::setw(4) << std::setfill('0') << block.start

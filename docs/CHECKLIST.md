@@ -183,7 +183,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Interrupt mode: IM 0/1/2, `ei/di`, `reti/retn`.
 - [x] Interrupts: IRQ maskable inicial, delayed `ei`, servico NMI inicial.
 - [x] Runtime Z80: registrador R preserva bit 7 e conta M1 em prefixos, cadeias DD/FD e ciclos de HALT.
-- [ ] Recompilador direto: espelhar contagem M1 do registrador R sem duplicar o fallback.
+- [x] Recompilador direto: contagem M1 do registrador R em base, ED/DD e HALT sem duplicar o fallback, validada no binario gerado.
 - [ ] Interrupts: NMI ligado ao Pause, prioridades e timing exato.
 - [ ] Testar todas as flags contra suite externa conhecida de Z80; vetores sinteticos locais cobrem X/Y das familias principais.
 - [ ] Validar cycle counts por opcode e por branch tomado/nao tomado.

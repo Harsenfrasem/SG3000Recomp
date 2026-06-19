@@ -286,7 +286,13 @@ int main() {
     compile_generated_cpp(generated_path, object_path);
     assert(std::filesystem::exists(object_path));
 
-    write_binary(xy_rom_path, {0x3E, 0x10, 0xC6, 0x28, 0x76}); // ld a,$10; add a,$28; halt
+    write_binary(xy_rom_path, {
+        0x3E, 0x10,       // ld a,$10
+        0xC6, 0x28,       // add a,$28
+        0xED, 0x46,       // im 0 (two M1 fetches)
+        0xDD, 0xE5,       // push ix (two M1 fetches)
+        0x76,             // halt
+    });
     const std::string xy_generate_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(xy_rom_path)
         + " -o " + quote(xy_generated_path);
     assert(run_command(xy_generate_command) == 0);
@@ -297,9 +303,11 @@ int main() {
         "int main() {\n"
         "  sgrecomp::Console console(sgrecomp::ConsoleModel::SMS);\n"
         "  sgrecomp_load_rom(console.bus());\n"
-        "  for (int i = 0; i < 4 && !console.cpu().halted; ++i)\n"
+        "  for (int i = 0; i < 8 && !console.cpu().halted; ++i)\n"
         "    sgrecomp_run_instruction(console.cpu(), console.bus());\n"
-        "  return console.cpu().a == 0x38 && (console.cpu().f & 0x28) == 0x28 ? 0 : 1;\n"
+        "  if (console.cpu().a != 0x38 || (console.cpu().f & 0x28) != 0x28 || console.cpu().r != 7) return 1;\n"
+        "  sgrecomp_run_instruction(console.cpu(), console.bus());\n"
+        "  return console.cpu().r == 8 && console.cpu().cycles == 45 ? 0 : 2;\n"
         "}\n");
     compile_generated_executable(xy_generated_path, xy_harness_path, xy_executable_path);
     assert(run_command(quote(xy_executable_path)) == 0);
