@@ -184,8 +184,15 @@ endif()
 if(TARGET sgrecomp_host)
     install(TARGETS sgrecomp_host RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
     install(FILES "$<TARGET_FILE:sgrecomp_host>"
-        TYPE BIN
+        DESTINATION "."
         RENAME SG3000Recomp.exe
+        COMPONENT Portable
+    )
+    install(FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/docs/PORTABLE.md"
+        DESTINATION "."
+        RENAME README.md
+        COMPONENT Portable
     )
 endif()
 
@@ -213,3 +220,17 @@ install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/SG3000RecompConfigVersion.cmake"
     DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/SG3000Recomp"
 )
+
+if(WIN32 AND TARGET sgrecomp_host)
+    set(CPACK_GENERATOR "ZIP")
+    set(CPACK_PACKAGE_NAME "SG3000Recomp")
+    set(CPACK_PACKAGE_VENDOR "SG3000Recomp")
+    set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+    set(CPACK_PACKAGE_FILE_NAME "SG3000Recomp-${PROJECT_VERSION}-windows-x64-portable")
+    set(CPACK_PACKAGE_CHECKSUM "SHA256")
+    set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY ON)
+    set(CPACK_COMPONENTS_ALL Portable)
+    set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
+    set(CPACK_COMPONENTS_GROUPING ALL_COMPONENTS_IN_ONE)
+    include(CPack)
+endif()

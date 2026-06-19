@@ -103,7 +103,7 @@ Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
 - [ ] GUI: gerenciamento visual de saves, screenshots e audio dumps.
 - [ ] Perfis por jogo editaveis pela GUI.
 - [ ] Tela de logs/status com FPS, backend ativo, modelo, fallback/recompiler e avisos de compatibilidade.
-- [ ] Empacotamento Windows com instalador ou pasta portable.
+- [x] Empacotamento Windows em ZIP portátil com checksum e guia de uso.
 
 ### 7. Engenharia reversa e enhanced ports por jogo
 

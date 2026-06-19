@@ -49,6 +49,20 @@ If that fails with “generator could not find Visual Studio”, open the Visual
 - `sgrecomp_host`: nome técnico equivalente do host Win32 para scripts e opções avançadas.
 - `sgrecomp_tests`: runtime smoke tests.
 
+## Pacote portátil Windows
+
+Depois de compilar o preset, gere o ZIP redistribuível com:
+
+```powershell
+$env:PATH="$env:APPDATA\Python\Python314\Scripts;$env:PATH"
+Set-Location build\zig-debug
+cpack -G ZIP
+```
+
+O arquivo `SG3000Recomp-0.1.0-windows-x64-portable.zip` contém somente
+`SG3000Recomp.exe` e o guia de uso. ROMs, BIOS, saves, perfis locais e artefatos de
+diagnóstico não fazem parte do pacote. O CPack também gera um arquivo `.sha256`.
+
 ## ROM Diagnostics
 
 Before the project has a full host window/audio loop, use the CLI smoke runner:
