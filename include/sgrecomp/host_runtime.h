@@ -28,8 +28,10 @@ inline HostVideoStandard host_video_standard_from_name(std::string_view name) {
 
 inline const char* host_video_standard_name(HostVideoStandard standard) {
     switch (standard) {
-    case HostVideoStandard::Ntsc: return "ntsc";
-    case HostVideoStandard::Pal: return "pal";
+    case HostVideoStandard::Ntsc:
+        return "ntsc";
+    case HostVideoStandard::Pal:
+        return "pal";
     }
     return "ntsc";
 }
@@ -78,7 +80,7 @@ struct HostRuntimeState {
 };
 
 class HostRuntime {
-public:
+  public:
     explicit HostRuntime(ConsoleModel model, HostRuntimeConfig config = {});
     HostRuntime(ConsoleModel model, const EnhancementConfig& enhancements, HostRuntimeConfig config = {});
 
@@ -91,13 +93,21 @@ public:
     HostFrameResult run_frame(const HostInputState& input = {});
     void clear_audio();
 
-    Console& console() { return console_; }
-    const Console& console() const { return console_; }
-    const HostRuntimeConfig& config() const { return config_; }
+    Console& console() {
+        return console_;
+    }
+    const Console& console() const {
+        return console_;
+    }
+    const HostRuntimeConfig& config() const {
+        return config_;
+    }
     const std::array<u32, Vdp::width * Vdp::height>& framebuffer() const;
-    const std::vector<s16>& audio() const { return audio_; }
+    const std::vector<s16>& audio() const {
+        return audio_;
+    }
 
-private:
+  private:
     Console console_;
     HostRuntimeConfig config_{};
     std::vector<s16> audio_;

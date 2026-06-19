@@ -112,20 +112,19 @@ void compile_generated_cpp(const std::filesystem::path& generated, const std::fi
     assert(result == 0);
 }
 
-void compile_generated_executable(
-    const std::filesystem::path& generated,
-    const std::filesystem::path& harness,
-    const std::filesystem::path& executable) {
+void compile_generated_executable(const std::filesystem::path& generated,
+                                  const std::filesystem::path& harness,
+                                  const std::filesystem::path& executable) {
     const std::filesystem::path include_dir = std::filesystem::path(SGRECOMP_SOURCE_DIR) / "include";
     const std::filesystem::path runtime = SGRECOMP_RUNTIME_PATH;
     std::string command = compiler_command_prefix();
     const std::string compiler_id = SGRECOMP_CXX_COMPILER_ID;
     if (compiler_id == "MSVC") {
-        command += " /nologo /EHsc /std:c++20 /I" + quote(include_dir) + " " + quote(generated)
-            + " " + quote(harness) + " " + quote(runtime) + " /Fe" + quote(executable);
+        command += " /nologo /EHsc /std:c++20 /I" + quote(include_dir) + " " + quote(generated) + " " + quote(harness) +
+                   " " + quote(runtime) + " /Fe" + quote(executable);
     } else {
-        command += " -std=c++20 -I" + quote(include_dir) + " " + quote(generated)
-            + " " + quote(harness) + " " + quote(runtime) + " -o " + quote(executable);
+        command += " -std=c++20 -I" + quote(include_dir) + " " + quote(generated) + " " + quote(harness) + " " +
+                   quote(runtime) + " -o " + quote(executable);
     }
     assert(run_command(command) == 0);
 }
@@ -244,8 +243,8 @@ int main() {
     };
     write_binary(rom_path, rom);
 
-    const std::string generate_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(rom_path)
-        + " -o " + quote(generated_path) + " --dump-analysis " + quote(analysis_path);
+    const std::string generate_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(rom_path) + " -o " +
+                                         quote(generated_path) + " --dump-analysis " + quote(analysis_path);
     assert(run_command(generate_command) == 0);
 
     const std::string generated = read_text(generated_path);
@@ -278,7 +277,8 @@ int main() {
     assert(contains(generated, "cpu.set_bc(sgrecomp::make_u16(lo, hi));"));
     assert(contains(generated, "const auto value = bus.read(cpu.hl()); bus.write(cpu.de(), value);"));
     assert(contains(generated, "cpu.a = cpu.a_alt; cpu.f = cpu.f_alt;"));
-    assert(contains(generated, "const bool carry = (cpu.a & 0x80) != 0; cpu.a = static_cast<sgrecomp::u8>((cpu.a << 1)"));
+    assert(
+        contains(generated, "const bool carry = (cpu.a & 0x80) != 0; cpu.a = static_cast<sgrecomp::u8>((cpu.a << 1)"));
     assert(contains(generated, "const auto lhs = cpu.hl(); const auto rhs = cpu.de();"));
     assert(contains(generated, "cpu.a = bus.input(0xdd);"));
     assert(contains(generated, "cpu.b = cpu.b_alt; cpu.c = cpu.c_alt;"));
@@ -302,61 +302,77 @@ int main() {
     compile_generated_cpp(generated_path, object_path);
     assert(std::filesystem::exists(object_path));
 
-    write_binary(xy_rom_path, {
-        0x3E, 0x10,       // ld a,$10
-        0xC6, 0x28,       // add a,$28
-        0xED, 0x46,       // im 0 (two M1 fetches)
-        0xDD, 0xE5,       // push ix (two M1 fetches)
-        0xFB,             // ei (IFF changes before the following instruction)
-        0x00,             // nop
-        0x76,             // halt
-    });
-    const std::string xy_generate_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(xy_rom_path)
-        + " -o " + quote(xy_generated_path);
+    write_binary(xy_rom_path,
+                 {
+                     0x3E,
+                     0x10, // ld a,$10
+                     0xC6,
+                     0x28, // add a,$28
+                     0xED,
+                     0x46, // im 0 (two M1 fetches)
+                     0xDD,
+                     0xE5, // push ix (two M1 fetches)
+                     0xFB, // ei (IFF changes before the following instruction)
+                     0x00, // nop
+                     0x76, // halt
+                 });
+    const std::string xy_generate_command =
+        quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(xy_rom_path) + " -o " + quote(xy_generated_path);
     assert(run_command(xy_generate_command) == 0);
     write_text(xy_harness_path,
-        "#include \"sgrecomp/console.h\"\n"
-        "extern \"C\" void sgrecomp_load_rom(sgrecomp::Bus&);\n"
-        "extern \"C\" void sgrecomp_run_instruction(sgrecomp::Z80State&, sgrecomp::Bus&);\n"
-        "int main() {\n"
-        "  sgrecomp::Console console(sgrecomp::ConsoleModel::SMS);\n"
-        "  sgrecomp_load_rom(console.bus());\n"
-        "  for (int i = 0; i < 8 && !console.cpu().halted; ++i)\n"
-        "    sgrecomp_run_instruction(console.cpu(), console.bus());\n"
-        "  if (console.cpu().a != 0x38 || (console.cpu().f & 0x28) != 0x28 || console.cpu().r != 9) return 1;\n"
-        "  if (!console.cpu().iff1 || !console.cpu().iff2 || console.cpu().ei_pending) return 2;\n"
-        "  sgrecomp_run_instruction(console.cpu(), console.bus());\n"
-        "  return console.cpu().r == 10 && console.cpu().cycles == 53 ? 0 : 3;\n"
-        "}\n");
+               "#include \"sgrecomp/console.h\"\n"
+               "extern \"C\" void sgrecomp_load_rom(sgrecomp::Bus&);\n"
+               "extern \"C\" void sgrecomp_run_instruction(sgrecomp::Z80State&, sgrecomp::Bus&);\n"
+               "int main() {\n"
+               "  sgrecomp::Console console(sgrecomp::ConsoleModel::SMS);\n"
+               "  sgrecomp_load_rom(console.bus());\n"
+               "  for (int i = 0; i < 8 && !console.cpu().halted; ++i)\n"
+               "    sgrecomp_run_instruction(console.cpu(), console.bus());\n"
+               "  if (console.cpu().a != 0x38 || (console.cpu().f & 0x28) != 0x28 || console.cpu().r != 9) return 1;\n"
+               "  if (!console.cpu().iff1 || !console.cpu().iff2 || console.cpu().ei_pending) return 2;\n"
+               "  sgrecomp_run_instruction(console.cpu(), console.bus());\n"
+               "  return console.cpu().r == 10 && console.cpu().cycles == 53 ? 0 : 3;\n"
+               "}\n");
     compile_generated_executable(xy_generated_path, xy_harness_path, xy_executable_path);
     assert(run_command(quote(xy_executable_path)) == 0);
 
-    write_binary(branch_rom_path, {
-        0x3E, 0x00,             // $0000: ld a,$00
-        0xFE, 0x00,             // $0002: cp $00 (Z set)
-        0xC4, 0x10, 0x00,       // $0004: call nz,$0010 (not taken)
-        0xCC, 0x10, 0x00,       // $0007: call z,$0010 (taken)
-        0x76,                   // $000a: halt
-        0x00, 0x00, 0x00, 0x00, 0x00,
-        0xC9,                   // $0010: ret
-    });
-    const std::string branch_generate_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(branch_rom_path)
-        + " -o " + quote(branch_generated_path);
+    write_binary(branch_rom_path,
+                 {
+                     0x3E,
+                     0x00, // $0000: ld a,$00
+                     0xFE,
+                     0x00, // $0002: cp $00 (Z set)
+                     0xC4,
+                     0x10,
+                     0x00, // $0004: call nz,$0010 (not taken)
+                     0xCC,
+                     0x10,
+                     0x00, // $0007: call z,$0010 (taken)
+                     0x76, // $000a: halt
+                     0x00,
+                     0x00,
+                     0x00,
+                     0x00,
+                     0x00,
+                     0xC9, // $0010: ret
+                 });
+    const std::string branch_generate_command =
+        quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(branch_rom_path) + " -o " + quote(branch_generated_path);
     assert(run_command(branch_generate_command) == 0);
     write_text(branch_harness_path,
-        "#include \"sgrecomp/console.h\"\n"
-        "extern \"C\" void sgrecomp_load_rom(sgrecomp::Bus&);\n"
-        "extern \"C\" void sgrecomp_run_instruction(sgrecomp::Z80State&, sgrecomp::Bus&);\n"
-        "int main() {\n"
-        "  sgrecomp::Console console(sgrecomp::ConsoleModel::SMS);\n"
-        "  sgrecomp_load_rom(console.bus());\n"
-        "  for (int i = 0; i < 8 && !console.cpu().halted; ++i)\n"
-        "    sgrecomp_run_instruction(console.cpu(), console.bus());\n"
-        "  if (!console.cpu().halted || console.cpu().pc != 0x000b || console.cpu().sp != 0xdff0) return 1;\n"
-        "  if (console.cpu().cycles != 55 || console.cpu().r != 6 || (console.cpu().f & 0x40) == 0) return 2;\n"
-        "  sgrecomp_run_instruction(console.cpu(), console.bus());\n"
-        "  return console.cpu().cycles == 59 && console.cpu().r == 7 ? 0 : 3;\n"
-        "}\n");
+               "#include \"sgrecomp/console.h\"\n"
+               "extern \"C\" void sgrecomp_load_rom(sgrecomp::Bus&);\n"
+               "extern \"C\" void sgrecomp_run_instruction(sgrecomp::Z80State&, sgrecomp::Bus&);\n"
+               "int main() {\n"
+               "  sgrecomp::Console console(sgrecomp::ConsoleModel::SMS);\n"
+               "  sgrecomp_load_rom(console.bus());\n"
+               "  for (int i = 0; i < 8 && !console.cpu().halted; ++i)\n"
+               "    sgrecomp_run_instruction(console.cpu(), console.bus());\n"
+               "  if (!console.cpu().halted || console.cpu().pc != 0x000b || console.cpu().sp != 0xdff0) return 1;\n"
+               "  if (console.cpu().cycles != 55 || console.cpu().r != 6 || (console.cpu().f & 0x40) == 0) return 2;\n"
+               "  sgrecomp_run_instruction(console.cpu(), console.bus());\n"
+               "  return console.cpu().cycles == 59 && console.cpu().r == 7 ? 0 : 3;\n"
+               "}\n");
     compile_generated_executable(branch_generated_path, branch_harness_path, branch_executable_path);
     assert(run_command(quote(branch_executable_path)) == 0);
 
@@ -374,8 +390,8 @@ int main() {
     header_rom[0x7FFF] = 0x4C; // export, 32 KiB
     write_binary(header_rom_path, header_rom);
 
-    const std::string header_analysis_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(header_rom_path)
-        + " --dump-analysis " + quote(header_analysis_path);
+    const std::string header_analysis_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(header_rom_path) +
+                                                " --dump-analysis " + quote(header_analysis_path);
     assert(run_command(header_analysis_command) == 0);
     const std::string header_analysis = read_text(header_analysis_path);
     assert(contains(header_analysis, "header_found: yes"));
@@ -388,12 +404,13 @@ int main() {
     assert(contains(header_analysis, "header_checksum_declared_size:"));
     assert(contains(header_analysis, "header_checksum_matches_declared_size: no"));
 
-    const std::string generate_header_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(header_rom_path)
-        + " --generate-header " + quote(generated_header_rom_path)
-        + " --header-region sms-japan --product-code 12ABF --header-version 3";
+    const std::string generate_header_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(header_rom_path) +
+                                                " --generate-header " + quote(generated_header_rom_path) +
+                                                " --header-region sms-japan --product-code 12ABF --header-version 3";
     assert(run_command(generate_header_command) == 0);
-    const std::string generated_header_analysis_command = quote_arg(SGRECOMP_TOOL_PATH) + " "
-        + quote(generated_header_rom_path) + " --dump-analysis " + quote(generated_header_analysis_path);
+    const std::string generated_header_analysis_command = quote_arg(SGRECOMP_TOOL_PATH) + " " +
+                                                          quote(generated_header_rom_path) + " --dump-analysis " +
+                                                          quote(generated_header_analysis_path);
     assert(run_command(generated_header_analysis_command) == 0);
     const std::string generated_header_analysis = read_text(generated_header_analysis_path);
     assert(contains(generated_header_analysis, "header_region: SMS Japan"));
@@ -411,8 +428,8 @@ int main() {
     entry_rom[0x0068] = 0x76; // halt
     write_binary(entry_rom_path, entry_rom);
 
-    const std::string entry_analysis_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(entry_rom_path)
-        + " --dump-analysis " + quote(entry_analysis_path);
+    const std::string entry_analysis_command =
+        quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(entry_rom_path) + " --dump-analysis " + quote(entry_analysis_path);
     assert(run_command(entry_analysis_command) == 0);
     const std::string entry_analysis = read_text(entry_analysis_path);
     assert(contains(entry_analysis, "entry_points: 0x0000 0x0038 0x0066"));
@@ -424,30 +441,39 @@ int main() {
     pointer_rom[0x0000] = 0x76; // halt
     pointer_rom[0x0038] = 0x76; // halt
     pointer_rom[0x0066] = 0x76; // halt
-    pointer_rom[0x007E] = 0xFF; pointer_rom[0x007F] = 0xFF;
-    pointer_rom[0x0080] = 0x00; pointer_rom[0x0081] = 0x00;
-    pointer_rom[0x0082] = 0x38; pointer_rom[0x0083] = 0x00;
-    pointer_rom[0x0084] = 0x66; pointer_rom[0x0085] = 0x00;
+    pointer_rom[0x007E] = 0xFF;
+    pointer_rom[0x007F] = 0xFF;
+    pointer_rom[0x0080] = 0x00;
+    pointer_rom[0x0081] = 0x00;
+    pointer_rom[0x0082] = 0x38;
+    pointer_rom[0x0083] = 0x00;
+    pointer_rom[0x0084] = 0x66;
+    pointer_rom[0x0085] = 0x00;
     write_binary(pointer_rom_path, pointer_rom);
 
-    const std::string pointer_analysis_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(pointer_rom_path)
-        + " --dump-analysis " + quote(pointer_analysis_path);
+    const std::string pointer_analysis_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(pointer_rom_path) +
+                                                 " --dump-analysis " + quote(pointer_analysis_path);
     assert(run_command(pointer_analysis_command) == 0);
     const std::string pointer_analysis = read_text(pointer_analysis_path);
     assert(contains(pointer_analysis, "pointer_tables: 1"));
     assert(contains(pointer_analysis, "table 0x0080 entries=3 targets=0x0000,0x0038,0x0066"));
 
     const std::vector<unsigned char> hardware_rom = {
-        0x3E, 0x12,       // ld a,$12
-        0xD3, 0xBF,       // out ($bf),a
-        0xDB, 0xDD,       // in a,($dd)
-        0x32, 0xFC, 0xFF, // ld ($fffc),a
-        0x76,             // halt
+        0x3E,
+        0x12, // ld a,$12
+        0xD3,
+        0xBF, // out ($bf),a
+        0xDB,
+        0xDD, // in a,($dd)
+        0x32,
+        0xFC,
+        0xFF, // ld ($fffc),a
+        0x76, // halt
     };
     write_binary(hardware_rom_path, hardware_rom);
 
-    const std::string hardware_analysis_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(hardware_rom_path)
-        + " --dump-analysis " + quote(hardware_analysis_path);
+    const std::string hardware_analysis_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(hardware_rom_path) +
+                                                  " --dump-analysis " + quote(hardware_analysis_path);
     assert(run_command(hardware_analysis_command) == 0);
     const std::string hardware_analysis = read_text(hardware_analysis_path);
     assert(contains(hardware_analysis, "static_hardware_accesses: 3"));
@@ -456,22 +482,28 @@ int main() {
     assert(contains(hardware_analysis, "mapper_write 0xfffc mapper_register"));
 
     const std::vector<unsigned char> audio_rom = {
-        0x3E, 0x80, // ld a,$80: tone channel 0 latch
-        0xD3, 0x7F, // out ($7f),a
-        0x3E, 0x00, // ld a,$00: tone high bits
-        0xD3, 0x7F, // out ($7f),a
-        0x3E, 0x90, // ld a,$90: channel 0 volume max
-        0xD3, 0x7F, // out ($7f),a
-        0x18, 0xFE, // jr -2
+        0x3E,
+        0x80, // ld a,$80: tone channel 0 latch
+        0xD3,
+        0x7F, // out ($7f),a
+        0x3E,
+        0x00, // ld a,$00: tone high bits
+        0xD3,
+        0x7F, // out ($7f),a
+        0x3E,
+        0x90, // ld a,$90: channel 0 volume max
+        0xD3,
+        0x7F, // out ($7f),a
+        0x18,
+        0xFE, // jr -2
     };
     write_binary(audio_rom_path, audio_rom);
 
-    const std::string audio_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(audio_rom_path)
-        + " --run-smoke --steps 4096 --dump-frame-bmp " + quote(frame_bmp_path)
-        + " --dump-audio " + quote(audio_path) + " --dump-vgm " + quote(vgm_path)
-        + " --dump-io-log " + quote(io_log_path)
-        + " --dump-tilemap " + quote(tilemap_path)
-        + " --dump-sprites " + quote(sprites_path);
+    const std::string audio_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(audio_rom_path) +
+                                      " --run-smoke --steps 4096 --dump-frame-bmp " + quote(frame_bmp_path) +
+                                      " --dump-audio " + quote(audio_path) + " --dump-vgm " + quote(vgm_path) +
+                                      " --dump-io-log " + quote(io_log_path) + " --dump-tilemap " +
+                                      quote(tilemap_path) + " --dump-sprites " + quote(sprites_path);
     assert(run_command(audio_command) == 0);
     const auto frame_bmp = read_binary(frame_bmp_path);
     assert(frame_bmp.size() > 54);
@@ -525,12 +557,11 @@ int main() {
     };
     write_binary(debug_rom_path, debug_rom);
 
-    const std::string debug_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(debug_rom_path)
-        + " --run-smoke --steps 64"
-        + " --dump-memory-log " + quote(memory_log_path) + " --watch 0xc000"
-        + " --dump-vdp-log " + quote(vdp_log_path) + " --watch-vdp 0x0000-0x0001"
-        + " --dump-io-log " + quote(filtered_io_log_path) + " --io-port 0xbe"
-        + " --save-state " + quote(state_path);
+    const std::string debug_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(debug_rom_path) +
+                                      " --run-smoke --steps 64" + " --dump-memory-log " + quote(memory_log_path) +
+                                      " --watch 0xc000" + " --dump-vdp-log " + quote(vdp_log_path) +
+                                      " --watch-vdp 0x0000-0x0001" + " --dump-io-log " + quote(filtered_io_log_path) +
+                                      " --io-port 0xbe" + " --save-state " + quote(state_path);
     assert(run_command(debug_command) == 0);
 
     const std::string memory_log = read_text(memory_log_path);
@@ -553,36 +584,43 @@ int main() {
     assert(state_bytes[2] == 'S');
     assert(state_bytes[3] == 'S');
 
-    const std::string reload_state_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(debug_rom_path)
-        + " --run-smoke --steps 8 --load-state " + quote(state_path)
-        + " --save-state " + quote(state_reload_path);
+    const std::string reload_state_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(debug_rom_path) +
+                                             " --run-smoke --steps 8 --load-state " + quote(state_path) +
+                                             " --save-state " + quote(state_reload_path);
     assert(run_command(reload_state_command) == 0);
     assert(read_binary(state_reload_path).size() == state_bytes.size());
 
     std::vector<unsigned char> mismatch_rom = debug_rom;
     mismatch_rom.push_back(0x00);
     write_binary(state_mismatch_rom_path, mismatch_rom);
-    const std::string mismatch_state_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(state_mismatch_rom_path)
-        + " --run-smoke --steps 8 --load-state " + quote(state_path);
+    const std::string mismatch_state_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(state_mismatch_rom_path) +
+                                               " --run-smoke --steps 8 --load-state " + quote(state_path);
     assert(run_command(mismatch_state_command) != 0);
 
-    const std::string forced_state_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(state_mismatch_rom_path)
-        + " --run-smoke --steps 8 --load-state " + quote(state_path) + " --force-state";
+    const std::string forced_state_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(state_mismatch_rom_path) +
+                                             " --run-smoke --steps 8 --load-state " + quote(state_path) +
+                                             " --force-state";
     assert(run_command(forced_state_command) == 0);
 
     const std::vector<unsigned char> fm_rom = {
-        0x3E, 0x01, // ld a,$01: enable FM, mute PSG
-        0xD3, 0xF2, // out ($f2),a
-        0x3E, 0x20, // ld a,$20: channel 0 key/block/fnum high
-        0xD3, 0xF0, // out ($f0),a
-        0x3E, 0x11, // ld a,$11
-        0xD3, 0xF1, // out ($f1),a
-        0x76,       // halt
+        0x3E,
+        0x01, // ld a,$01: enable FM, mute PSG
+        0xD3,
+        0xF2, // out ($f2),a
+        0x3E,
+        0x20, // ld a,$20: channel 0 key/block/fnum high
+        0xD3,
+        0xF0, // out ($f0),a
+        0x3E,
+        0x11, // ld a,$11
+        0xD3,
+        0xF1, // out ($f1),a
+        0x76, // halt
     };
     write_binary(fm_rom_path, fm_rom);
 
-    const std::string fm_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(fm_rom_path)
-        + " --run-smoke --enable-fm --steps 64 --dump-fm-log " + quote(fm_log_path);
+    const std::string fm_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(fm_rom_path) +
+                                   " --run-smoke --enable-fm --steps 64 --dump-fm-log " + quote(fm_log_path);
     assert(run_command(fm_command) == 0);
     const std::string fm_log = read_text(fm_log_path);
     assert(contains(fm_log, "cycle,port,value"));
@@ -591,14 +629,14 @@ int main() {
     assert(contains(fm_log, "0xf1,0x11"));
 
     write_text(host_input_path,
-        "frame,player1,player2,pause\n"
-        "0,none,none,off\n"
-        "1,right+button1,none,off\n");
-    const std::string host_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(audio_rom_path)
-        + " --run-host --frames 2 --dump-frame-bmp " + quote(host_frame_path)
-        + " --audio-sample-rate 22050 --input-script " + quote(host_input_path)
-        + " --dump-audio " + quote(host_audio_path) + " --dump-vgm " + quote(host_vgm_path)
-        + " --dump-frame-log " + quote(host_frame_log_path);
+               "frame,player1,player2,pause\n"
+               "0,none,none,off\n"
+               "1,right+button1,none,off\n");
+    const std::string host_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(audio_rom_path) +
+                                     " --run-host --frames 2 --dump-frame-bmp " + quote(host_frame_path) +
+                                     " --audio-sample-rate 22050 --input-script " + quote(host_input_path) +
+                                     " --dump-audio " + quote(host_audio_path) + " --dump-vgm " + quote(host_vgm_path) +
+                                     " --dump-frame-log " + quote(host_frame_log_path);
     assert(run_command(host_command) == 0);
 
     const auto host_frame = read_binary(host_frame_path);
@@ -615,10 +653,9 @@ int main() {
     assert(host_wav.substr(0, 4) == "RIFF");
     assert(host_wav.substr(8, 4) == "WAVE");
     const auto host_wav_bytes = read_binary(host_audio_path);
-    const unsigned sample_rate = static_cast<unsigned>(host_wav_bytes[24])
-        | (static_cast<unsigned>(host_wav_bytes[25]) << 8)
-        | (static_cast<unsigned>(host_wav_bytes[26]) << 16)
-        | (static_cast<unsigned>(host_wav_bytes[27]) << 24);
+    const unsigned sample_rate =
+        static_cast<unsigned>(host_wav_bytes[24]) | (static_cast<unsigned>(host_wav_bytes[25]) << 8) |
+        (static_cast<unsigned>(host_wav_bytes[26]) << 16) | (static_cast<unsigned>(host_wav_bytes[27]) << 24);
     assert(sample_rate == 22050);
     const auto host_vgm = read_binary(host_vgm_path);
     assert(host_vgm.size() > 0x100);
@@ -626,12 +663,11 @@ int main() {
     assert(host_vgm[1] == 'g');
     assert(host_vgm.back() == 0x66);
 
-    const std::string host_diagnostic_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(debug_rom_path)
-        + " --run-host --frames 2 --dump-io-log " + quote(host_io_log_path)
-        + " --dump-memory-log " + quote(host_memory_log_path)
-        + " --dump-vdp-log " + quote(host_vdp_log_path)
-        + " --dump-vram " + quote(host_vram_path) + " --dump-cram " + quote(host_cram_path)
-        + " --dump-tilemap " + quote(host_tilemap_path) + " --dump-sprites " + quote(host_sprites_path);
+    const std::string host_diagnostic_command =
+        quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(debug_rom_path) + " --run-host --frames 2 --dump-io-log " +
+        quote(host_io_log_path) + " --dump-memory-log " + quote(host_memory_log_path) + " --dump-vdp-log " +
+        quote(host_vdp_log_path) + " --dump-vram " + quote(host_vram_path) + " --dump-cram " + quote(host_cram_path) +
+        " --dump-tilemap " + quote(host_tilemap_path) + " --dump-sprites " + quote(host_sprites_path);
     assert(run_command(host_diagnostic_command) == 0);
     assert(contains(read_text(host_io_log_path), "write,0xbf"));
     assert(contains(read_text(host_memory_log_path), "ram,0xc000"));
@@ -655,53 +691,59 @@ int main() {
 
     std::vector<unsigned char> bios_handoff_bios(0x4000, 0x00);
     const std::vector<unsigned char> bios_handoff_program = {
-        0x31, 0x00, 0xD0, // ld sp,$d000
-        0x01, 0xFF, 0xFF, // ld bc,$ffff
-        0x0B,             // loop: dec bc
-        0x78,             // ld a,b
-        0xB1,             // or c
-        0x20, 0xFB,       // jr nz,loop
-        0x3E, 0x08,       // ld a,$08: disable BIOS, keep cart/RAM enabled
-        0xD3, 0x3E,       // out ($3e),a
+        0x31,
+        0x00,
+        0xD0, // ld sp,$d000
+        0x01,
+        0xFF,
+        0xFF, // ld bc,$ffff
+        0x0B, // loop: dec bc
+        0x78, // ld a,b
+        0xB1, // or c
+        0x20,
+        0xFB, // jr nz,loop
+        0x3E,
+        0x08, // ld a,$08: disable BIOS, keep cart/RAM enabled
+        0xD3,
+        0x3E, // out ($3e),a
     };
     std::copy(bios_handoff_program.begin(), bios_handoff_program.end(), bios_handoff_bios.begin());
     write_binary(bios_handoff_bios_path, bios_handoff_bios);
 
-    const std::string bios_handoff_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(bios_handoff_rom_path)
-        + " --run-host --frames 30 --bios " + quote(bios_handoff_bios_path)
-        + " --dump-frame-log " + quote(bios_handoff_frame_log_path)
-        + " --dump-memory-log " + quote(bios_handoff_memory_log_path) + " --watch 0xc000";
+    const std::string bios_handoff_command =
+        quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(bios_handoff_rom_path) + " --run-host --frames 30 --bios " +
+        quote(bios_handoff_bios_path) + " --dump-frame-log " + quote(bios_handoff_frame_log_path) +
+        " --dump-memory-log " + quote(bios_handoff_memory_log_path) + " --watch 0xc000";
     assert(run_command(bios_handoff_command) == 0);
     const std::string bios_handoff_frames = read_text(bios_handoff_frame_log_path);
-    assert(contains(bios_handoff_frames,
-        "mapper,memory_control,bios_enabled,cartridge_enabled,work_ram_enabled"));
+    assert(contains(bios_handoff_frames, "mapper,memory_control,bios_enabled,cartridge_enabled,work_ram_enabled"));
     assert(contains(bios_handoff_frames, ",plain,0x00,1,1,1,"));
     assert(contains(bios_handoff_frames, ",plain,0x08,0,1,1,"));
     assert(contains(read_text(bios_handoff_memory_log_path), "ram,0xc000,0x0c000,0x42"));
 
     write_text(host_config_path,
-        "[target]\n"
-        "model = \"sms\"\n"
-        "mapper = \"plain\"\n"
-        "\n"
-        "[recompiler]\n"
-        "fallback = true\n"
-        "emit_disassembly_comments = true\n"
-        "max_static_bytes = \"0xC000\"\n"
-        "\n"
-        "[runtime]\n"
-        "region = \"pal\"\n"
-        "audio_sample_rate = 32000\n"
-        "enable_fm = false\n");
-    const std::string host_config_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(audio_rom_path)
-        + " --config " + quote(host_config_path)
-        + " --run-host --frames 1 --dump-audio " + quote(host_config_audio_path);
+               "[target]\n"
+               "model = \"sms\"\n"
+               "mapper = \"plain\"\n"
+               "\n"
+               "[recompiler]\n"
+               "fallback = true\n"
+               "emit_disassembly_comments = true\n"
+               "max_static_bytes = \"0xC000\"\n"
+               "\n"
+               "[runtime]\n"
+               "region = \"pal\"\n"
+               "audio_sample_rate = 32000\n"
+               "enable_fm = false\n");
+    const std::string host_config_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(audio_rom_path) + " --config " +
+                                            quote(host_config_path) + " --run-host --frames 1 --dump-audio " +
+                                            quote(host_config_audio_path);
     assert(run_command(host_config_command) == 0);
     const auto host_config_wav_bytes = read_binary(host_config_audio_path);
-    const unsigned config_sample_rate = static_cast<unsigned>(host_config_wav_bytes[24])
-        | (static_cast<unsigned>(host_config_wav_bytes[25]) << 8)
-        | (static_cast<unsigned>(host_config_wav_bytes[26]) << 16)
-        | (static_cast<unsigned>(host_config_wav_bytes[27]) << 24);
+    const unsigned config_sample_rate = static_cast<unsigned>(host_config_wav_bytes[24]) |
+                                        (static_cast<unsigned>(host_config_wav_bytes[25]) << 8) |
+                                        (static_cast<unsigned>(host_config_wav_bytes[26]) << 16) |
+                                        (static_cast<unsigned>(host_config_wav_bytes[27]) << 24);
     assert(config_sample_rate == 32000);
 
 #ifdef SGRECOMP_HOST_PATH
@@ -719,8 +761,9 @@ int main() {
     host_sram_rom[0x000A] = 0x76; // halt
     write_binary(host_sram_rom_path, host_sram_rom);
 
-    const std::string host_sram_command = quote_arg(SGRECOMP_HOST_PATH) + " " + quote(host_sram_rom_path)
-        + " --mute --no-overlay --quit-after-frames 1 --save-sram " + quote(host_sram_path);
+    const std::string host_sram_command = quote_arg(SGRECOMP_HOST_PATH) + " " + quote(host_sram_rom_path) +
+                                          " --mute --no-overlay --quit-after-frames 1 --save-sram " +
+                                          quote(host_sram_path);
     assert(run_command(host_sram_command) == 0);
 
     const auto host_sram = read_binary(host_sram_path);
@@ -728,17 +771,18 @@ int main() {
     assert(host_sram[0] == 0x5A);
 
     write_text(host_profile_path,
-        "[profile]\n"
-        "name = \"smoke\"\n"
-        "hash = \"fnv1a64:d3f717584fae6e42\"\n"
-        "mapper = \"plain\"\n"
-        "mode = \"enhanced\"\n"
-        "reduce_flicker = true\n"
-        "audio_latency_ms = 120\n");
+               "[profile]\n"
+               "name = \"smoke\"\n"
+               "hash = \"fnv1a64:d3f717584fae6e42\"\n"
+               "mapper = \"plain\"\n"
+               "mode = \"enhanced\"\n"
+               "reduce_flicker = true\n"
+               "audio_latency_ms = 120\n");
 
-    const std::string host_profile_command = quote_arg(SGRECOMP_HOST_PATH) + " " + quote(host_sram_rom_path)
-        + " --mapper smapper --profile " + quote(host_profile_path)
-        + " --mute --no-overlay --quit-after-frames 1 --save-sram " + quote(host_profile_sram_path);
+    const std::string host_profile_command = quote_arg(SGRECOMP_HOST_PATH) + " " + quote(host_sram_rom_path) +
+                                             " --mapper smapper --profile " + quote(host_profile_path) +
+                                             " --mute --no-overlay --quit-after-frames 1 --save-sram " +
+                                             quote(host_profile_sram_path);
     assert(run_command(host_profile_command) == 0);
     const auto host_profile_sram = read_binary(host_profile_sram_path);
     assert(host_profile_sram.size() == 0x8000);

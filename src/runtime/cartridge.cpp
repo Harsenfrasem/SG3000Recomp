@@ -41,20 +41,29 @@ u16 checksum_range(std::span<const u8> rom, std::size_t size, std::size_t header
 
 u8 encode_region(CartridgeHeaderRegion region) {
     switch (region) {
-    case CartridgeHeaderRegion::SmsJapan: return 3;
-    case CartridgeHeaderRegion::SmsExport: return 4;
-    case CartridgeHeaderRegion::GameGearJapan: return 5;
-    case CartridgeHeaderRegion::GameGearExport: return 6;
-    case CartridgeHeaderRegion::GameGearInternational: return 7;
-    case CartridgeHeaderRegion::Unknown: break;
+    case CartridgeHeaderRegion::SmsJapan:
+        return 3;
+    case CartridgeHeaderRegion::SmsExport:
+        return 4;
+    case CartridgeHeaderRegion::GameGearJapan:
+        return 5;
+    case CartridgeHeaderRegion::GameGearExport:
+        return 6;
+    case CartridgeHeaderRegion::GameGearInternational:
+        return 7;
+    case CartridgeHeaderRegion::Unknown:
+        break;
     }
     throw std::invalid_argument("cannot encode unknown cartridge region");
 }
 
 u8 parse_hex_digit(char value) {
-    if (value >= '0' && value <= '9') return static_cast<u8>(value - '0');
-    if (value >= 'a' && value <= 'f') return static_cast<u8>(value - 'a' + 10);
-    if (value >= 'A' && value <= 'F') return static_cast<u8>(value - 'A' + 10);
+    if (value >= '0' && value <= '9')
+        return static_cast<u8>(value - '0');
+    if (value >= 'a' && value <= 'f')
+        return static_cast<u8>(value - 'a' + 10);
+    if (value >= 'A' && value <= 'F')
+        return static_cast<u8>(value - 'A' + 10);
     throw std::invalid_argument("product code must contain exactly five hexadecimal digits");
 }
 
@@ -63,21 +72,26 @@ std::string decode_product_code(std::span<const u8> rom, std::size_t header_offs
         return "unknown";
     }
     std::ostringstream out;
-    out << std::hex << std::uppercase << std::setfill('0')
-        << std::setw(2) << static_cast<int>(rom[header_offset + 12])
-        << std::setw(2) << static_cast<int>(rom[header_offset + 13])
-        << std::setw(1) << static_cast<int>((rom[header_offset + 14] >> 4) & 0x0F);
+    out << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << static_cast<int>(rom[header_offset + 12])
+        << std::setw(2) << static_cast<int>(rom[header_offset + 13]) << std::setw(1)
+        << static_cast<int>((rom[header_offset + 14] >> 4) & 0x0F);
     return out.str();
 }
 
 CartridgeHeaderRegion decode_region(u8 region_size) {
     switch ((region_size >> 4) & 0x0F) {
-    case 3: return CartridgeHeaderRegion::SmsJapan;
-    case 4: return CartridgeHeaderRegion::SmsExport;
-    case 5: return CartridgeHeaderRegion::GameGearJapan;
-    case 6: return CartridgeHeaderRegion::GameGearExport;
-    case 7: return CartridgeHeaderRegion::GameGearInternational;
-    default: return CartridgeHeaderRegion::Unknown;
+    case 3:
+        return CartridgeHeaderRegion::SmsJapan;
+    case 4:
+        return CartridgeHeaderRegion::SmsExport;
+    case 5:
+        return CartridgeHeaderRegion::GameGearJapan;
+    case 6:
+        return CartridgeHeaderRegion::GameGearExport;
+    case 7:
+        return CartridgeHeaderRegion::GameGearInternational;
+    default:
+        return CartridgeHeaderRegion::Unknown;
     }
 }
 
@@ -119,12 +133,18 @@ CartridgeHeaderInfo analyze_cartridge_header(std::span<const u8> rom) {
 
 const char* cartridge_region_name(CartridgeHeaderRegion region) {
     switch (region) {
-    case CartridgeHeaderRegion::SmsJapan: return "SMS Japan";
-    case CartridgeHeaderRegion::SmsExport: return "SMS export";
-    case CartridgeHeaderRegion::GameGearJapan: return "Game Gear Japan";
-    case CartridgeHeaderRegion::GameGearExport: return "Game Gear export";
-    case CartridgeHeaderRegion::GameGearInternational: return "Game Gear international";
-    case CartridgeHeaderRegion::Unknown: return "unknown";
+    case CartridgeHeaderRegion::SmsJapan:
+        return "SMS Japan";
+    case CartridgeHeaderRegion::SmsExport:
+        return "SMS export";
+    case CartridgeHeaderRegion::GameGearJapan:
+        return "Game Gear Japan";
+    case CartridgeHeaderRegion::GameGearExport:
+        return "Game Gear export";
+    case CartridgeHeaderRegion::GameGearInternational:
+        return "Game Gear international";
+    case CartridgeHeaderRegion::Unknown:
+        return "unknown";
     }
     return "unknown";
 }
@@ -146,40 +166,63 @@ CartridgePlatform cartridge_header_platform(const CartridgeHeaderInfo& header) {
 
 const char* cartridge_platform_name(CartridgePlatform platform) {
     switch (platform) {
-    case CartridgePlatform::MasterSystem: return "Master System";
-    case CartridgePlatform::GameGear: return "Game Gear";
-    case CartridgePlatform::Unknown: return "unknown";
+    case CartridgePlatform::MasterSystem:
+        return "Master System";
+    case CartridgePlatform::GameGear:
+        return "Game Gear";
+    case CartridgePlatform::Unknown:
+        return "unknown";
     }
     return "unknown";
 }
 
 const char* cartridge_size_code_name(u8 region_size) {
     switch (region_size & 0x0F) {
-    case 0xA: return "8 KiB";
-    case 0xB: return "16 KiB";
-    case 0xC: return "32 KiB";
-    case 0xD: return "48 KiB";
-    case 0xE: return "64 KiB";
-    case 0xF: return "128 KiB";
-    case 0x0: return "256 KiB";
-    case 0x1: return "512 KiB";
-    case 0x2: return "1 MiB";
-    default: return "unknown";
+    case 0xA:
+        return "8 KiB";
+    case 0xB:
+        return "16 KiB";
+    case 0xC:
+        return "32 KiB";
+    case 0xD:
+        return "48 KiB";
+    case 0xE:
+        return "64 KiB";
+    case 0xF:
+        return "128 KiB";
+    case 0x0:
+        return "256 KiB";
+    case 0x1:
+        return "512 KiB";
+    case 0x2:
+        return "1 MiB";
+    default:
+        return "unknown";
     }
 }
 
 std::size_t cartridge_declared_size_bytes(u8 region_size) {
     switch (region_size & 0x0F) {
-    case 0xA: return 8 * 1024;
-    case 0xB: return 16 * 1024;
-    case 0xC: return 32 * 1024;
-    case 0xD: return 48 * 1024;
-    case 0xE: return 64 * 1024;
-    case 0xF: return 128 * 1024;
-    case 0x0: return 256 * 1024;
-    case 0x1: return 512 * 1024;
-    case 0x2: return 1024 * 1024;
-    default: return 0;
+    case 0xA:
+        return 8 * 1024;
+    case 0xB:
+        return 16 * 1024;
+    case 0xC:
+        return 32 * 1024;
+    case 0xD:
+        return 48 * 1024;
+    case 0xE:
+        return 64 * 1024;
+    case 0xF:
+        return 128 * 1024;
+    case 0x0:
+        return 256 * 1024;
+    case 0x1:
+        return 512 * 1024;
+    case 0x2:
+        return 1024 * 1024;
+    default:
+        return 0;
     }
 }
 
@@ -198,25 +241,39 @@ u16 calculate_cartridge_checksum(std::span<const u8> rom, std::size_t checksum_s
 }
 
 std::size_t cartridge_standard_header_offset(std::size_t rom_size) {
-    if (rom_size == 8 * 1024) return 0x1FF0;
-    if (rom_size == 16 * 1024) return 0x3FF0;
-    if (rom_size == 48 * 1024) return 0xBFF0;
-    if (rom_size >= 32 * 1024) return 0x7FF0;
+    if (rom_size == 8 * 1024)
+        return 0x1FF0;
+    if (rom_size == 16 * 1024)
+        return 0x3FF0;
+    if (rom_size == 48 * 1024)
+        return 0xBFF0;
+    if (rom_size >= 32 * 1024)
+        return 0x7FF0;
     throw std::invalid_argument("ROM size has no standard TMR SEGA header location");
 }
 
 u8 cartridge_size_code_for_bytes(std::size_t rom_size) {
     switch (rom_size) {
-    case 8 * 1024: return 0xA;
-    case 16 * 1024: return 0xB;
-    case 32 * 1024: return 0xC;
-    case 48 * 1024: return 0xD;
-    case 64 * 1024: return 0xE;
-    case 128 * 1024: return 0xF;
-    case 256 * 1024: return 0x0;
-    case 512 * 1024: return 0x1;
-    case 1024 * 1024: return 0x2;
-    default: throw std::invalid_argument("ROM size cannot be represented by the cartridge header");
+    case 8 * 1024:
+        return 0xA;
+    case 16 * 1024:
+        return 0xB;
+    case 32 * 1024:
+        return 0xC;
+    case 48 * 1024:
+        return 0xD;
+    case 64 * 1024:
+        return 0xE;
+    case 128 * 1024:
+        return 0xF;
+    case 256 * 1024:
+        return 0x0;
+    case 512 * 1024:
+        return 0x1;
+    case 1024 * 1024:
+        return 0x2;
+    default:
+        throw std::invalid_argument("ROM size cannot be represented by the cartridge header");
     }
 }
 
@@ -249,13 +306,13 @@ CartridgeHeaderInfo rebuild_cartridge_header(std::span<u8> rom, const CartridgeH
         std::copy(kMagic.begin(), kMagic.end(), rom.begin() + static_cast<std::ptrdiff_t>(offset));
         rom[offset + 8] = 0;
         rom[offset + 9] = 0;
-        rom[offset + 12] = static_cast<u8>((parse_hex_digit(options.product_code[0]) << 4)
-            | parse_hex_digit(options.product_code[1]));
-        rom[offset + 13] = static_cast<u8>((parse_hex_digit(options.product_code[2]) << 4)
-            | parse_hex_digit(options.product_code[3]));
+        rom[offset + 12] =
+            static_cast<u8>((parse_hex_digit(options.product_code[0]) << 4) | parse_hex_digit(options.product_code[1]));
+        rom[offset + 13] =
+            static_cast<u8>((parse_hex_digit(options.product_code[2]) << 4) | parse_hex_digit(options.product_code[3]));
         rom[offset + 14] = static_cast<u8>((parse_hex_digit(options.product_code[4]) << 4) | options.version);
-        rom[offset + 15] = static_cast<u8>((encode_region(options.region) << 4)
-            | cartridge_size_code_for_bytes(rom.size()));
+        rom[offset + 15] =
+            static_cast<u8>((encode_region(options.region) << 4) | cartridge_size_code_for_bytes(rom.size()));
     }
 
     const CartridgeHeaderInfo header_before_checksum = analyze_cartridge_header(rom);

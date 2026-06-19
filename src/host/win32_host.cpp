@@ -59,7 +59,7 @@ struct Options {
 };
 
 class Win32Audio {
-public:
+  public:
     struct Stats {
         std::size_t queued_buffers = 0;
         std::size_t queued_sample_frames = 0;
@@ -79,8 +79,8 @@ public:
     bool open(u32 sample_rate, int target_latency_ms) {
         sample_rate_ = sample_rate;
         target_latency_ms_ = std::max(10, target_latency_ms);
-        target_latency_frames_ = static_cast<std::size_t>(
-            (static_cast<u64>(sample_rate_) * static_cast<u64>(target_latency_ms_)) / 1000);
+        target_latency_frames_ =
+            static_cast<std::size_t>((static_cast<u64>(sample_rate_) * static_cast<u64>(target_latency_ms_)) / 1000);
         WAVEFORMATEX format{};
         format.wFormatTag = WAVE_FORMAT_PCM;
         format.nChannels = 2;
@@ -194,8 +194,8 @@ public:
                 buffer.prepared = false;
                 stats_.queued_buffers = stats_.queued_buffers == 0 ? 0 : stats_.queued_buffers - 1;
                 stats_.queued_sample_frames = buffer.sample_frames > stats_.queued_sample_frames
-                    ? 0
-                    : stats_.queued_sample_frames - buffer.sample_frames;
+                                                  ? 0
+                                                  : stats_.queued_sample_frames - buffer.sample_frames;
                 buffer.sample_frames = 0;
             }
         }
@@ -219,7 +219,7 @@ public:
         device_ = nullptr;
     }
 
-private:
+  private:
     struct AudioBuffer {
         WAVEHDR header{};
         std::vector<s16> samples;
@@ -274,9 +274,7 @@ private:
         if (device_ == nullptr) {
             return;
         }
-        const DWORD channel = muted_
-            ? 0
-            : static_cast<DWORD>((volume_percent_ * 0xFFFF) / 100);
+        const DWORD channel = muted_ ? 0 : static_cast<DWORD>((volume_percent_ * 0xFFFF) / 100);
         waveOutSetVolume(device_, channel | (channel << 16));
     }
 };
@@ -344,9 +342,8 @@ CartridgeMapper parse_mapper(std::string text) {
 }
 
 HostVideoStandard parse_video_standard(std::string text) {
-    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char ch) {
-        return static_cast<char>(std::tolower(ch));
-    });
+    std::transform(
+        text.begin(), text.end(), text.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
     if (text == "ntsc") {
         return HostVideoStandard::Ntsc;
     }
@@ -370,8 +367,7 @@ void write_binary_file(const std::filesystem::path& path, std::span<const u8> by
 
 std::filesystem::path graphical_user_data_root() {
     std::array<wchar_t, 32768> value{};
-    const DWORD length = GetEnvironmentVariableW(
-        L"LOCALAPPDATA", value.data(), static_cast<DWORD>(value.size()));
+    const DWORD length = GetEnvironmentVariableW(L"LOCALAPPDATA", value.data(), static_cast<DWORD>(value.size()));
     if (length > 0 && length < value.size()) {
         return std::filesystem::path(value.data()) / L"SG3000Recomp";
     }
@@ -420,10 +416,9 @@ GraphicalSettings load_graphical_settings(const std::filesystem::path& path) {
     return settings;
 }
 
-void save_graphical_settings(
-    const std::filesystem::path& path,
-    const AppState& app,
-    const GraphicalSettings& previous) {
+void save_graphical_settings(const std::filesystem::path& path,
+                             const AppState& app,
+                             const GraphicalSettings& previous) {
     std::filesystem::create_directories(path.parent_path());
     std::ofstream file(path, std::ios::trunc);
     if (!file) {
@@ -442,23 +437,27 @@ void save_graphical_settings(
 }
 
 std::string hash_file_stem(std::string hash) {
-    std::replace_if(hash.begin(), hash.end(), [](char ch) {
-        return !(std::isalnum(static_cast<unsigned char>(ch)) != 0 || ch == '-' || ch == '_');
-    }, '-');
+    std::replace_if(
+        hash.begin(),
+        hash.end(),
+        [](char ch) { return !(std::isalnum(static_cast<unsigned char>(ch)) != 0 || ch == '-' || ch == '_'); },
+        '-');
     return hash;
 }
 
 void print_usage() {
-    std::cout << "usage: sgrecomp_host                         (open graphical ROM/BIOS selectors)\n"
-              << "       sgrecomp_host <rom.sms|rom.sg> [--bios bios.sms] [--model sms|sg3000] [--mapper auto|plain|smapper|cmapper|kmapper|k8k]\n"
-              << "                    [--video-standard ntsc|pal]\n"
-              << "                    [--scale n] [--mute] [--no-overlay] [--audio-latency-ms n] [--audio-sample-rate hz]\n"
-              << "                    [--load-sram save.sav] [--save-sram save.sav]\n"
-              << "                    [--load-state state.sgstate] [--save-state state.sgstate] [--force-state]\n"
-              << "                    [--profile profiles.txt]\n"
-              << "                    [--print-hash]\n"
-              << "                    [--quit-after-frames n]\n"
-              << "                    [--disable-sprite-limit] [--reduce-flicker] [--enable-fm]\n";
+    std::cout
+        << "usage: sgrecomp_host                         (open graphical ROM/BIOS selectors)\n"
+        << "       sgrecomp_host <rom.sms|rom.sg> [--bios bios.sms] [--model sms|sg3000] [--mapper "
+           "auto|plain|smapper|cmapper|kmapper|k8k]\n"
+        << "                    [--video-standard ntsc|pal]\n"
+        << "                    [--scale n] [--mute] [--no-overlay] [--audio-latency-ms n] [--audio-sample-rate hz]\n"
+        << "                    [--load-sram save.sav] [--save-sram save.sav]\n"
+        << "                    [--load-state state.sgstate] [--save-state state.sgstate] [--force-state]\n"
+        << "                    [--profile profiles.txt]\n"
+        << "                    [--print-hash]\n"
+        << "                    [--quit-after-frames n]\n"
+        << "                    [--disable-sprite-limit] [--reduce-flicker] [--enable-fm]\n";
 }
 
 Options parse_args(int argc, char** argv) {
@@ -571,9 +570,7 @@ Options parse_args(int argc, char** argv) {
     return opts;
 }
 
-std::optional<std::filesystem::path> choose_local_file(
-    const wchar_t* title,
-    const wchar_t* filter) {
+std::optional<std::filesystem::path> choose_local_file(const wchar_t* title, const wchar_t* filter) {
     std::array<wchar_t, 32768> path{};
     OPENFILENAMEW dialog{};
     dialog.lStructSize = sizeof(dialog);
@@ -594,12 +591,10 @@ std::optional<std::filesystem::path> choose_local_file(
 }
 
 bool complete_graphical_launch_options(Options& opts) {
-    static constexpr wchar_t rom_filter[] =
-        L"ROMs Sega (*.sms;*.sg;*.bin;*.rom)\0*.sms;*.sg;*.bin;*.rom\0"
-        L"Todos os arquivos (*.*)\0*.*\0\0";
-    static constexpr wchar_t bios_filter[] =
-        L"BIOS Sega (*.sms;*.bin;*.rom)\0*.sms;*.bin;*.rom\0"
-        L"Todos os arquivos (*.*)\0*.*\0\0";
+    static constexpr wchar_t rom_filter[] = L"ROMs Sega (*.sms;*.sg;*.bin;*.rom)\0*.sms;*.sg;*.bin;*.rom\0"
+                                            L"Todos os arquivos (*.*)\0*.*\0\0";
+    static constexpr wchar_t bios_filter[] = L"BIOS Sega (*.sms;*.bin;*.rom)\0*.sms;*.bin;*.rom\0"
+                                             L"Todos os arquivos (*.*)\0*.*\0\0";
 
     const auto rom = choose_local_file(L"Selecione a ROM para jogar", rom_filter);
     if (!rom) {
@@ -607,11 +602,11 @@ bool complete_graphical_launch_options(Options& opts) {
     }
     opts.rom = *rom;
 
-    const int bios_choice = MessageBoxW(
-        nullptr,
-        L"Deseja selecionar uma BIOS?\n\nSim: escolher BIOS local\nNão: iniciar diretamente pelo cartucho",
-        L"SG3000Recomp - BIOS opcional",
-        MB_ICONQUESTION | MB_YESNOCANCEL);
+    const int bios_choice =
+        MessageBoxW(nullptr,
+                    L"Deseja selecionar uma BIOS?\n\nSim: escolher BIOS local\nNão: iniciar diretamente pelo cartucho",
+                    L"SG3000Recomp - BIOS opcional",
+                    MB_ICONQUESTION | MB_YESNOCANCEL);
     if (bios_choice == IDCANCEL) {
         return false;
     }
@@ -627,13 +622,20 @@ bool complete_graphical_launch_options(Options& opts) {
 
 u8 button_for_key(WPARAM key) {
     switch (key) {
-    case VK_UP: return Joypad::Up;
-    case VK_DOWN: return Joypad::Down;
-    case VK_LEFT: return Joypad::Left;
-    case VK_RIGHT: return Joypad::Right;
-    case 'Z': return Joypad::Button1;
-    case 'X': return Joypad::Button2;
-    default: return 0;
+    case VK_UP:
+        return Joypad::Up;
+    case VK_DOWN:
+        return Joypad::Down;
+    case VK_LEFT:
+        return Joypad::Left;
+    case VK_RIGHT:
+        return Joypad::Right;
+    case 'Z':
+        return Joypad::Button1;
+    case 'X':
+        return Joypad::Button2;
+    default:
+        return 0;
     }
 }
 
@@ -660,14 +662,14 @@ bool confirm_enhanced_mode(HWND hwnd, AppState& app) {
     if (app.compatibility_warning_acknowledged) {
         return true;
     }
-    const int result = MessageBoxW(
-        hwnd,
-        L"O modo enhanced pode alterar a aparencia original do jogo.\n\n"
-        L"Reducao de flicker e remocao do limite de sprites nao representam "
-        L"exatamente o hardware historico. Voce pode voltar ao modo fiel a qualquer momento.\n\n"
-        L"Deseja continuar?",
-        L"SG3000Recomp - Aviso de compatibilidade",
-        MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2);
+    const int result =
+        MessageBoxW(hwnd,
+                    L"O modo enhanced pode alterar a aparencia original do jogo.\n\n"
+                    L"Reducao de flicker e remocao do limite de sprites nao representam "
+                    L"exatamente o hardware historico. Voce pode voltar ao modo fiel a qualquer momento.\n\n"
+                    L"Deseja continuar?",
+                    L"SG3000Recomp - Aviso de compatibilidade",
+                    MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2);
     if (result == IDYES) {
         app.compatibility_warning_acknowledged = true;
         return true;
@@ -713,9 +715,11 @@ void update_menu_checks(HWND hwnd, const AppState& app) {
     };
     const auto& config = app.host->console().enhancements();
     check(MenuEmulationPause, app.emulation_paused);
-    CheckMenuRadioItem(menu, MenuModeAccurate, MenuModeEnhanced,
-        config.mode == RuntimeMode::Accurate ? MenuModeAccurate : MenuModeEnhanced,
-        MF_BYCOMMAND);
+    CheckMenuRadioItem(menu,
+                       MenuModeAccurate,
+                       MenuModeEnhanced,
+                       config.mode == RuntimeMode::Accurate ? MenuModeAccurate : MenuModeEnhanced,
+                       MF_BYCOMMAND);
     check(MenuEnhancementReduceFlicker, config.reduce_flicker);
     check(MenuEnhancementDisableSpriteLimit, config.disable_sprite_limit);
     check(MenuViewOverlay, app.overlay_enabled);
@@ -782,10 +786,14 @@ void update_key(AppState& app, WPARAM key, bool pressed) {
 
 const char* runtime_mode_name(RuntimeMode mode) {
     switch (mode) {
-    case RuntimeMode::Accurate: return "accurate";
-    case RuntimeMode::Enhanced: return "enhanced";
-    case RuntimeMode::Hybrid: return "hybrid";
-    default: return "unknown";
+    case RuntimeMode::Accurate:
+        return "accurate";
+    case RuntimeMode::Enhanced:
+        return "enhanced";
+    case RuntimeMode::Hybrid:
+        return "hybrid";
+    default:
+        return "unknown";
     }
 }
 
@@ -793,27 +801,19 @@ std::string overlay_text(const AppState& app) {
     const auto& config = app.host->console().enhancements();
     const auto& cpu = app.host->console().cpu();
     std::ostringstream out;
-    out << std::fixed << std::setprecision(1)
-        << "FPS " << app.fps
-        << "  frame " << app.last_frame.frame_index
-        << "  PC $" << std::hex << std::uppercase << std::setw(4) << std::setfill('0')
-        << static_cast<int>(cpu.pc) << std::dec << "\n"
-        << "AF $" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << cpu.af()
-        << " BC $" << std::setw(4) << cpu.bc()
-        << " DE $" << std::setw(4) << cpu.de()
-        << " HL $" << std::setw(4) << cpu.hl()
+    out << std::fixed << std::setprecision(1) << "FPS " << app.fps << "  frame " << app.last_frame.frame_index
+        << "  PC $" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << static_cast<int>(cpu.pc)
+        << std::dec << "\n"
+        << "AF $" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << cpu.af() << " BC $"
+        << std::setw(4) << cpu.bc() << " DE $" << std::setw(4) << cpu.de() << " HL $" << std::setw(4) << cpu.hl()
         << " SP $" << std::setw(4) << cpu.sp << std::dec << "\n"
         << "IX $" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << make_u16(cpu.ixl, cpu.ixh)
-        << " IY $" << std::setw(4) << make_u16(cpu.iyl, cpu.iyh)
-        << " I $" << std::setw(2) << static_cast<int>(cpu.i)
-        << " R $" << std::setw(2) << static_cast<int>(cpu.r)
-        << std::dec << " IM " << static_cast<int>(cpu.interrupt_mode)
-        << " IFF " << (cpu.iff1 ? "1" : "0") << "/" << (cpu.iff2 ? "1" : "0")
-        << " cycles " << cpu.cycles
-        << (cpu.halted ? " halted" : "") << "\n"
-        << "mode " << runtime_mode_name(config.mode)
-        << "  sprite_limit " << (config.disable_sprite_limit ? "off" : "on")
-        << "  reduce_flicker " << (config.reduce_flicker ? "on" : "off")
+        << " IY $" << std::setw(4) << make_u16(cpu.iyl, cpu.iyh) << " I $" << std::setw(2) << static_cast<int>(cpu.i)
+        << " R $" << std::setw(2) << static_cast<int>(cpu.r) << std::dec << " IM "
+        << static_cast<int>(cpu.interrupt_mode) << " IFF " << (cpu.iff1 ? "1" : "0") << "/" << (cpu.iff2 ? "1" : "0")
+        << " cycles " << cpu.cycles << (cpu.halted ? " halted" : "") << "\n"
+        << "mode " << runtime_mode_name(config.mode) << "  sprite_limit "
+        << (config.disable_sprite_limit ? "off" : "on") << "  reduce_flicker " << (config.reduce_flicker ? "on" : "off")
         << "  " << (app.emulation_paused ? "paused" : "running") << "\n";
     if (!app.profile_name.empty()) {
         out << "profile " << app.profile_name << "  ";
@@ -822,50 +822,38 @@ std::string overlay_text(const AppState& app) {
     }
     out << app.rom_hash << "\n";
     const auto mapper = app.host->console().bus().mapper_snapshot();
-    out << "mapper " << cartridge_mapper_name(mapper.mapper)
-        << " req " << cartridge_mapper_name(mapper.requested_mapper)
-        << " mem $" << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
-        << static_cast<int>(mapper.memory_control) << std::dec
-        << " bios " << (mapper.bios_enabled ? "on" : "off")
-        << " cart " << (mapper.cartridge_enabled ? "on" : "off")
-        << " ram " << (mapper.work_ram_enabled ? "on" : "off");
+    out << "mapper " << cartridge_mapper_name(mapper.mapper) << " req "
+        << cartridge_mapper_name(mapper.requested_mapper) << " mem $" << std::hex << std::uppercase << std::setw(2)
+        << std::setfill('0') << static_cast<int>(mapper.memory_control) << std::dec << " bios "
+        << (mapper.bios_enabled ? "on" : "off") << " cart " << (mapper.cartridge_enabled ? "on" : "off") << " ram "
+        << (mapper.work_ram_enabled ? "on" : "off");
     if (mapper.mapper == CartridgeMapper::SMapper) {
-        out << " slots " << static_cast<int>(mapper.smapper_slots[0])
-            << "," << static_cast<int>(mapper.smapper_slots[1])
-            << "," << static_cast<int>(mapper.smapper_slots[2]);
+        out << " slots " << static_cast<int>(mapper.smapper_slots[0]) << ","
+            << static_cast<int>(mapper.smapper_slots[1]) << "," << static_cast<int>(mapper.smapper_slots[2]);
         if (mapper.cartridge_ram_enabled) {
             out << " cart_ram bank " << static_cast<int>(mapper.cartridge_ram_bank);
         }
     } else if (mapper.mapper == CartridgeMapper::CMapper) {
-        out << " slots " << static_cast<int>(mapper.cmapper_slots[0])
-            << "," << static_cast<int>(mapper.cmapper_slots[1])
-            << "," << static_cast<int>(mapper.cmapper_slots[2]);
+        out << " slots " << static_cast<int>(mapper.cmapper_slots[0]) << ","
+            << static_cast<int>(mapper.cmapper_slots[1]) << "," << static_cast<int>(mapper.cmapper_slots[2]);
     } else if (mapper.mapper == CartridgeMapper::KMapper) {
         out << " slot2 " << static_cast<int>(mapper.kmapper_slot2);
     }
     out << "\n";
     const auto vdp = app.host->console().vdp().debug_snapshot();
-    out << "vdp line " << vdp.scanline
-        << "/" << vdp.scanlines_per_frame
-        << " +" << vdp.scanline_cycles
-        << "/" << vdp.cpu_cycles_per_scanline
-        << " status $" << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
-        << static_cast<int>(vdp.status) << std::dec
-        << " display " << (vdp.display_enabled ? "on" : "off")
-        << " irq " << (vdp.frame_irq_pending ? "vblank" : "-")
-        << "/" << (vdp.line_irq_pending ? "line" : "-") << "\n";
+    out << "vdp line " << vdp.scanline << "/" << vdp.scanlines_per_frame << " +" << vdp.scanline_cycles << "/"
+        << vdp.cpu_cycles_per_scanline << " status $" << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
+        << static_cast<int>(vdp.status) << std::dec << " display " << (vdp.display_enabled ? "on" : "off") << " irq "
+        << (vdp.frame_irq_pending ? "vblank" : "-") << "/" << (vdp.line_irq_pending ? "line" : "-") << "\n";
 
     if (app.audio) {
         app.audio->cleanup_completed_buffers();
         const auto stats = app.audio->stats();
-        out << "audio " << (app.audio->muted() ? "muted" : "on")
-            << "  vol " << app.audio->volume_percent() << "%"
-            << "  queued " << stats.queued_buffers
-            << "/" << app.audio->queued_latency_ms() << "ms"
+        out << "audio " << (app.audio->muted() ? "muted" : "on") << "  vol " << app.audio->volume_percent() << "%"
+            << "  queued " << stats.queued_buffers << "/" << app.audio->queued_latency_ms() << "ms"
             << " target " << app.audio->target_latency_ms() << "ms"
-            << "  underruns " << stats.underruns
-            << "  drops " << stats.dropped_buffers
-            << "  " << app.audio->sample_rate() << " Hz";
+            << "  underruns " << stats.underruns << "  drops " << stats.dropped_buffers << "  "
+            << app.audio->sample_rate() << " Hz";
     } else {
         out << "audio muted";
     }
@@ -910,20 +898,19 @@ void render_frame(HWND hwnd, AppState& app) {
     const int output_y = (client_height - output_height) / 2;
 
     FillRect(dc, &client, reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));
-    StretchDIBits(
-        dc,
-        output_x,
-        output_y,
-        output_width,
-        output_height,
-        0,
-        0,
-        Vdp::width,
-        Vdp::height,
-        app.host->framebuffer().data(),
-        &app.bitmap_info,
-        DIB_RGB_COLORS,
-        SRCCOPY);
+    StretchDIBits(dc,
+                  output_x,
+                  output_y,
+                  output_width,
+                  output_height,
+                  0,
+                  0,
+                  Vdp::width,
+                  Vdp::height,
+                  app.host->framebuffer().data(),
+                  &app.bitmap_info,
+                  DIB_RGB_COLORS,
+                  SRCCOPY);
     draw_overlay(dc, app);
 
     EndPaint(hwnd, &paint);
@@ -973,30 +960,28 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
             set_runtime_mode(*app, RuntimeMode::Enhanced);
             break;
         case MenuEnhancementReduceFlicker:
-            if (!app->host->console().enhancements().reduce_flicker
-                && !confirm_enhanced_mode(hwnd, *app)) {
+            if (!app->host->console().enhancements().reduce_flicker && !confirm_enhanced_mode(hwnd, *app)) {
                 return 0;
             }
-            set_enhancement(*app, MenuEnhancementReduceFlicker,
-                !app->host->console().enhancements().reduce_flicker);
+            set_enhancement(*app, MenuEnhancementReduceFlicker, !app->host->console().enhancements().reduce_flicker);
             break;
         case MenuEnhancementDisableSpriteLimit:
-            if (!app->host->console().enhancements().disable_sprite_limit
-                && !confirm_enhanced_mode(hwnd, *app)) {
+            if (!app->host->console().enhancements().disable_sprite_limit && !confirm_enhanced_mode(hwnd, *app)) {
                 return 0;
             }
-            set_enhancement(*app, MenuEnhancementDisableSpriteLimit,
-                !app->host->console().enhancements().disable_sprite_limit);
+            set_enhancement(
+                *app, MenuEnhancementDisableSpriteLimit, !app->host->console().enhancements().disable_sprite_limit);
             break;
         case MenuViewOverlay:
             app->overlay_enabled = !app->overlay_enabled;
             break;
         case MenuHelpControls:
             MessageBoxW(hwnd,
-                L"Setas: direcional\nZ / X: botoes 1 e 2\nEnter: Pause/NMI do console\n"
-                L"Space: pausar emulacao\nR: reset\nM: mute\n+ / -: volume\n"
-                L"F1: overlay\nF5: salvar rapido\nF9: carregar rapido",
-                L"SG3000Recomp - Controles", MB_OK | MB_ICONINFORMATION);
+                        L"Setas: direcional\nZ / X: botoes 1 e 2\nEnter: Pause/NMI do console\n"
+                        L"Space: pausar emulacao\nR: reset\nM: mute\n+ / -: volume\n"
+                        L"F1: overlay\nF5: salvar rapido\nF9: carregar rapido",
+                        L"SG3000Recomp - Controles",
+                        MB_OK | MB_ICONINFORMATION);
             return 0;
         default:
             return 0;
@@ -1064,19 +1049,18 @@ HWND create_main_window(HINSTANCE instance, AppState& app, int scale) {
     RECT rect{0, 0, Vdp::width * scale, Vdp::height * scale};
     AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, TRUE);
 
-    HWND hwnd = CreateWindowEx(
-        0,
-        class_name,
-        "SG3000Recomp Host",
-        WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-        CW_USEDEFAULT,
-        CW_USEDEFAULT,
-        rect.right - rect.left,
-        rect.bottom - rect.top,
-        nullptr,
-        menu,
-        instance,
-        &app);
+    HWND hwnd = CreateWindowEx(0,
+                               class_name,
+                               "SG3000Recomp Host",
+                               WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+                               CW_USEDEFAULT,
+                               CW_USEDEFAULT,
+                               rect.right - rect.left,
+                               rect.bottom - rect.top,
+                               nullptr,
+                               menu,
+                               instance,
+                               &app);
     if (hwnd == nullptr) {
         DestroyMenu(menu);
         throw std::runtime_error("cannot create host window");
@@ -1129,8 +1113,7 @@ void run_message_loop(HWND hwnd, AppState& app) {
 
             const auto elapsed = now - app.fps_window_start;
             if (elapsed >= std::chrono::seconds(1)) {
-                app.fps = static_cast<double>(app.fps_window_frames)
-                    / std::chrono::duration<double>(elapsed).count();
+                app.fps = static_cast<double>(app.fps_window_frames) / std::chrono::duration<double>(elapsed).count();
                 app.fps_window_frames = 0;
                 app.fps_window_start = now;
             }
@@ -1159,9 +1142,8 @@ int run(int argc, char** argv) {
         opts.overlay = graphical_settings.overlay;
         opts.enhancements.reduce_flicker = graphical_settings.reduce_flicker;
         opts.enhancements.disable_sprite_limit = graphical_settings.disable_sprite_limit;
-        if (graphical_settings.enhanced_mode
-            || opts.enhancements.reduce_flicker
-            || opts.enhancements.disable_sprite_limit) {
+        if (graphical_settings.enhanced_mode || opts.enhancements.reduce_flicker ||
+            opts.enhancements.disable_sprite_limit) {
             opts.enhancements.mode = RuntimeMode::Enhanced;
         }
     }
@@ -1183,9 +1165,8 @@ int run(int argc, char** argv) {
     if (opts.print_hash) {
         std::cout << rom_hash << "\n";
         if (header.found) {
-            std::cout << "header: " << cartridge_platform_name(cartridge_header_platform(header))
-                      << ", " << cartridge_region_name(header.region)
-                      << ", " << cartridge_size_code_name(header.region_size)
+            std::cout << "header: " << cartridge_platform_name(cartridge_header_platform(header)) << ", "
+                      << cartridge_region_name(header.region) << ", " << cartridge_size_code_name(header.region_size)
                       << ", offset 0x" << std::hex << header.offset << std::dec;
             if (header.declared_size_available) {
                 std::cout << ", checksum " << (header.checksum_matches_declared_size ? "ok" : "mismatch");
@@ -1197,7 +1178,8 @@ int run(int argc, char** argv) {
         return 0;
     }
     if (cartridge_header_is_game_gear(header) && opts.model == ConsoleModel::SMS) {
-        std::cout << "warning: cartridge header identifies a Game Gear image; SMS host support is not expected to be faithful yet\n";
+        std::cout << "warning: cartridge header identifies a Game Gear image; SMS host support is not expected to be "
+                     "faithful yet\n";
     }
     std::string profile_name;
     std::string profile_fingerprint;
@@ -1229,9 +1211,8 @@ int run(int argc, char** argv) {
             std::cout << "profile matched: none (" << rom_hash << ")\n";
         }
     }
-    const std::optional<std::vector<u8>> bios = opts.bios.empty()
-        ? std::optional<std::vector<u8>>{}
-        : std::optional<std::vector<u8>>{read_file(opts.bios)};
+    const std::optional<std::vector<u8>> bios =
+        opts.bios.empty() ? std::optional<std::vector<u8>>{} : std::optional<std::vector<u8>>{read_file(opts.bios)};
 
     AppState app;
     const HostRuntimeConfig host_config = host_runtime_config_for_video_standard(opts.video_standard);

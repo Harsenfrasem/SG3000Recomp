@@ -2,8 +2,7 @@
 
 namespace sgrecomp {
 
-Console::Console(ConsoleModel model)
-    : bus_(model, vdp_, psg_, ym2413_, joypad_), model_(model) {
+Console::Console(ConsoleModel model) : bus_(model, vdp_, psg_, ym2413_, joypad_), model_(model) {
     if (model_ == ConsoleModel::SG3000) {
         vdp_.set_video_mode(VdpVideoMode::TmsGraphics1);
     }

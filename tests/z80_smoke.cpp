@@ -24,7 +24,7 @@ void test_cartridge_header_analysis() {
     std::vector<u8> rom(0x8000, 0x00);
     const std::array<u8, 8> magic{'T', 'M', 'R', ' ', 'S', 'E', 'G', 'A'};
     for (std::size_t i = 0; i < magic.size(); ++i) {
-    rom[0x7FF0 + i] = magic[i];
+        rom[0x7FF0 + i] = magic[i];
     }
     rom[0x7FFC] = 0x34;
     rom[0x7FFD] = 0x12;
@@ -101,15 +101,21 @@ void test_cartridge_header_rejects_truncated_declared_size() {
 
 void test_basic_program() {
     const std::vector<u8> rom = {
-        0x3E, 0x12,       // ld a,$12
-        0x06, 0x08,       // ld b,$08
-        0x04,             // inc b
-        0x05,             // dec b
-        0x80,             // add a,b
-        0xFE, 0x1A,       // cp $1a
-        0x20, 0x02,       // jr nz,+2
-        0x32, 0x00, 0xC0, // ld ($C000),a
-        0x76,             // halt
+        0x3E,
+        0x12, // ld a,$12
+        0x06,
+        0x08, // ld b,$08
+        0x04, // inc b
+        0x05, // dec b
+        0x80, // add a,b
+        0xFE,
+        0x1A, // cp $1a
+        0x20,
+        0x02, // jr nz,+2
+        0x32,
+        0x00,
+        0xC0, // ld ($C000),a
+        0x76, // halt
     };
 
     Console console(ConsoleModel::SMS);
@@ -122,11 +128,14 @@ void test_basic_program() {
 
 void test_djnz_loop() {
     const std::vector<u8> rom = {
-        0x06, 0x03, // ld b,$03
-        0x3E, 0x00, // ld a,$00
-        0x3C,       // inc a
-        0x10, 0xFD, // djnz -3
-        0x76,       // halt
+        0x06,
+        0x03, // ld b,$03
+        0x3E,
+        0x00, // ld a,$00
+        0x3C, // inc a
+        0x10,
+        0xFD, // djnz -3
+        0x76, // halt
     };
 
     Console console(ConsoleModel::SMS);
@@ -164,14 +173,21 @@ void test_stack_and_conditional_call() {
 
 void test_immediate_alu() {
     const std::vector<u8> rom = {
-        0x3E, 0x10, // ld a,$10
-        0xC6, 0x0F, // add a,$0f -> 1f
-        0xE6, 0x1B, // and $1b -> 1b
-        0xEE, 0x03, // xor $03 -> 18
-        0xF6, 0x80, // or $80 -> 98
-        0xD6, 0x08, // sub $08 -> 90
-        0xFE, 0x90, // cp $90
-        0x76,       // halt
+        0x3E,
+        0x10, // ld a,$10
+        0xC6,
+        0x0F, // add a,$0f -> 1f
+        0xE6,
+        0x1B, // and $1b -> 1b
+        0xEE,
+        0x03, // xor $03 -> 18
+        0xF6,
+        0x80, // or $80 -> 98
+        0xD6,
+        0x08, // sub $08 -> 90
+        0xFE,
+        0x90, // cp $90
+        0x76, // halt
     };
 
     Console console(ConsoleModel::SMS);
@@ -206,17 +222,21 @@ void test_exchange_and_rst() {
 
 void test_alternate_registers_and_interrupt_flipflops() {
     const std::vector<u8> rom = {
-        0x3E, 0x11, // ld a,$11
-        0x08,       // ex af,af'
-        0x3E, 0x22, // ld a,$22
-        0x08,       // ex af,af'
-        0x06, 0x33, // ld b,$33
-        0xD9,       // exx
-        0x06, 0x44, // ld b,$44
-        0xD9,       // exx
-        0xFB,       // ei
-        0xF3,       // di
-        0x76,       // halt
+        0x3E,
+        0x11, // ld a,$11
+        0x08, // ex af,af'
+        0x3E,
+        0x22, // ld a,$22
+        0x08, // ex af,af'
+        0x06,
+        0x33, // ld b,$33
+        0xD9, // exx
+        0x06,
+        0x44, // ld b,$44
+        0xD9, // exx
+        0xFB, // ei
+        0xF3, // di
+        0x76, // halt
     };
 
     Console console(ConsoleModel::SMS);
@@ -233,13 +253,18 @@ void test_alternate_registers_and_interrupt_flipflops() {
 
 void test_cb_register_operations() {
     const std::vector<u8> rom = {
-        0x06, 0x81, // ld b,$81
-        0xCB, 0x00, // rlc b -> $03, carry set
-        0xCB, 0x40, // bit 0,b -> z clear
-        0xCB, 0x80, // res 0,b -> $02
-        0xCB, 0xC0, // set 0,b -> $03
-        0x78,       // ld a,b
-        0x76,       // halt
+        0x06,
+        0x81, // ld b,$81
+        0xCB,
+        0x00, // rlc b -> $03, carry set
+        0xCB,
+        0x40, // bit 0,b -> z clear
+        0xCB,
+        0x80, // res 0,b -> $02
+        0xCB,
+        0xC0, // set 0,b -> $03
+        0x78, // ld a,b
+        0x76, // halt
     };
 
     Console console(ConsoleModel::SMS);
@@ -252,13 +277,19 @@ void test_cb_register_operations() {
 
 void test_cb_memory_operations() {
     const std::vector<u8> rom = {
-        0x21, 0x00, 0xC0, // ld hl,$c000
-        0x36, 0x80,       // ld (hl),$80
-        0xCB, 0x26,       // sla (hl) -> $00, carry set
-        0xCB, 0xFE,       // set 7,(hl) -> $80
-        0xCB, 0xBE,       // res 7,(hl) -> $00
-        0x7E,             // ld a,(hl)
-        0x76,             // halt
+        0x21,
+        0x00,
+        0xC0, // ld hl,$c000
+        0x36,
+        0x80, // ld (hl),$80
+        0xCB,
+        0x26, // sla (hl) -> $00, carry set
+        0xCB,
+        0xFE, // set 7,(hl) -> $80
+        0xCB,
+        0xBE, // res 7,(hl) -> $00
+        0x7E, // ld a,(hl)
+        0x76, // halt
     };
 
     Console console(ConsoleModel::SMS);
@@ -271,14 +302,20 @@ void test_cb_memory_operations() {
 
 void test_ed_interrupt_and_special_registers() {
     const std::vector<u8> rom = {
-        0x3E, 0x42, // ld a,$42
-        0xED, 0x47, // ld i,a
-        0x3E, 0x00, // ld a,$00
-        0xFB,       // ei
-        0xED, 0x57, // ld a,i
-        0xED, 0x5E, // im 2
-        0xED, 0x44, // neg
-        0x76,       // halt
+        0x3E,
+        0x42, // ld a,$42
+        0xED,
+        0x47, // ld i,a
+        0x3E,
+        0x00, // ld a,$00
+        0xFB, // ei
+        0xED,
+        0x57, // ld a,i
+        0xED,
+        0x5E, // im 2
+        0xED,
+        0x44, // neg
+        0x76, // halt
     };
 
     Console console(ConsoleModel::SMS);
@@ -292,10 +329,20 @@ void test_ed_interrupt_and_special_registers() {
 
 void test_ed_16bit_memory_load_store() {
     const std::vector<u8> rom = {
-        0x01, 0x34, 0x12, // ld bc,$1234
-        0xED, 0x43, 0x00, 0xC0, // ld ($c000),bc
-        0x11, 0x00, 0x00, // ld de,$0000
-        0xED, 0x5B, 0x00, 0xC0, // ld de,($c000)
+        0x01,
+        0x34,
+        0x12, // ld bc,$1234
+        0xED,
+        0x43,
+        0x00,
+        0xC0, // ld ($c000),bc
+        0x11,
+        0x00,
+        0x00, // ld de,$0000
+        0xED,
+        0x5B,
+        0x00,
+        0xC0, // ld de,($c000)
         0x76, // halt
     };
 
@@ -339,12 +386,18 @@ void test_ed_block_transfer_and_search() {
 
 void test_ed_nibble_rotates() {
     const std::vector<u8> rom = {
-        0x21, 0x00, 0xC0, // ld hl,$c000
-        0x36, 0x12,       // ld (hl),$12
-        0x3E, 0xA5,       // ld a,$a5
-        0xED, 0x6F,       // rld -> a=$a1, (hl)=$25
-        0xED, 0x67,       // rrd -> a=$a5, (hl)=$12
-        0x76,             // halt
+        0x21,
+        0x00,
+        0xC0, // ld hl,$c000
+        0x36,
+        0x12, // ld (hl),$12
+        0x3E,
+        0xA5, // ld a,$a5
+        0xED,
+        0x6F, // rld -> a=$a1, (hl)=$25
+        0xED,
+        0x67, // rrd -> a=$a5, (hl)=$12
+        0x76, // halt
     };
 
     Console console(ConsoleModel::SMS);
@@ -357,13 +410,23 @@ void test_ed_nibble_rotates() {
 
 void test_ed_block_io() {
     const std::vector<u8> rom = {
-        0x21, 0x00, 0xC0, // ld hl,$c000
-        0x01, 0x7F, 0x02, // ld bc,$027f
-        0xED, 0xB3,       // otir
-        0x21, 0x10, 0xC0, // ld hl,$c010
-        0x01, 0xDD, 0x02, // ld bc,$02dd
-        0xED, 0xB2,       // inir
-        0x76,             // halt
+        0x21,
+        0x00,
+        0xC0, // ld hl,$c000
+        0x01,
+        0x7F,
+        0x02, // ld bc,$027f
+        0xED,
+        0xB3, // otir
+        0x21,
+        0x10,
+        0xC0, // ld hl,$c010
+        0x01,
+        0xDD,
+        0x02, // ld bc,$02dd
+        0xED,
+        0xB2, // inir
+        0x76, // halt
     };
 
     Console console(ConsoleModel::SMS);
@@ -379,12 +442,17 @@ void test_ed_block_io() {
 
 void test_ed_port_register_io() {
     const std::vector<u8> rom = {
-        0x0E, 0x7F, // ld c,$7f
-        0x16, 0x55, // ld d,$55
-        0xED, 0x51, // out (c),d
-        0x0E, 0xDD, // ld c,$dd
-        0xED, 0x78, // in a,(c)
-        0x76,       // halt
+        0x0E,
+        0x7F, // ld c,$7f
+        0x16,
+        0x55, // ld d,$55
+        0xED,
+        0x51, // out (c),d
+        0x0E,
+        0xDD, // ld c,$dd
+        0xED,
+        0x78, // in a,(c)
+        0x76, // halt
     };
 
     Console console(ConsoleModel::SMS);
@@ -430,7 +498,7 @@ void test_ed_block_io_exact_flags() {
         execute_one(console.cpu(), console.bus());
         assert(console.cpu().b == 0x28);
         assert(console.bus().read(0xC000) == 0x00); // V counter at first line
-        assert(console.cpu().f == 0x28); // X/Y from B; odd parity clears P/V
+        assert(console.cpu().f == 0x28);            // X/Y from B; odd parity clears P/V
     }
     {
         const std::array<u8, 2> rom{0xED, 0xAA}; // ind
@@ -686,9 +754,7 @@ void test_z80_refresh_register_and_prefix_cycles() {
 
 void test_z80_conditional_and_block_cycle_counts() {
     const auto flags_for_condition = [](int condition, bool taken) -> u8 {
-        const u8 mask = condition < 2 ? 0x40
-            : condition < 4 ? 0x01
-            : condition < 6 ? 0x04 : 0x80;
+        const u8 mask = condition < 2 ? 0x40 : condition < 4 ? 0x01 : condition < 6 ? 0x04 : 0x80;
         const bool condition_when_set = (condition & 1) != 0;
         return taken == condition_when_set ? mask : 0;
     };
@@ -1152,11 +1218,11 @@ void test_sg3000_vdp_tms_sprite_pixel() {
 
     vdp.write_control(0x00);
     vdp.write_control(0x5B); // sprite attribute table
-    vdp.write_data(0x00); // y = 1
-    vdp.write_data(0x00); // x = 0
-    vdp.write_data(0x00); // tile 0
-    vdp.write_data(0x0F); // white
-    vdp.write_data(0xD0); // terminator
+    vdp.write_data(0x00);    // y = 1
+    vdp.write_data(0x00);    // x = 0
+    vdp.write_data(0x00);    // tile 0
+    vdp.write_data(0x0F);    // white
+    vdp.write_data(0xD0);    // terminator
 
     vdp.tick(228 * 2);
     assert(vdp.framebuffer()[Vdp::width] == 0xFFFFFFFF);
@@ -1423,8 +1489,7 @@ void test_vdp_vertical_scroll_wraps_at_224_pixels() {
     vdp.write_control(0x78);
     for (int row = 0; row < 32; ++row) {
         for (int column = 0; column < 32; ++column) {
-            const u8 tile = row == 0 && column == 0 ? 0x01
-                : (row == 28 && column == 0 ? 0x02 : 0x00);
+            const u8 tile = row == 0 && column == 0 ? 0x01 : (row == 28 && column == 0 ? 0x02 : 0x00);
             vdp.write_data(tile);
             vdp.write_data(0x00);
         }
@@ -1991,7 +2056,7 @@ void test_vdp_enhanced_sprites_do_not_create_hardware_collision() {
 
     vdp.write_control(0x90);
     vdp.write_control(0x7F); // ninth sprite attribute at $3f90
-    vdp.write_data(0x00); // overlap sprite zero beyond the hardware limit
+    vdp.write_data(0x00);    // overlap sprite zero beyond the hardware limit
 
     vdp.tick(228);
     assert(vdp.framebuffer()[0] == 0xFF00FF00);
@@ -2130,12 +2195,11 @@ void test_bus_memory_logging_records_ram_mapper_and_cartridge_ram() {
     bool saw_mapper = false;
     bool saw_cartridge_ram = false;
     for (const auto& access : log) {
-        saw_ram = saw_ram || (access.kind == BusMemoryAccessKind::Ram
-            && access.address == 0xC123 && access.physical == 0xC123);
-        saw_mapper = saw_mapper || (access.kind == BusMemoryAccessKind::Mapper
-            && access.address == 0xFFFC);
-        saw_cartridge_ram = saw_cartridge_ram || (access.kind == BusMemoryAccessKind::CartridgeRam
-            && access.address == 0x8000 && access.physical == 0x0000);
+        saw_ram = saw_ram ||
+                  (access.kind == BusMemoryAccessKind::Ram && access.address == 0xC123 && access.physical == 0xC123);
+        saw_mapper = saw_mapper || (access.kind == BusMemoryAccessKind::Mapper && access.address == 0xFFFC);
+        saw_cartridge_ram = saw_cartridge_ram || (access.kind == BusMemoryAccessKind::CartridgeRam &&
+                                                  access.address == 0x8000 && access.physical == 0x0000);
     }
     assert(saw_ram);
     assert(saw_mapper);
@@ -2321,10 +2385,13 @@ void test_misc_jumps_and_flags() {
 
 void test_v_counter_port() {
     const std::vector<u8> rom = {
-        0xDB, 0x7E, // in a,($7e)
-        0xFE, 0xB0, // cp $b0
-        0x20, 0xFA, // jr nz,-6
-        0x76,       // halt
+        0xDB,
+        0x7E, // in a,($7e)
+        0xFE,
+        0xB0, // cp $b0
+        0x20,
+        0xFA, // jr nz,-6
+        0x76, // halt
     };
 
     Console console(ConsoleModel::SMS);
@@ -2387,13 +2454,14 @@ void test_index_register_basics() {
 
 void test_accumulator_rotates() {
     const std::vector<u8> rom = {
-        0x3E, 0x81, // ld a,$81
-        0x07,       // rlca -> $03 carry
-        0x17,       // rla -> $07 carry clear
-        0x37,       // scf
-        0x1F,       // rra -> $83 carry
-        0x0F,       // rrca -> $C1 carry
-        0x76,       // halt
+        0x3E,
+        0x81, // ld a,$81
+        0x07, // rlca -> $03 carry
+        0x17, // rla -> $07 carry clear
+        0x37, // scf
+        0x1F, // rra -> $83 carry
+        0x0F, // rrca -> $C1 carry
+        0x76, // halt
     };
 
     Console console(ConsoleModel::SMS);
@@ -2481,12 +2549,18 @@ void test_index_high_low_register_operations() {
 
 void test_ed_adc_sbc_hl() {
     const std::vector<u8> rom = {
-        0x21, 0x00, 0x10, // ld hl,$1000
-        0x11, 0x01, 0x00, // ld de,$0001
-        0x37,             // scf
-        0xED, 0x5A,       // adc hl,de -> $1002
-        0xED, 0x52,       // sbc hl,de -> $1001
-        0x76,             // halt
+        0x21,
+        0x00,
+        0x10, // ld hl,$1000
+        0x11,
+        0x01,
+        0x00, // ld de,$0001
+        0x37, // scf
+        0xED,
+        0x5A, // adc hl,de -> $1002
+        0xED,
+        0x52, // sbc hl,de -> $1001
+        0x76, // halt
     };
 
     Console console(ConsoleModel::SMS);
@@ -2498,12 +2572,15 @@ void test_ed_adc_sbc_hl() {
 
 void test_daa_after_add_and_subtract() {
     const std::vector<u8> rom = {
-        0x3E, 0x15, // ld a,$15
-        0xC6, 0x27, // add a,$27
-        0x27,       // daa -> $42
-        0xD6, 0x27, // sub $27
-        0x27,       // daa -> $15
-        0x76,       // halt
+        0x3E,
+        0x15, // ld a,$15
+        0xC6,
+        0x27, // add a,$27
+        0x27, // daa -> $42
+        0xD6,
+        0x27, // sub $27
+        0x27, // daa -> $15
+        0x76, // halt
     };
 
     Console console(ConsoleModel::SMS);
@@ -2540,11 +2617,18 @@ void test_mapper_keeps_ram() {
 
 void test_ram_mirroring() {
     const std::vector<u8> rom = {
-        0x3E, 0x5A,       // ld a,$5a
-        0x32, 0x00, 0xC0, // ld ($c000),a
-        0x3A, 0x00, 0xE0, // ld a,($e000)
-        0x32, 0x00, 0xF0, // ld ($f000),a
-        0x76,             // halt
+        0x3E,
+        0x5A, // ld a,$5a
+        0x32,
+        0x00,
+        0xC0, // ld ($c000),a
+        0x3A,
+        0x00,
+        0xE0, // ld a,($e000)
+        0x32,
+        0x00,
+        0xF0, // ld ($f000),a
+        0x76, // halt
     };
 
     Console console(ConsoleModel::SMS);
@@ -2560,12 +2644,14 @@ void test_ram_mirroring() {
 
 void test_bios_overlay_boots_before_rom() {
     const std::vector<u8> bios = {
-        0x3E, 0x99, // ld a,$99
-        0x76,       // halt
+        0x3E,
+        0x99, // ld a,$99
+        0x76, // halt
     };
     const std::vector<u8> rom = {
-        0x3E, 0x42, // ld a,$42
-        0x76,       // halt
+        0x3E,
+        0x42, // ld a,$42
+        0x76, // halt
     };
 
     Console console(ConsoleModel::SMS);
@@ -2929,15 +3015,21 @@ void test_ei_delay_and_nmi_service() {
 
 void test_bc_de_indirect_loads() {
     const std::vector<u8> rom = {
-        0x01, 0x00, 0xC0, // ld bc,$c000
-        0x11, 0x01, 0xC0, // ld de,$c001
-        0x3E, 0x12,       // ld a,$12
-        0x02,             // ld (bc),a
-        0x3E, 0x34,       // ld a,$34
-        0x12,             // ld (de),a
-        0x0A,             // ld a,(bc)
-        0x1A,             // ld a,(de)
-        0x76,             // halt
+        0x01,
+        0x00,
+        0xC0, // ld bc,$c000
+        0x11,
+        0x01,
+        0xC0, // ld de,$c001
+        0x3E,
+        0x12, // ld a,$12
+        0x02, // ld (bc),a
+        0x3E,
+        0x34, // ld a,$34
+        0x12, // ld (de),a
+        0x0A, // ld a,(bc)
+        0x1A, // ld a,(de)
+        0x76, // halt
     };
 
     Console console(ConsoleModel::SMS);
@@ -2951,11 +3043,19 @@ void test_bc_de_indirect_loads() {
 
 void test_hl_absolute_load_store() {
     const std::vector<u8> rom = {
-        0x21, 0x34, 0x12, // ld hl,$1234
-        0x22, 0x00, 0xC0, // ld ($c000),hl
-        0x21, 0x00, 0x00, // ld hl,$0000
-        0x2A, 0x00, 0xC0, // ld hl,($c000)
-        0x76,             // halt
+        0x21,
+        0x34,
+        0x12, // ld hl,$1234
+        0x22,
+        0x00,
+        0xC0, // ld ($c000),hl
+        0x21,
+        0x00,
+        0x00, // ld hl,$0000
+        0x2A,
+        0x00,
+        0xC0, // ld hl,($c000)
+        0x76, // halt
     };
 
     Console console(ConsoleModel::SMS);
@@ -3099,13 +3199,20 @@ void test_host_runtime_frame_audio_and_input() {
 
 void test_host_runtime_stereo_mixer_respects_sample_rate() {
     const std::vector<u8> rom = {
-        0x3E, 0x81,       // ld a,$81: tone channel 0 period low
-        0xD3, 0x7F,       // out ($7f),a
-        0x3E, 0x00,       // ld a,$00: period high
-        0xD3, 0x7F,       // out ($7f),a
-        0x3E, 0x90,       // ld a,$90: maximum channel volume
-        0xD3, 0x7F,       // out ($7f),a
-        0x18, 0xFE,       // jr -2
+        0x3E,
+        0x81, // ld a,$81: tone channel 0 period low
+        0xD3,
+        0x7F, // out ($7f),a
+        0x3E,
+        0x00, // ld a,$00: period high
+        0xD3,
+        0x7F, // out ($7f),a
+        0x3E,
+        0x90, // ld a,$90: maximum channel volume
+        0xD3,
+        0x7F, // out ($7f),a
+        0x18,
+        0xFE, // jr -2
     };
 
     const auto run_at_rate = [&](u32 sample_rate) {
@@ -3114,8 +3221,8 @@ void test_host_runtime_stereo_mixer_respects_sample_rate() {
         HostRuntime host(ConsoleModel::SMS, config);
         host.load_rom(rom);
         const HostFrameResult frame = host.run_frame();
-        const std::size_t expected_frames = static_cast<std::size_t>(
-            (frame.end_cycle * sample_rate) / config.cpu_clock_hz);
+        const std::size_t expected_frames =
+            static_cast<std::size_t>((frame.end_cycle * sample_rate) / config.cpu_clock_hz);
         assert(frame.stereo_samples == expected_frames);
         assert(host.audio().size() == expected_frames * 2);
         bool heard_audio = false;
@@ -3133,12 +3240,11 @@ void test_host_runtime_stereo_mixer_respects_sample_rate() {
 }
 
 void test_host_input_script_tracks_frame_state() {
-    const HostInputScript script = parse_host_input_script(
-        "# deterministic title-screen input\n"
-        "frame,player1,player2,pause\n"
-        "0,none,none,off\n"
-        "10,right+button1,left,on\n"
-        "11,right,b2,off\n");
+    const HostInputScript script = parse_host_input_script("# deterministic title-screen input\n"
+                                                           "frame,player1,player2,pause\n"
+                                                           "0,none,none,off\n"
+                                                           "10,right+button1,left,on\n"
+                                                           "11,right,b2,off\n");
 
     assert(script.events().size() == 3);
     assert(script.state_for_frame(0).player1 == 0);
@@ -3153,9 +3259,12 @@ void test_host_input_script_tracks_frame_state() {
 
 void test_console_save_state_round_trip_restores_runtime_state() {
     const std::vector<u8> rom = {
-        0x3E, 0x42,       // ld a,$42
-        0x32, 0x00, 0xC0, // ld ($c000),a
-        0x76,             // halt
+        0x3E,
+        0x42, // ld a,$42
+        0x32,
+        0x00,
+        0xC0, // ld ($c000),a
+        0x76, // halt
     };
 
     Console console(ConsoleModel::SMS);
@@ -3214,11 +3323,9 @@ void test_console_save_state_round_trip_restores_runtime_state() {
 
     std::vector<u8> legacy_v8 = bytes;
     const std::size_t extended_metadata_offset = 9 + metadata.rom_hash.size();
-    const std::size_t extended_metadata_size = 2 + metadata.bios_hash.size()
-        + 2 + metadata.profile_fingerprint.size();
-    legacy_v8.erase(
-        legacy_v8.begin() + static_cast<std::ptrdiff_t>(extended_metadata_offset),
-        legacy_v8.begin() + static_cast<std::ptrdiff_t>(extended_metadata_offset + extended_metadata_size));
+    const std::size_t extended_metadata_size = 2 + metadata.bios_hash.size() + 2 + metadata.profile_fingerprint.size();
+    legacy_v8.erase(legacy_v8.begin() + static_cast<std::ptrdiff_t>(extended_metadata_offset),
+                    legacy_v8.begin() + static_cast<std::ptrdiff_t>(extended_metadata_offset + extended_metadata_size));
     legacy_v8[4] = 8;
     legacy_v8[5] = 0;
     const auto legacy_image = deserialize_console_state_image(legacy_v8);
@@ -3234,18 +3341,17 @@ void test_game_profile_hash_and_parse() {
     const std::string hash = rom_hash_fnv1a64(rom);
     assert(hash == "fnv1a64:d949aa186c0c4928");
 
-    const auto profiles = GameProfileDatabase::parse(
-        "[profile]\n"
-        "name = \"local test\"\n"
-        "hash = \"fnv1a64:d949aa186c0c4928\"\n"
-        "model = \"sg3000\"\n"
-        "mapper = \"k8k\"\n"
-        "mode = \"enhanced\"\n"
-        "disable_sprite_limit = true\n"
-        "enable_fm = true\n"
-        "audio_latency_ms = 120\n"
-        "audio_sample_rate = 48000\n"
-        "video_standard = \"pal\"\n");
+    const auto profiles = GameProfileDatabase::parse("[profile]\n"
+                                                     "name = \"local test\"\n"
+                                                     "hash = \"fnv1a64:d949aa186c0c4928\"\n"
+                                                     "model = \"sg3000\"\n"
+                                                     "mapper = \"k8k\"\n"
+                                                     "mode = \"enhanced\"\n"
+                                                     "disable_sprite_limit = true\n"
+                                                     "enable_fm = true\n"
+                                                     "audio_latency_ms = 120\n"
+                                                     "audio_sample_rate = 48000\n"
+                                                     "video_standard = \"pal\"\n");
     const GameProfile* profile = profiles.find_by_hash(hash);
     assert(profile != nullptr);
     assert(profile->name == "local test");
@@ -3278,10 +3384,9 @@ void test_game_profile_hash_and_parse() {
     assert(cartridge_mapper_from_name("s") == CartridgeMapper::SMapper);
     bool rejected_mapper = false;
     try {
-        (void)GameProfileDatabase::parse(
-            "[profile]\n"
-            "hash = \"fnv1a64:0000000000000000\"\n"
-            "mapper = \"mystery\"\n");
+        (void)GameProfileDatabase::parse("[profile]\n"
+                                         "hash = \"fnv1a64:0000000000000000\"\n"
+                                         "mapper = \"mystery\"\n");
     } catch (const std::runtime_error&) {
         rejected_mapper = true;
     }

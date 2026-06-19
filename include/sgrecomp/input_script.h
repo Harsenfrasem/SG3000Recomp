@@ -14,13 +14,15 @@ struct HostInputEvent {
 };
 
 class HostInputScript {
-public:
+  public:
     explicit HostInputScript(std::vector<HostInputEvent> events = {});
 
-    const std::vector<HostInputEvent>& events() const { return events_; }
+    const std::vector<HostInputEvent>& events() const {
+        return events_;
+    }
     HostInputState state_for_frame(std::size_t frame) const;
 
-private:
+  private:
     std::vector<HostInputEvent> events_;
 };
 

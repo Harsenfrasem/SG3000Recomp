@@ -4,10 +4,22 @@ namespace sgrecomp {
 namespace {
 
 constexpr float kVolumeTable[16] = {
-    1.0000F, 0.7943F, 0.6310F, 0.5012F,
-    0.3981F, 0.3162F, 0.2512F, 0.1995F,
-    0.1585F, 0.1259F, 0.1000F, 0.0794F,
-    0.0631F, 0.0501F, 0.0398F, 0.0000F,
+    1.0000F,
+    0.7943F,
+    0.6310F,
+    0.5012F,
+    0.3981F,
+    0.3162F,
+    0.2512F,
+    0.1995F,
+    0.1585F,
+    0.1259F,
+    0.1000F,
+    0.0794F,
+    0.0631F,
+    0.0501F,
+    0.0398F,
+    0.0000F,
 };
 
 } // namespace
@@ -54,9 +66,8 @@ void Psg::tick(int cpu_cycles) {
     while (counters_[3] <= 0) {
         counters_[3] += noise_reload;
         const bool white_noise = (tone_[3] & 0x04) != 0;
-        const u16 feedback = white_noise
-            ? static_cast<u16>((noise_lfsr_ ^ (noise_lfsr_ >> 3)) & 0x01)
-            : static_cast<u16>(noise_lfsr_ & 0x01);
+        const u16 feedback = white_noise ? static_cast<u16>((noise_lfsr_ ^ (noise_lfsr_ >> 3)) & 0x01)
+                                         : static_cast<u16>(noise_lfsr_ & 0x01);
         noise_lfsr_ = static_cast<u16>((noise_lfsr_ >> 1) | (feedback << 14));
         output_[3] = (noise_lfsr_ & 0x01) != 0;
     }
@@ -77,10 +88,14 @@ int Psg::period(u8 channel) const {
     }
 
     switch (tone_[3] & 0x03) {
-    case 0: return 16;
-    case 1: return 32;
-    case 2: return 64;
-    default: return period(2);
+    case 0:
+        return 16;
+    case 1:
+        return 32;
+    case 2:
+        return 64;
+    default:
+        return period(2);
     }
 }
 

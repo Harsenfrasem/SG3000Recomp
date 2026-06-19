@@ -23,7 +23,7 @@ struct ConsoleState {
 };
 
 class Console {
-public:
+  public:
     explicit Console(ConsoleModel model);
     Console(ConsoleModel model, const EnhancementConfig& enhancements);
 
@@ -33,24 +33,50 @@ public:
     void press_pause();
     void run_cycles(u64 cycles);
     void set_enhancements(const EnhancementConfig& enhancements);
-    const EnhancementConfig& enhancements() const { return enhancements_; }
+    const EnhancementConfig& enhancements() const {
+        return enhancements_;
+    }
     ConsoleState save_state() const;
     void load_state(const ConsoleState& state);
 
-    Z80State& cpu() { return cpu_; }
-    const Z80State& cpu() const { return cpu_; }
-    Bus& bus() { return bus_; }
-    const Bus& bus() const { return bus_; }
-    Vdp& vdp() { return vdp_; }
-    const Vdp& vdp() const { return vdp_; }
-    Psg& psg() { return psg_; }
-    const Psg& psg() const { return psg_; }
-    Ym2413& ym2413() { return ym2413_; }
-    const Ym2413& ym2413() const { return ym2413_; }
-    Joypad& joypad() { return joypad_; }
-    const Joypad& joypad() const { return joypad_; }
+    Z80State& cpu() {
+        return cpu_;
+    }
+    const Z80State& cpu() const {
+        return cpu_;
+    }
+    Bus& bus() {
+        return bus_;
+    }
+    const Bus& bus() const {
+        return bus_;
+    }
+    Vdp& vdp() {
+        return vdp_;
+    }
+    const Vdp& vdp() const {
+        return vdp_;
+    }
+    Psg& psg() {
+        return psg_;
+    }
+    const Psg& psg() const {
+        return psg_;
+    }
+    Ym2413& ym2413() {
+        return ym2413_;
+    }
+    const Ym2413& ym2413() const {
+        return ym2413_;
+    }
+    Joypad& joypad() {
+        return joypad_;
+    }
+    const Joypad& joypad() const {
+        return joypad_;
+    }
 
-private:
+  private:
     Vdp vdp_;
     Psg psg_;
     Ym2413 ym2413_;

@@ -86,43 +86,65 @@ enum class ConsoleModel {
 };
 
 class Bus {
-public:
+  public:
     Bus(ConsoleModel model, Vdp& vdp, Psg& psg, Ym2413& ym2413, Joypad& joypad);
 
     void load_rom(std::span<const u8> rom);
     void load_bios(std::span<const u8> bios);
     void set_mapper(CartridgeMapper mapper);
-    CartridgeMapper mapper() const { return mapper_; }
-    CartridgeMapper requested_mapper() const { return requested_mapper_; }
+    CartridgeMapper mapper() const {
+        return mapper_;
+    }
+    CartridgeMapper requested_mapper() const {
+        return requested_mapper_;
+    }
     BusMapperSnapshot mapper_snapshot() const;
-    bool rom_header_removed() const { return rom_header_removed_; }
-    u8 memory_control() const { return memory_control_; }
+    bool rom_header_removed() const {
+        return rom_header_removed_;
+    }
+    u8 memory_control() const {
+        return memory_control_;
+    }
     bool cartridge_enabled() const;
     bool work_ram_enabled() const;
     void set_bios_enabled(bool enabled);
-    bool bios_enabled() const { return bios_enabled_; }
+    bool bios_enabled() const {
+        return bios_enabled_;
+    }
     bool cartridge_ram_enabled() const;
     u8 cartridge_ram_bank() const;
     void load_cartridge_ram(std::span<const u8> ram);
-    bool cartridge_ram_dirty() const { return cartridge_ram_dirty_; }
+    bool cartridge_ram_dirty() const {
+        return cartridge_ram_dirty_;
+    }
     u8 read(u16 address) const;
     void write(u16 address, u8 value);
     u8 input(u8 port);
     void output(u8 port, u8 value);
     void set_fm_present(bool present);
     bool fm_present() const;
-    void set_cycle(u64 cycle) { current_cycle_ = cycle; }
+    void set_cycle(u64 cycle) {
+        current_cycle_ = cycle;
+    }
     void set_io_logging_enabled(bool enabled);
-    const std::vector<BusIoAccess>& logged_io() const { return logged_io_; }
+    const std::vector<BusIoAccess>& logged_io() const {
+        return logged_io_;
+    }
     void set_memory_logging_enabled(bool enabled);
-    const std::vector<BusMemoryAccess>& logged_memory() const { return logged_memory_; }
+    const std::vector<BusMemoryAccess>& logged_memory() const {
+        return logged_memory_;
+    }
     BusState save_state() const;
     void load_state(const BusState& state);
 
-    const std::array<u8, 0x10000>& debug_memory() const { return memory_; }
-    const std::array<u8, 0x8000>& debug_cartridge_ram() const { return cartridge_ram_; }
+    const std::array<u8, 0x10000>& debug_memory() const {
+        return memory_;
+    }
+    const std::array<u8, 0x8000>& debug_cartridge_ram() const {
+        return cartridge_ram_;
+    }
 
-private:
+  private:
     ConsoleModel model_;
     Vdp& vdp_;
     Psg& psg_;

@@ -73,7 +73,7 @@ struct VdpDebugSnapshot {
 struct VdpState;
 
 class Vdp {
-public:
+  public:
     static constexpr int width = 256;
     static constexpr int height = 192;
 
@@ -85,28 +85,52 @@ public:
     void write_control(u8 value);
     void tick(int cpu_cycles);
     bool irq_pending() const;
-    int scanline() const { return scanline_; }
+    int scanline() const {
+        return scanline_;
+    }
     void set_timing(const VdpTimingConfig& timing);
-    const VdpTimingConfig& timing() const { return timing_; }
-    void set_video_mode(VdpVideoMode mode) { video_mode_ = mode; }
-    VdpVideoMode video_mode() const { return video_mode_; }
-    void set_cycle(u64 cycle) { current_cycle_ = cycle; }
+    const VdpTimingConfig& timing() const {
+        return timing_;
+    }
+    void set_video_mode(VdpVideoMode mode) {
+        video_mode_ = mode;
+    }
+    VdpVideoMode video_mode() const {
+        return video_mode_;
+    }
+    void set_cycle(u64 cycle) {
+        current_cycle_ = cycle;
+    }
     void set_access_logging_enabled(bool enabled);
-    const std::vector<VdpAccess>& logged_accesses() const { return logged_accesses_; }
-    void set_enhancements(const EnhancementConfig& config) { enhancements_ = config; }
-    const EnhancementConfig& enhancements() const { return enhancements_; }
+    const std::vector<VdpAccess>& logged_accesses() const {
+        return logged_accesses_;
+    }
+    void set_enhancements(const EnhancementConfig& config) {
+        enhancements_ = config;
+    }
+    const EnhancementConfig& enhancements() const {
+        return enhancements_;
+    }
 
-    const std::array<u32, width * height>& framebuffer() const { return framebuffer_; }
-    const std::array<u8, 16 * 1024>& debug_vram() const { return vram_; }
-    const std::array<u8, 32>& debug_cram() const { return cram_; }
-    const std::array<u8, 16>& debug_registers() const { return registers_; }
+    const std::array<u32, width * height>& framebuffer() const {
+        return framebuffer_;
+    }
+    const std::array<u8, 16 * 1024>& debug_vram() const {
+        return vram_;
+    }
+    const std::array<u8, 32>& debug_cram() const {
+        return cram_;
+    }
+    const std::array<u8, 16>& debug_registers() const {
+        return registers_;
+    }
     VdpDebugSnapshot debug_snapshot() const;
     std::vector<VdpTileEntry> debug_tilemap() const;
     std::vector<VdpSpriteEntry> debug_sprites() const;
     VdpState save_state() const;
     void load_state(const VdpState& state);
 
-private:
+  private:
     std::array<u8, 16 * 1024> vram_{};
     std::array<u8, 32> cram_{};
     std::array<u8, 16> registers_{};

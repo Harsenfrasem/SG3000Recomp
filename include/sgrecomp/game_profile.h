@@ -31,14 +31,16 @@ struct GameProfile {
 };
 
 class GameProfileDatabase {
-public:
+  public:
     static GameProfileDatabase parse(std::string_view text);
     static GameProfileDatabase load(const std::filesystem::path& path);
 
-    const std::vector<GameProfile>& profiles() const { return profiles_; }
+    const std::vector<GameProfile>& profiles() const {
+        return profiles_;
+    }
     const GameProfile* find_by_hash(std::string_view hash) const;
 
-private:
+  private:
     std::vector<GameProfile> profiles_;
 };
 

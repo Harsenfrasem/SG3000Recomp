@@ -43,10 +43,18 @@ struct Z80State {
     bool halted = false;
     u64 cycles = 0;
 
-    u16 af() const { return make_u16(f, a); }
-    u16 bc() const { return make_u16(c, b); }
-    u16 de() const { return make_u16(e, d); }
-    u16 hl() const { return make_u16(l, h); }
+    u16 af() const {
+        return make_u16(f, a);
+    }
+    u16 bc() const {
+        return make_u16(c, b);
+    }
+    u16 de() const {
+        return make_u16(e, d);
+    }
+    u16 hl() const {
+        return make_u16(l, h);
+    }
     void set_af(u16 value);
     void set_bc(u16 value);
     void set_de(u16 value);

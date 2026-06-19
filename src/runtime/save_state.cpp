@@ -11,10 +11,14 @@ constexpr u32 kMagic = 0x53534753; // SGSS
 constexpr u16 kVersion = 9;
 
 class Writer {
-public:
-    void u8v(u8 value) { bytes_.push_back(value); }
+  public:
+    void u8v(u8 value) {
+        bytes_.push_back(value);
+    }
 
-    void boolv(bool value) { u8v(value ? 1 : 0); }
+    void boolv(bool value) {
+        u8v(value ? 1 : 0);
+    }
 
     void u16v(u16 value) {
         u8v(static_cast<u8>(value & 0xFF));
@@ -31,7 +35,9 @@ public:
         u32v(static_cast<u32>((value >> 32) & 0xFFFFFFFFULL));
     }
 
-    void i32v(int value) { u32v(static_cast<u32>(value)); }
+    void i32v(int value) {
+        u32v(static_cast<u32>(value));
+    }
 
     void stringv(const std::string& value) {
         if (value.size() > 0xFFFF) {
@@ -49,8 +55,7 @@ public:
         u64v(raw);
     }
 
-    template <typename T, std::size_t N>
-    void array_bytes(const std::array<T, N>& values) {
+    template <typename T, std::size_t N> void array_bytes(const std::array<T, N>& values) {
         for (const auto& value : values) {
             if constexpr (sizeof(T) == 1) {
                 u8v(static_cast<u8>(value));
@@ -64,14 +69,16 @@ public:
         }
     }
 
-    std::vector<u8> finish() { return std::move(bytes_); }
+    std::vector<u8> finish() {
+        return std::move(bytes_);
+    }
 
-private:
+  private:
     std::vector<u8> bytes_;
 };
 
 class Reader {
-public:
+  public:
     explicit Reader(std::span<const u8> bytes) : bytes_(bytes) {}
 
     u8 u8v() {
@@ -79,7 +86,9 @@ public:
         return bytes_[offset_++];
     }
 
-    bool boolv() { return u8v() != 0; }
+    bool boolv() {
+        return u8v() != 0;
+    }
 
     u16 u16v() {
         const u16 lo = u8v();
@@ -99,7 +108,9 @@ public:
         return lo | (hi << 32);
     }
 
-    int i32v() { return static_cast<int>(u32v()); }
+    int i32v() {
+        return static_cast<int>(u32v());
+    }
 
     std::string stringv() {
         const u16 len = u16v();
@@ -119,8 +130,7 @@ public:
         return value;
     }
 
-    template <typename T, std::size_t N>
-    void array_bytes(std::array<T, N>& values) {
+    template <typename T, std::size_t N> void array_bytes(std::array<T, N>& values) {
         for (auto& value : values) {
             if constexpr (sizeof(T) == 1) {
                 value = static_cast<T>(u8v());
@@ -140,7 +150,7 @@ public:
         }
     }
 
-private:
+  private:
     std::span<const u8> bytes_;
     std::size_t offset_ = 0;
 
@@ -152,28 +162,72 @@ private:
 };
 
 void write_cpu(Writer& out, const Z80State& cpu) {
-    out.u8v(cpu.a); out.u8v(cpu.f); out.u8v(cpu.b); out.u8v(cpu.c);
-    out.u8v(cpu.d); out.u8v(cpu.e); out.u8v(cpu.h); out.u8v(cpu.l);
-    out.u8v(cpu.a_alt); out.u8v(cpu.f_alt); out.u8v(cpu.b_alt); out.u8v(cpu.c_alt);
-    out.u8v(cpu.d_alt); out.u8v(cpu.e_alt); out.u8v(cpu.h_alt); out.u8v(cpu.l_alt);
-    out.u8v(cpu.ixh); out.u8v(cpu.ixl); out.u8v(cpu.iyh); out.u8v(cpu.iyl);
-    out.u16v(cpu.sp); out.u16v(cpu.pc); out.u16v(cpu.last_pc);
-    out.u8v(cpu.i); out.u8v(cpu.r);
-    out.boolv(cpu.iff1); out.boolv(cpu.iff2); out.boolv(cpu.ei_pending);
-    out.u8v(cpu.interrupt_mode); out.boolv(cpu.halted); out.u64v(cpu.cycles);
+    out.u8v(cpu.a);
+    out.u8v(cpu.f);
+    out.u8v(cpu.b);
+    out.u8v(cpu.c);
+    out.u8v(cpu.d);
+    out.u8v(cpu.e);
+    out.u8v(cpu.h);
+    out.u8v(cpu.l);
+    out.u8v(cpu.a_alt);
+    out.u8v(cpu.f_alt);
+    out.u8v(cpu.b_alt);
+    out.u8v(cpu.c_alt);
+    out.u8v(cpu.d_alt);
+    out.u8v(cpu.e_alt);
+    out.u8v(cpu.h_alt);
+    out.u8v(cpu.l_alt);
+    out.u8v(cpu.ixh);
+    out.u8v(cpu.ixl);
+    out.u8v(cpu.iyh);
+    out.u8v(cpu.iyl);
+    out.u16v(cpu.sp);
+    out.u16v(cpu.pc);
+    out.u16v(cpu.last_pc);
+    out.u8v(cpu.i);
+    out.u8v(cpu.r);
+    out.boolv(cpu.iff1);
+    out.boolv(cpu.iff2);
+    out.boolv(cpu.ei_pending);
+    out.u8v(cpu.interrupt_mode);
+    out.boolv(cpu.halted);
+    out.u64v(cpu.cycles);
 }
 
 Z80State read_cpu(Reader& in) {
     Z80State cpu;
-    cpu.a = in.u8v(); cpu.f = in.u8v(); cpu.b = in.u8v(); cpu.c = in.u8v();
-    cpu.d = in.u8v(); cpu.e = in.u8v(); cpu.h = in.u8v(); cpu.l = in.u8v();
-    cpu.a_alt = in.u8v(); cpu.f_alt = in.u8v(); cpu.b_alt = in.u8v(); cpu.c_alt = in.u8v();
-    cpu.d_alt = in.u8v(); cpu.e_alt = in.u8v(); cpu.h_alt = in.u8v(); cpu.l_alt = in.u8v();
-    cpu.ixh = in.u8v(); cpu.ixl = in.u8v(); cpu.iyh = in.u8v(); cpu.iyl = in.u8v();
-    cpu.sp = in.u16v(); cpu.pc = in.u16v(); cpu.last_pc = in.u16v();
-    cpu.i = in.u8v(); cpu.r = in.u8v();
-    cpu.iff1 = in.boolv(); cpu.iff2 = in.boolv(); cpu.ei_pending = in.boolv();
-    cpu.interrupt_mode = in.u8v(); cpu.halted = in.boolv(); cpu.cycles = in.u64v();
+    cpu.a = in.u8v();
+    cpu.f = in.u8v();
+    cpu.b = in.u8v();
+    cpu.c = in.u8v();
+    cpu.d = in.u8v();
+    cpu.e = in.u8v();
+    cpu.h = in.u8v();
+    cpu.l = in.u8v();
+    cpu.a_alt = in.u8v();
+    cpu.f_alt = in.u8v();
+    cpu.b_alt = in.u8v();
+    cpu.c_alt = in.u8v();
+    cpu.d_alt = in.u8v();
+    cpu.e_alt = in.u8v();
+    cpu.h_alt = in.u8v();
+    cpu.l_alt = in.u8v();
+    cpu.ixh = in.u8v();
+    cpu.ixl = in.u8v();
+    cpu.iyh = in.u8v();
+    cpu.iyl = in.u8v();
+    cpu.sp = in.u16v();
+    cpu.pc = in.u16v();
+    cpu.last_pc = in.u16v();
+    cpu.i = in.u8v();
+    cpu.r = in.u8v();
+    cpu.iff1 = in.boolv();
+    cpu.iff2 = in.boolv();
+    cpu.ei_pending = in.boolv();
+    cpu.interrupt_mode = in.u8v();
+    cpu.halted = in.boolv();
+    cpu.cycles = in.u64v();
     return cpu;
 }
 
@@ -284,13 +338,12 @@ SaveStateImage read_image(Reader& in) {
         if (version >= 8) {
             state.bus.auto_mapper_locked = in.boolv();
         } else {
-            const bool non_default_sega_state = state.bus.smapper_control != 0
-                || state.bus.smapper_slots != std::array<u8, 3>{{0, 1, 2}};
-            state.bus.auto_mapper_locked = state.bus.requested_mapper != CartridgeMapper::Auto
-                || state.bus.mapper == CartridgeMapper::CMapper
-                || state.bus.mapper == CartridgeMapper::KMapper
-                || state.bus.mapper == CartridgeMapper::K8KMapper
-                || non_default_sega_state;
+            const bool non_default_sega_state =
+                state.bus.smapper_control != 0 || state.bus.smapper_slots != std::array<u8, 3>{{0, 1, 2}};
+            state.bus.auto_mapper_locked = state.bus.requested_mapper != CartridgeMapper::Auto ||
+                                           state.bus.mapper == CartridgeMapper::CMapper ||
+                                           state.bus.mapper == CartridgeMapper::KMapper ||
+                                           state.bus.mapper == CartridgeMapper::K8KMapper || non_default_sega_state;
         }
     }
     in.array_bytes(state.vdp.vram);

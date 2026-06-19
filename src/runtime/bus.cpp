@@ -14,12 +14,18 @@ namespace sgrecomp {
 
 const char* cartridge_mapper_name(CartridgeMapper mapper) {
     switch (mapper) {
-    case CartridgeMapper::Auto: return "auto";
-    case CartridgeMapper::Plain: return "plain";
-    case CartridgeMapper::SMapper: return "smapper";
-    case CartridgeMapper::CMapper: return "cmapper";
-    case CartridgeMapper::KMapper: return "kmapper";
-    case CartridgeMapper::K8KMapper: return "k8k";
+    case CartridgeMapper::Auto:
+        return "auto";
+    case CartridgeMapper::Plain:
+        return "plain";
+    case CartridgeMapper::SMapper:
+        return "smapper";
+    case CartridgeMapper::CMapper:
+        return "cmapper";
+    case CartridgeMapper::KMapper:
+        return "kmapper";
+    case CartridgeMapper::K8KMapper:
+        return "k8k";
     }
     return "unknown";
 }
@@ -29,12 +35,18 @@ CartridgeMapper cartridge_mapper_from_name(std::string_view name) {
     std::transform(normalized.begin(), normalized.end(), normalized.begin(), [](unsigned char ch) {
         return static_cast<char>(std::tolower(ch));
     });
-    if (normalized == "auto") return CartridgeMapper::Auto;
-    if (normalized == "plain" || normalized == "none" || normalized == "nomapper") return CartridgeMapper::Plain;
-    if (normalized == "smapper" || normalized == "s") return CartridgeMapper::SMapper;
-    if (normalized == "cmapper" || normalized == "c") return CartridgeMapper::CMapper;
-    if (normalized == "kmapper" || normalized == "k") return CartridgeMapper::KMapper;
-    if (normalized == "k8k" || normalized == "k8kmapper") return CartridgeMapper::K8KMapper;
+    if (normalized == "auto")
+        return CartridgeMapper::Auto;
+    if (normalized == "plain" || normalized == "none" || normalized == "nomapper")
+        return CartridgeMapper::Plain;
+    if (normalized == "smapper" || normalized == "s")
+        return CartridgeMapper::SMapper;
+    if (normalized == "cmapper" || normalized == "c")
+        return CartridgeMapper::CMapper;
+    if (normalized == "kmapper" || normalized == "k")
+        return CartridgeMapper::KMapper;
+    if (normalized == "k8k" || normalized == "k8kmapper")
+        return CartridgeMapper::K8KMapper;
     throw std::runtime_error("unknown mapper: " + normalized);
 }
 
@@ -62,8 +74,8 @@ void Bus::load_rom(std::span<const u8> rom) {
         k8k_slots_[i] = i;
     }
     mapper_ = requested_mapper_ == CartridgeMapper::Auto
-        ? (rom.size() <= 0xC000 ? CartridgeMapper::Plain : CartridgeMapper::SMapper)
-        : requested_mapper_;
+                  ? (rom.size() <= 0xC000 ? CartridgeMapper::Plain : CartridgeMapper::SMapper)
+                  : requested_mapper_;
     auto_mapper_locked_ = requested_mapper_ != CartridgeMapper::Auto;
     cartridge_ram_dirty_ = false;
     bios_enabled_ = !bios_.empty();
@@ -79,8 +91,8 @@ void Bus::load_bios(std::span<const u8> bios) {
 void Bus::set_mapper(CartridgeMapper mapper) {
     requested_mapper_ = mapper;
     mapper_ = mapper == CartridgeMapper::Auto
-        ? (rom_.size() <= 0xC000 ? CartridgeMapper::Plain : CartridgeMapper::SMapper)
-        : mapper;
+                  ? (rom_.size() <= 0xC000 ? CartridgeMapper::Plain : CartridgeMapper::SMapper)
+                  : mapper;
     auto_mapper_locked_ = mapper != CartridgeMapper::Auto;
     refresh_cartridge_map();
 }
@@ -152,8 +164,8 @@ void Bus::write(u16 address, u8 value) {
         return;
     }
 
-    if (model_ == ConsoleModel::SMS && cartridge_enabled() && requested_mapper_ == CartridgeMapper::Auto
-        && !auto_mapper_locked_) {
+    if (model_ == ConsoleModel::SMS && cartridge_enabled() && requested_mapper_ == CartridgeMapper::Auto &&
+        !auto_mapper_locked_) {
         if (address == 0x0000 || address == 0x4000 || address == 0x8000) {
             select_auto_mapper(CartridgeMapper::CMapper);
         } else if (address == 0xA000) {
@@ -163,32 +175,32 @@ void Bus::write(u16 address, u8 value) {
         }
     }
 
-    if (model_ == ConsoleModel::SMS && cartridge_enabled() && mapper_ == CartridgeMapper::CMapper
-        && (address == 0x0000 || address == 0x4000 || address == 0x8000)) {
+    if (model_ == ConsoleModel::SMS && cartridge_enabled() && mapper_ == CartridgeMapper::CMapper &&
+        (address == 0x0000 || address == 0x4000 || address == 0x8000)) {
         cmapper_slots_[address / 0x4000] = value;
         log_memory(BusMemoryAccessKind::Mapper, address, address, value);
         refresh_cartridge_map();
         return;
     }
 
-    if (model_ == ConsoleModel::SMS && cartridge_enabled()
-        && mapper_ == CartridgeMapper::KMapper && address == 0xA000) {
+    if (model_ == ConsoleModel::SMS && cartridge_enabled() && mapper_ == CartridgeMapper::KMapper &&
+        address == 0xA000) {
         kmapper_slot2_ = value;
         log_memory(BusMemoryAccessKind::Mapper, address, address, value);
         refresh_cartridge_map();
         return;
     }
 
-    if (model_ == ConsoleModel::SMS && cartridge_enabled()
-        && mapper_ == CartridgeMapper::K8KMapper && address <= 0x0003) {
+    if (model_ == ConsoleModel::SMS && cartridge_enabled() && mapper_ == CartridgeMapper::K8KMapper &&
+        address <= 0x0003) {
         k8k_slots_[address] = value;
         log_memory(BusMemoryAccessKind::Mapper, address, address, value);
         refresh_cartridge_map();
         return;
     }
 
-    if (model_ == ConsoleModel::SMS && cartridge_enabled()
-        && mapper_ == CartridgeMapper::SMapper && address >= 0xFFFC) {
+    if (model_ == ConsoleModel::SMS && cartridge_enabled() && mapper_ == CartridgeMapper::SMapper &&
+        address >= 0xFFFC) {
         if (requested_mapper_ == CartridgeMapper::Auto) {
             auto_mapper_locked_ = true;
         }
@@ -398,7 +410,9 @@ void Bus::refresh_smapper() {
                 continue;
             }
             const std::size_t len = std::min<std::size_t>(0x4000, rom_.size() - src);
-            std::copy_n(rom_.begin() + static_cast<std::ptrdiff_t>(src), len, memory_.begin() + static_cast<std::ptrdiff_t>(dst));
+            std::copy_n(rom_.begin() + static_cast<std::ptrdiff_t>(src),
+                        len,
+                        memory_.begin() + static_cast<std::ptrdiff_t>(dst));
         }
 
         if (rom_.size() > 0x400) {
@@ -441,7 +455,8 @@ void Bus::copy_rom_bank(std::size_t bank, u16 dst, std::size_t size, std::size_t
         return;
     }
     const std::size_t len = std::min<std::size_t>(size, rom_.size() - src);
-    std::copy_n(rom_.begin() + static_cast<std::ptrdiff_t>(src), static_cast<std::ptrdiff_t>(len), memory_.begin() + dst);
+    std::copy_n(
+        rom_.begin() + static_cast<std::ptrdiff_t>(src), static_cast<std::ptrdiff_t>(len), memory_.begin() + dst);
 }
 
 void Bus::select_auto_mapper(CartridgeMapper mapper) {
@@ -459,10 +474,7 @@ void Bus::set_memory_control(u8 value) {
 
 bool Bus::slot2_cartridge_ram_enabled() const {
     const bool sega_mapper = mapper_ == CartridgeMapper::SMapper || mapper_ == CartridgeMapper::Auto;
-    return model_ == ConsoleModel::SMS
-        && sega_mapper
-        && cartridge_enabled()
-        && (smapper_control_ & 0x08) != 0;
+    return model_ == ConsoleModel::SMS && sega_mapper && cartridge_enabled() && (smapper_control_ & 0x08) != 0;
 }
 
 bool Bus::has_copier_header(std::span<const u8> rom) {

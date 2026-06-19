@@ -22,32 +22,46 @@ struct Ym2413State {
 };
 
 class Ym2413 {
-public:
+  public:
     void reset();
     void set_present(bool present);
-    bool present() const { return present_; }
+    bool present() const {
+        return present_;
+    }
 
-    void set_cycle(u64 cycle) { current_cycle_ = cycle; }
+    void set_cycle(u64 cycle) {
+        current_cycle_ = cycle;
+    }
     void set_write_logging_enabled(bool enabled);
-    const std::vector<Ym2413Write>& logged_writes() const { return logged_writes_; }
+    const std::vector<Ym2413Write>& logged_writes() const {
+        return logged_writes_;
+    }
 
     void write_address(u8 value);
     void write_data(u8 value);
     void write_audio_control(u8 value);
     u8 read_audio_control() const;
 
-    bool fm_enabled() const { return present_ && (audio_control_ == 0x01 || audio_control_ == 0x03); }
-    bool psg_enabled() const { return !present_ || audio_control_ == 0x00 || audio_control_ == 0x03; }
+    bool fm_enabled() const {
+        return present_ && (audio_control_ == 0x01 || audio_control_ == 0x03);
+    }
+    bool psg_enabled() const {
+        return !present_ || audio_control_ == 0x00 || audio_control_ == 0x03;
+    }
 
     void tick(int cpu_cycles);
     std::array<float, 2> sample() const;
 
-    const std::array<u8, 0x40>& debug_registers() const { return registers_; }
-    u8 selected_register() const { return selected_register_; }
+    const std::array<u8, 0x40>& debug_registers() const {
+        return registers_;
+    }
+    u8 selected_register() const {
+        return selected_register_;
+    }
     Ym2413State save_state() const;
     void load_state(const Ym2413State& state);
 
-private:
+  private:
     bool present_ = false;
     u8 selected_register_ = 0;
     u8 audio_control_ = 0;

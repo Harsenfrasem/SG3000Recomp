@@ -24,19 +24,27 @@ struct PsgState {
 };
 
 class Psg {
-public:
+  public:
     void write(u8 value);
     void tick(int cpu_cycles);
     std::array<float, 2> sample() const;
-    void set_enhancements(const EnhancementConfig& config) { enhancements_ = config; }
-    const EnhancementConfig& enhancements() const { return enhancements_; }
-    void set_cycle(u64 cycle) { current_cycle_ = cycle; }
+    void set_enhancements(const EnhancementConfig& config) {
+        enhancements_ = config;
+    }
+    const EnhancementConfig& enhancements() const {
+        return enhancements_;
+    }
+    void set_cycle(u64 cycle) {
+        current_cycle_ = cycle;
+    }
     void set_write_logging_enabled(bool enabled);
-    const std::vector<PsgWrite>& logged_writes() const { return logged_writes_; }
+    const std::vector<PsgWrite>& logged_writes() const {
+        return logged_writes_;
+    }
     PsgState save_state() const;
     void load_state(const PsgState& state);
 
-private:
+  private:
     std::array<u16, 4> tone_{};
     std::array<u8, 4> volume_{{0x0F, 0x0F, 0x0F, 0x0F}};
     std::array<int, 4> counters_{};

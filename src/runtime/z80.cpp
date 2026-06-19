@@ -34,23 +34,18 @@ void set_szp(Z80State& cpu, u8 value) {
 u8 add8(Z80State& cpu, u8 lhs, u8 rhs) {
     const u16 sum = static_cast<u16>(lhs + rhs);
     const u8 result = static_cast<u8>(sum);
-    cpu.f = static_cast<u8>((result & (flag_s | flag_y | flag_x)) |
-        (result == 0 ? flag_z : 0) |
-        (((lhs ^ rhs ^ result) & 0x10) ? flag_h : 0) |
-        ((~(lhs ^ rhs) & (lhs ^ result) & 0x80) ? flag_pv : 0) |
-        (sum > 0xFF ? flag_c : 0));
+    cpu.f = static_cast<u8>((result & (flag_s | flag_y | flag_x)) | (result == 0 ? flag_z : 0) |
+                            (((lhs ^ rhs ^ result) & 0x10) ? flag_h : 0) |
+                            ((~(lhs ^ rhs) & (lhs ^ result) & 0x80) ? flag_pv : 0) | (sum > 0xFF ? flag_c : 0));
     return result;
 }
 
 u8 sub8(Z80State& cpu, u8 lhs, u8 rhs) {
     const u16 diff = static_cast<u16>(lhs - rhs);
     const u8 result = static_cast<u8>(diff);
-    cpu.f = static_cast<u8>(flag_n |
-        (result & (flag_s | flag_y | flag_x)) |
-        (result == 0 ? flag_z : 0) |
-        (((lhs ^ rhs ^ result) & 0x10) ? flag_h : 0) |
-        (((lhs ^ rhs) & (lhs ^ result) & 0x80) ? flag_pv : 0) |
-        (lhs < rhs ? flag_c : 0));
+    cpu.f = static_cast<u8>(flag_n | (result & (flag_s | flag_y | flag_x)) | (result == 0 ? flag_z : 0) |
+                            (((lhs ^ rhs ^ result) & 0x10) ? flag_h : 0) |
+                            (((lhs ^ rhs) & (lhs ^ result) & 0x80) ? flag_pv : 0) | (lhs < rhs ? flag_c : 0));
     return result;
 }
 
@@ -67,26 +62,18 @@ void daa(Z80State& cpu) {
         carry = true;
     }
 
-    cpu.a = (cpu.f & flag_n) != 0
-        ? static_cast<u8>(cpu.a - correction)
-        : static_cast<u8>(cpu.a + correction);
-    cpu.f = static_cast<u8>((cpu.f & flag_n) |
-        (cpu.a & (flag_s | flag_y | flag_x)) |
-        (cpu.a == 0 ? flag_z : 0) |
-        (((old_a ^ cpu.a) & 0x10) ? flag_h : 0) |
-        parity(cpu.a) |
-        (carry ? flag_c : 0));
+    cpu.a = (cpu.f & flag_n) != 0 ? static_cast<u8>(cpu.a - correction) : static_cast<u8>(cpu.a + correction);
+    cpu.f = static_cast<u8>((cpu.f & flag_n) | (cpu.a & (flag_s | flag_y | flag_x)) | (cpu.a == 0 ? flag_z : 0) |
+                            (((old_a ^ cpu.a) & 0x10) ? flag_h : 0) | parity(cpu.a) | (carry ? flag_c : 0));
 }
 
 u8 adc8(Z80State& cpu, u8 lhs, u8 rhs) {
     const u8 carry = static_cast<u8>(cpu.f & flag_c);
     const u16 sum = static_cast<u16>(lhs + rhs + carry);
     const u8 result = static_cast<u8>(sum);
-    cpu.f = static_cast<u8>((result & (flag_s | flag_y | flag_x)) |
-        (result == 0 ? flag_z : 0) |
-        (((lhs ^ rhs ^ result) & 0x10) ? flag_h : 0) |
-        ((~(lhs ^ rhs) & (lhs ^ result) & 0x80) ? flag_pv : 0) |
-        (sum > 0xFF ? flag_c : 0));
+    cpu.f = static_cast<u8>((result & (flag_s | flag_y | flag_x)) | (result == 0 ? flag_z : 0) |
+                            (((lhs ^ rhs ^ result) & 0x10) ? flag_h : 0) |
+                            ((~(lhs ^ rhs) & (lhs ^ result) & 0x80) ? flag_pv : 0) | (sum > 0xFF ? flag_c : 0));
     return result;
 }
 
@@ -94,18 +81,17 @@ u8 sbc8(Z80State& cpu, u8 lhs, u8 rhs) {
     const u8 carry = static_cast<u8>(cpu.f & flag_c);
     const u16 diff = static_cast<u16>(lhs - rhs - carry);
     const u8 result = static_cast<u8>(diff);
-    cpu.f = static_cast<u8>(flag_n |
-        (result & (flag_s | flag_y | flag_x)) |
-        (result == 0 ? flag_z : 0) |
-        (((lhs ^ rhs ^ result) & 0x10) ? flag_h : 0) |
-        (((lhs ^ rhs) & (lhs ^ result) & 0x80) ? flag_pv : 0) |
-        (static_cast<u16>(rhs + carry) > lhs ? flag_c : 0));
+    cpu.f = static_cast<u8>(flag_n | (result & (flag_s | flag_y | flag_x)) | (result == 0 ? flag_z : 0) |
+                            (((lhs ^ rhs ^ result) & 0x10) ? flag_h : 0) |
+                            (((lhs ^ rhs) & (lhs ^ result) & 0x80) ? flag_pv : 0) |
+                            (static_cast<u16>(rhs + carry) > lhs ? flag_c : 0));
     return result;
 }
 
 u8 and8(Z80State& cpu, u8 lhs, u8 rhs) {
     const u8 result = static_cast<u8>(lhs & rhs);
-    cpu.f = static_cast<u8>(flag_h | (result & (flag_s | flag_y | flag_x)) | (result == 0 ? flag_z : 0) | parity(result));
+    cpu.f =
+        static_cast<u8>(flag_h | (result & (flag_s | flag_y | flag_x)) | (result == 0 ? flag_z : 0) | parity(result));
     return result;
 }
 
@@ -124,22 +110,16 @@ u8 or8(Z80State& cpu, u8 lhs, u8 rhs) {
 u8 inc8(Z80State& cpu, u8 value) {
     const u8 old_carry = static_cast<u8>(cpu.f & flag_c);
     const u8 result = static_cast<u8>(value + 1);
-    cpu.f = static_cast<u8>(old_carry |
-        (result & (flag_s | flag_y | flag_x)) |
-        (result == 0 ? flag_z : 0) |
-        (((value ^ result) & 0x10) ? flag_h : 0) |
-        (value == 0x7F ? flag_pv : 0));
+    cpu.f = static_cast<u8>(old_carry | (result & (flag_s | flag_y | flag_x)) | (result == 0 ? flag_z : 0) |
+                            (((value ^ result) & 0x10) ? flag_h : 0) | (value == 0x7F ? flag_pv : 0));
     return result;
 }
 
 u8 dec8(Z80State& cpu, u8 value) {
     const u8 old_carry = static_cast<u8>(cpu.f & flag_c);
     const u8 result = static_cast<u8>(value - 1);
-    cpu.f = static_cast<u8>(old_carry | flag_n |
-        (result & (flag_s | flag_y | flag_x)) |
-        (result == 0 ? flag_z : 0) |
-        (((value ^ result) & 0x10) ? flag_h : 0) |
-        (value == 0x80 ? flag_pv : 0));
+    cpu.f = static_cast<u8>(old_carry | flag_n | (result & (flag_s | flag_y | flag_x)) | (result == 0 ? flag_z : 0) |
+                            (((value ^ result) & 0x10) ? flag_h : 0) | (value == 0x80 ? flag_pv : 0));
     return result;
 }
 
@@ -195,28 +175,44 @@ void relative_jump(Z80State& cpu, s8 displacement) {
 
 u16 read_rp(const Z80State& cpu, u8 index) {
     switch (index & 0x03) {
-    case 0: return cpu.bc();
-    case 1: return cpu.de();
-    case 2: return cpu.hl();
-    default: return cpu.sp;
+    case 0:
+        return cpu.bc();
+    case 1:
+        return cpu.de();
+    case 2:
+        return cpu.hl();
+    default:
+        return cpu.sp;
     }
 }
 
 void write_rp(Z80State& cpu, u8 index, u16 value) {
     switch (index & 0x03) {
-    case 0: cpu.set_bc(value); break;
-    case 1: cpu.set_de(value); break;
-    case 2: cpu.set_hl(value); break;
-    default: cpu.sp = value; break;
+    case 0:
+        cpu.set_bc(value);
+        break;
+    case 1:
+        cpu.set_de(value);
+        break;
+    case 2:
+        cpu.set_hl(value);
+        break;
+    default:
+        cpu.sp = value;
+        break;
     }
 }
 
 u16 read_qq(const Z80State& cpu, u8 index) {
     switch (index & 0x03) {
-    case 0: return cpu.bc();
-    case 1: return cpu.de();
-    case 2: return cpu.hl();
-    default: return cpu.af();
+    case 0:
+        return cpu.bc();
+    case 1:
+        return cpu.de();
+    case 2:
+        return cpu.hl();
+    default:
+        return cpu.af();
     }
 }
 
@@ -252,22 +248,37 @@ void write_index(Z80State& cpu, bool iy, u16 value) {
 
 u8 read_index_reg(const Z80State& cpu, bool iy, u8 index) {
     switch (index & 0x07) {
-    case 0: return cpu.b;
-    case 1: return cpu.c;
-    case 2: return cpu.d;
-    case 3: return cpu.e;
-    case 4: return iy ? cpu.iyh : cpu.ixh;
-    case 5: return iy ? cpu.iyl : cpu.ixl;
-    default: return cpu.a;
+    case 0:
+        return cpu.b;
+    case 1:
+        return cpu.c;
+    case 2:
+        return cpu.d;
+    case 3:
+        return cpu.e;
+    case 4:
+        return iy ? cpu.iyh : cpu.ixh;
+    case 5:
+        return iy ? cpu.iyl : cpu.ixl;
+    default:
+        return cpu.a;
     }
 }
 
 void write_index_reg(Z80State& cpu, bool iy, u8 index, u8 value) {
     switch (index & 0x07) {
-    case 0: cpu.b = value; break;
-    case 1: cpu.c = value; break;
-    case 2: cpu.d = value; break;
-    case 3: cpu.e = value; break;
+    case 0:
+        cpu.b = value;
+        break;
+    case 1:
+        cpu.c = value;
+        break;
+    case 2:
+        cpu.d = value;
+        break;
+    case 3:
+        cpu.e = value;
+        break;
     case 4:
         if (iy) {
             cpu.iyh = value;
@@ -282,16 +293,26 @@ void write_index_reg(Z80State& cpu, bool iy, u8 index, u8 value) {
             cpu.ixl = value;
         }
         break;
-    default: cpu.a = value; break;
+    default:
+        cpu.a = value;
+        break;
     }
 }
 
 void write_qq(Z80State& cpu, u8 index, u16 value) {
     switch (index & 0x03) {
-    case 0: cpu.set_bc(value); break;
-    case 1: cpu.set_de(value); break;
-    case 2: cpu.set_hl(value); break;
-    default: cpu.set_af(value); break;
+    case 0:
+        cpu.set_bc(value);
+        break;
+    case 1:
+        cpu.set_de(value);
+        break;
+    case 2:
+        cpu.set_hl(value);
+        break;
+    default:
+        cpu.set_af(value);
+        break;
     }
 }
 
@@ -300,10 +321,8 @@ void add_hl(Z80State& cpu, u16 rhs) {
     const u32 sum = static_cast<u32>(lhs + rhs);
     const u16 result = static_cast<u16>(sum);
     const u8 preserved = static_cast<u8>(cpu.f & (flag_s | flag_z | flag_pv));
-    cpu.f = static_cast<u8>(preserved |
-        ((result >> 8) & (flag_y | flag_x)) |
-        (((lhs ^ rhs ^ result) & 0x1000) ? flag_h : 0) |
-        (sum > 0xFFFF ? flag_c : 0));
+    cpu.f = static_cast<u8>(preserved | ((result >> 8) & (flag_y | flag_x)) |
+                            (((lhs ^ rhs ^ result) & 0x1000) ? flag_h : 0) | (sum > 0xFFFF ? flag_c : 0));
     cpu.set_hl(result);
 }
 
@@ -311,12 +330,9 @@ void adc_hl(Z80State& cpu, u16 rhs) {
     const u16 lhs = cpu.hl();
     const u32 sum = static_cast<u32>(lhs + rhs + (cpu.f & flag_c));
     const u16 result = static_cast<u16>(sum);
-    cpu.f = static_cast<u8>((result & 0x8000 ? flag_s : 0) |
-        ((result >> 8) & (flag_y | flag_x)) |
-        (result == 0 ? flag_z : 0) |
-        (((lhs ^ rhs ^ result) & 0x1000) ? flag_h : 0) |
-        ((~(lhs ^ rhs) & (lhs ^ result) & 0x8000) ? flag_pv : 0) |
-        (sum > 0xFFFF ? flag_c : 0));
+    cpu.f = static_cast<u8>((result & 0x8000 ? flag_s : 0) | ((result >> 8) & (flag_y | flag_x)) |
+                            (result == 0 ? flag_z : 0) | (((lhs ^ rhs ^ result) & 0x1000) ? flag_h : 0) |
+                            ((~(lhs ^ rhs) & (lhs ^ result) & 0x8000) ? flag_pv : 0) | (sum > 0xFFFF ? flag_c : 0));
     cpu.set_hl(result);
 }
 
@@ -325,13 +341,10 @@ void sbc_hl(Z80State& cpu, u16 rhs) {
     const u32 carry = cpu.f & flag_c;
     const u32 diff = static_cast<u32>(lhs - rhs - carry);
     const u16 result = static_cast<u16>(diff);
-    cpu.f = static_cast<u8>(flag_n |
-        ((result >> 8) & (flag_y | flag_x)) |
-        (result & 0x8000 ? flag_s : 0) |
-        (result == 0 ? flag_z : 0) |
-        (((lhs ^ rhs ^ result) & 0x1000) ? flag_h : 0) |
-        (((lhs ^ rhs) & (lhs ^ result) & 0x8000) ? flag_pv : 0) |
-        (static_cast<u32>(rhs + carry) > lhs ? flag_c : 0));
+    cpu.f = static_cast<u8>(flag_n | ((result >> 8) & (flag_y | flag_x)) | (result & 0x8000 ? flag_s : 0) |
+                            (result == 0 ? flag_z : 0) | (((lhs ^ rhs ^ result) & 0x1000) ? flag_h : 0) |
+                            (((lhs ^ rhs) & (lhs ^ result) & 0x8000) ? flag_pv : 0) |
+                            (static_cast<u32>(rhs + carry) > lhs ? flag_c : 0));
     cpu.set_hl(result);
 }
 
@@ -339,49 +352,79 @@ u16 add16_index_flags(Z80State& cpu, u16 lhs, u16 rhs) {
     const u32 sum = static_cast<u32>(lhs + rhs);
     const u16 result = static_cast<u16>(sum);
     const u8 preserved = static_cast<u8>(cpu.f & (flag_s | flag_z | flag_pv));
-    cpu.f = static_cast<u8>(preserved |
-        ((result >> 8) & (flag_y | flag_x)) |
-        (((lhs ^ rhs ^ result) & 0x1000) ? flag_h : 0) |
-        (sum > 0xFFFF ? flag_c : 0));
+    cpu.f = static_cast<u8>(preserved | ((result >> 8) & (flag_y | flag_x)) |
+                            (((lhs ^ rhs ^ result) & 0x1000) ? flag_h : 0) | (sum > 0xFFFF ? flag_c : 0));
     return result;
 }
 
 bool condition(const Z80State& cpu, u8 index) {
     switch (index & 0x07) {
-    case 0: return (cpu.f & flag_z) == 0;
-    case 1: return (cpu.f & flag_z) != 0;
-    case 2: return (cpu.f & flag_c) == 0;
-    case 3: return (cpu.f & flag_c) != 0;
-    case 4: return (cpu.f & flag_pv) == 0;
-    case 5: return (cpu.f & flag_pv) != 0;
-    case 6: return (cpu.f & flag_s) == 0;
-    default: return (cpu.f & flag_s) != 0;
+    case 0:
+        return (cpu.f & flag_z) == 0;
+    case 1:
+        return (cpu.f & flag_z) != 0;
+    case 2:
+        return (cpu.f & flag_c) == 0;
+    case 3:
+        return (cpu.f & flag_c) != 0;
+    case 4:
+        return (cpu.f & flag_pv) == 0;
+    case 5:
+        return (cpu.f & flag_pv) != 0;
+    case 6:
+        return (cpu.f & flag_s) == 0;
+    default:
+        return (cpu.f & flag_s) != 0;
     }
 }
 
 u8 read_reg(Z80State& cpu, Bus& bus, u8 index) {
     switch (index & 0x07) {
-    case 0: return cpu.b;
-    case 1: return cpu.c;
-    case 2: return cpu.d;
-    case 3: return cpu.e;
-    case 4: return cpu.h;
-    case 5: return cpu.l;
-    case 6: return bus.read(cpu.hl());
-    default: return cpu.a;
+    case 0:
+        return cpu.b;
+    case 1:
+        return cpu.c;
+    case 2:
+        return cpu.d;
+    case 3:
+        return cpu.e;
+    case 4:
+        return cpu.h;
+    case 5:
+        return cpu.l;
+    case 6:
+        return bus.read(cpu.hl());
+    default:
+        return cpu.a;
     }
 }
 
 void write_reg(Z80State& cpu, Bus& bus, u8 index, u8 value) {
     switch (index & 0x07) {
-    case 0: cpu.b = value; break;
-    case 1: cpu.c = value; break;
-    case 2: cpu.d = value; break;
-    case 3: cpu.e = value; break;
-    case 4: cpu.h = value; break;
-    case 5: cpu.l = value; break;
-    case 6: bus.write(cpu.hl(), value); break;
-    default: cpu.a = value; break;
+    case 0:
+        cpu.b = value;
+        break;
+    case 1:
+        cpu.c = value;
+        break;
+    case 2:
+        cpu.d = value;
+        break;
+    case 3:
+        cpu.e = value;
+        break;
+    case 4:
+        cpu.h = value;
+        break;
+    case 5:
+        cpu.l = value;
+        break;
+    case 6:
+        bus.write(cpu.hl(), value);
+        break;
+    default:
+        cpu.a = value;
+        break;
     }
 }
 
@@ -406,10 +449,8 @@ const char* condition_name(u8 index) {
 }
 
 void set_rotate_flags(Z80State& cpu, u8 result, bool carry) {
-    cpu.f = static_cast<u8>((result & (flag_s | flag_y | flag_x)) |
-        (result == 0 ? flag_z : 0) |
-        parity(result) |
-        (carry ? flag_c : 0));
+    cpu.f = static_cast<u8>((result & (flag_s | flag_y | flag_x)) | (result == 0 ? flag_z : 0) | parity(result) |
+                            (carry ? flag_c : 0));
 }
 
 u8 rotate_shift_cb(Z80State& cpu, u8 op, u8 value) {
@@ -482,7 +523,7 @@ void execute_cb(Z80State& cpu, Bus& bus, u8 op) {
         const bool zero = (value & (1u << bit)) == 0;
         const u8 carry = static_cast<u8>(cpu.f & flag_c);
         cpu.f = static_cast<u8>(carry | flag_h | (value & (flag_y | flag_x)) | (zero ? (flag_z | flag_pv) : 0) |
-            (!zero && bit == 7 ? flag_s : 0));
+                                (!zero && bit == 7 ? flag_s : 0));
         cpu.cycles += reg == 6 ? 12 : 8;
         return;
     }
@@ -518,8 +559,8 @@ void execute_index_cb(Z80State& cpu, Bus& bus, bool iy, s8 displacement, u8 op) 
         const u8 value = bus.read(address);
         const bool zero = (value & (1u << bit)) == 0;
         const u8 carry = static_cast<u8>(cpu.f & flag_c);
-        cpu.f = static_cast<u8>(carry | flag_h | ((address >> 8) & (flag_y | flag_x)) | (zero ? (flag_z | flag_pv) : 0) |
-            (!zero && bit == 7 ? flag_s : 0));
+        cpu.f = static_cast<u8>(carry | flag_h | ((address >> 8) & (flag_y | flag_x)) |
+                                (zero ? (flag_z | flag_pv) : 0) | (!zero && bit == 7 ? flag_s : 0));
         cpu.cycles += 20;
         return;
     }
@@ -540,10 +581,8 @@ void execute_index_cb(Z80State& cpu, Bus& bus, bool iy, s8 displacement, u8 op) 
 
 void set_ld_a_ir_flags(Z80State& cpu, u8 value) {
     const u8 carry = static_cast<u8>(cpu.f & flag_c);
-    cpu.f = static_cast<u8>(carry |
-        (value & (flag_s | flag_y | flag_x)) |
-        (value == 0 ? flag_z : 0) |
-        (cpu.iff2 ? flag_pv : 0));
+    cpu.f = static_cast<u8>(carry | (value & (flag_s | flag_y | flag_x)) | (value == 0 ? flag_z : 0) |
+                            (cpu.iff2 ? flag_pv : 0));
 }
 
 void block_transfer(Z80State& cpu, Bus& bus, s16 step) {
@@ -553,8 +592,8 @@ void block_transfer(Z80State& cpu, Bus& bus, s16 step) {
     cpu.set_de(static_cast<u16>(cpu.de() + step));
     cpu.set_bc(static_cast<u16>(cpu.bc() - 1));
     const u8 sum = static_cast<u8>(cpu.a + value);
-    cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_c)) |
-        (sum & flag_x) | ((sum & 0x02) ? flag_y : 0) | (cpu.bc() != 0 ? flag_pv : 0));
+    cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_c)) | (sum & flag_x) | ((sum & 0x02) ? flag_y : 0) |
+                            (cpu.bc() != 0 ? flag_pv : 0));
 }
 
 void block_compare(Z80State& cpu, Bus& bus, s16 step) {
@@ -564,20 +603,16 @@ void block_compare(Z80State& cpu, Bus& bus, s16 step) {
     cpu.set_hl(static_cast<u16>(cpu.hl() + step));
     cpu.set_bc(static_cast<u16>(cpu.bc() - 1));
     const u8 adjusted = static_cast<u8>(result - (((cpu.a ^ value ^ result) & 0x10) ? 1 : 0));
-    cpu.f = static_cast<u8>(carry | flag_n |
-        (result & flag_s) | (adjusted & flag_x) | ((adjusted & 0x02) ? flag_y : 0) |
-        (result == 0 ? flag_z : 0) |
-        (((cpu.a ^ value ^ result) & 0x10) ? flag_h : 0) |
-        (cpu.bc() != 0 ? flag_pv : 0));
+    cpu.f = static_cast<u8>(carry | flag_n | (result & flag_s) | (adjusted & flag_x) |
+                            ((adjusted & 0x02) ? flag_y : 0) | (result == 0 ? flag_z : 0) |
+                            (((cpu.a ^ value ^ result) & 0x10) ? flag_h : 0) | (cpu.bc() != 0 ? flag_pv : 0));
 }
 
 void set_block_io_flags(Z80State& cpu, u8 value, u8 addend) {
     const u16 sum = static_cast<u16>(value + addend);
-    cpu.f = static_cast<u8>((cpu.b & (flag_s | flag_y | flag_x)) |
-        (cpu.b == 0 ? flag_z : 0) |
-        ((value & 0x80) != 0 ? flag_n : 0) |
-        (sum > 0xFF ? (flag_h | flag_c) : 0) |
-        parity(static_cast<u8>((sum & 0x07) ^ cpu.b)));
+    cpu.f = static_cast<u8>((cpu.b & (flag_s | flag_y | flag_x)) | (cpu.b == 0 ? flag_z : 0) |
+                            ((value & 0x80) != 0 ? flag_n : 0) | (sum > 0xFF ? (flag_h | flag_c) : 0) |
+                            parity(static_cast<u8>((sum & 0x07) ^ cpu.b)));
 }
 
 void ini(Z80State& cpu, Bus& bus, s16 step) {
@@ -598,18 +633,12 @@ void outi(Z80State& cpu, Bus& bus, s16 step) {
 
 void set_in_flags(Z80State& cpu, u8 value) {
     const u8 carry = static_cast<u8>(cpu.f & flag_c);
-    cpu.f = static_cast<u8>(carry |
-        (value & (flag_s | flag_y | flag_x)) |
-        (value == 0 ? flag_z : 0) |
-        parity(value));
+    cpu.f = static_cast<u8>(carry | (value & (flag_s | flag_y | flag_x)) | (value == 0 ? flag_z : 0) | parity(value));
 }
 
 void set_accumulator_flags(Z80State& cpu) {
     const u8 carry = static_cast<u8>(cpu.f & flag_c);
-    cpu.f = static_cast<u8>(carry |
-        (cpu.a & (flag_s | flag_y | flag_x)) |
-        (cpu.a == 0 ? flag_z : 0) |
-        parity(cpu.a));
+    cpu.f = static_cast<u8>(carry | (cpu.a & (flag_s | flag_y | flag_x)) | (cpu.a == 0 ? flag_z : 0) | parity(cpu.a));
 }
 
 void execute_ed(Z80State& cpu, Bus& bus, u8 op) {
@@ -631,21 +660,38 @@ void execute_ed(Z80State& cpu, Bus& bus, u8 op) {
     }
 
     switch (op) {
-    case 0x42: case 0x52: case 0x62: case 0x72:
+    case 0x42:
+    case 0x52:
+    case 0x62:
+    case 0x72:
         sbc_hl(cpu, read_rp(cpu, static_cast<u8>((op >> 4) & 0x03)));
         cpu.cycles += 15;
         return;
-    case 0x4A: case 0x5A: case 0x6A: case 0x7A:
+    case 0x4A:
+    case 0x5A:
+    case 0x6A:
+    case 0x7A:
         adc_hl(cpu, read_rp(cpu, static_cast<u8>((op >> 4) & 0x03)));
         cpu.cycles += 15;
         return;
-    case 0x44: case 0x4C: case 0x54: case 0x5C:
-    case 0x64: case 0x6C: case 0x74: case 0x7C:
+    case 0x44:
+    case 0x4C:
+    case 0x54:
+    case 0x5C:
+    case 0x64:
+    case 0x6C:
+    case 0x74:
+    case 0x7C:
         cpu.a = sub8(cpu, 0, cpu.a);
         cpu.cycles += 8;
         return;
-    case 0x45: case 0x55: case 0x5D: case 0x65:
-    case 0x6D: case 0x75: case 0x7D:
+    case 0x45:
+    case 0x55:
+    case 0x5D:
+    case 0x65:
+    case 0x6D:
+    case 0x75:
+    case 0x7D:
         cpu.pc = pop16(cpu, bus);
         cpu.iff1 = cpu.iff2;
         cpu.cycles += 14;
@@ -654,15 +700,18 @@ void execute_ed(Z80State& cpu, Bus& bus, u8 op) {
         cpu.pc = pop16(cpu, bus);
         cpu.cycles += 14;
         return;
-    case 0x46: case 0x66:
+    case 0x46:
+    case 0x66:
         cpu.interrupt_mode = 0;
         cpu.cycles += 8;
         return;
-    case 0x56: case 0x76:
+    case 0x56:
+    case 0x76:
         cpu.interrupt_mode = 1;
         cpu.cycles += 8;
         return;
-    case 0x5E: case 0x7E:
+    case 0x5E:
+    case 0x7E:
         cpu.interrupt_mode = 2;
         cpu.cycles += 8;
         return;
@@ -700,13 +749,19 @@ void execute_ed(Z80State& cpu, Bus& bus, u8 op) {
         cpu.cycles += 18;
         return;
     }
-    case 0x43: case 0x53: case 0x63: case 0x73: {
+    case 0x43:
+    case 0x53:
+    case 0x63:
+    case 0x73: {
         const u16 address = fetch16(cpu, bus);
         write16(bus, address, read_rp(cpu, static_cast<u8>((op >> 4) & 0x03)));
         cpu.cycles += 20;
         return;
     }
-    case 0x4B: case 0x5B: case 0x6B: case 0x7B: {
+    case 0x4B:
+    case 0x5B:
+    case 0x6B:
+    case 0x7B: {
         const u16 address = fetch16(cpu, bus);
         write_rp(cpu, static_cast<u8>((op >> 4) & 0x03), read16(bus, address));
         cpu.cycles += 20;
@@ -830,7 +885,10 @@ void execute_index(Z80State& cpu, Bus& bus, bool iy, u8 op) {
         execute_index_cb(cpu, bus, iy, displacement, fetch8(cpu, bus));
         return;
     }
-    case 0x09: case 0x19: case 0x29: case 0x39: {
+    case 0x09:
+    case 0x19:
+    case 0x29:
+    case 0x39: {
         const u8 rp = static_cast<u8>((op >> 4) & 0x03);
         const u16 rhs = rp == 2 ? read_index(cpu, iy) : read_rp(cpu, rp);
         write_index(cpu, iy, add16_index_flags(cpu, read_index(cpu, iy), rhs));
@@ -934,7 +992,8 @@ void execute_index(Z80State& cpu, Bus& bus, bool iy, u8 op) {
         if ((op & 0xF8) == 0x70) {
             const u8 reg = static_cast<u8>(op & 0x07);
             const auto displacement = static_cast<s8>(fetch8(cpu, bus));
-            const u8 value = reg == 6 ? bus.read(static_cast<u16>(read_index(cpu, iy) + displacement)) : read_index_reg(cpu, iy, reg);
+            const u8 value = reg == 6 ? bus.read(static_cast<u16>(read_index(cpu, iy) + displacement))
+                                      : read_index_reg(cpu, iy, reg);
             bus.write(static_cast<u16>(read_index(cpu, iy) + displacement), value);
             cpu.cycles += 19;
             return;
@@ -943,14 +1002,30 @@ void execute_index(Z80State& cpu, Bus& bus, bool iy, u8 op) {
             const auto displacement = static_cast<s8>(fetch8(cpu, bus));
             const u8 rhs = bus.read(static_cast<u16>(read_index(cpu, iy) + displacement));
             switch ((op >> 3) & 0x07) {
-            case 0: cpu.a = add8(cpu, cpu.a, rhs); break;
-            case 1: cpu.a = adc8(cpu, cpu.a, rhs); break;
-            case 2: cpu.a = sub8(cpu, cpu.a, rhs); break;
-            case 3: cpu.a = sbc8(cpu, cpu.a, rhs); break;
-            case 4: cpu.a = and8(cpu, cpu.a, rhs); break;
-            case 5: cpu.a = xor8(cpu, cpu.a, rhs); break;
-            case 6: cpu.a = or8(cpu, cpu.a, rhs); break;
-            case 7: (void)sub8(cpu, cpu.a, rhs); break;
+            case 0:
+                cpu.a = add8(cpu, cpu.a, rhs);
+                break;
+            case 1:
+                cpu.a = adc8(cpu, cpu.a, rhs);
+                break;
+            case 2:
+                cpu.a = sub8(cpu, cpu.a, rhs);
+                break;
+            case 3:
+                cpu.a = sbc8(cpu, cpu.a, rhs);
+                break;
+            case 4:
+                cpu.a = and8(cpu, cpu.a, rhs);
+                break;
+            case 5:
+                cpu.a = xor8(cpu, cpu.a, rhs);
+                break;
+            case 6:
+                cpu.a = or8(cpu, cpu.a, rhs);
+                break;
+            case 7:
+                (void)sub8(cpu, cpu.a, rhs);
+                break;
             }
             cpu.cycles += 19;
             return;
@@ -972,14 +1047,30 @@ void execute_index(Z80State& cpu, Bus& bus, bool iy, u8 op) {
         if ((op & 0xC0) == 0x80 && ((op & 0x07) == 4 || (op & 0x07) == 5)) {
             const u8 rhs = read_index_reg(cpu, iy, op & 0x07);
             switch ((op >> 3) & 0x07) {
-            case 0: cpu.a = add8(cpu, cpu.a, rhs); break;
-            case 1: cpu.a = adc8(cpu, cpu.a, rhs); break;
-            case 2: cpu.a = sub8(cpu, cpu.a, rhs); break;
-            case 3: cpu.a = sbc8(cpu, cpu.a, rhs); break;
-            case 4: cpu.a = and8(cpu, cpu.a, rhs); break;
-            case 5: cpu.a = xor8(cpu, cpu.a, rhs); break;
-            case 6: cpu.a = or8(cpu, cpu.a, rhs); break;
-            case 7: (void)sub8(cpu, cpu.a, rhs); break;
+            case 0:
+                cpu.a = add8(cpu, cpu.a, rhs);
+                break;
+            case 1:
+                cpu.a = adc8(cpu, cpu.a, rhs);
+                break;
+            case 2:
+                cpu.a = sub8(cpu, cpu.a, rhs);
+                break;
+            case 3:
+                cpu.a = sbc8(cpu, cpu.a, rhs);
+                break;
+            case 4:
+                cpu.a = and8(cpu, cpu.a, rhs);
+                break;
+            case 5:
+                cpu.a = xor8(cpu, cpu.a, rhs);
+                break;
+            case 6:
+                cpu.a = or8(cpu, cpu.a, rhs);
+                break;
+            case 7:
+                (void)sub8(cpu, cpu.a, rhs);
+                break;
             }
             cpu.cycles += 8;
             return;
@@ -987,14 +1078,30 @@ void execute_index(Z80State& cpu, Bus& bus, bool iy, u8 op) {
         if ((op & 0xC0) == 0x80 && (op & 0x07) != 6) {
             const u8 rhs = read_reg(cpu, bus, op & 0x07);
             switch ((op >> 3) & 0x07) {
-            case 0: cpu.a = add8(cpu, cpu.a, rhs); break;
-            case 1: cpu.a = adc8(cpu, cpu.a, rhs); break;
-            case 2: cpu.a = sub8(cpu, cpu.a, rhs); break;
-            case 3: cpu.a = sbc8(cpu, cpu.a, rhs); break;
-            case 4: cpu.a = and8(cpu, cpu.a, rhs); break;
-            case 5: cpu.a = xor8(cpu, cpu.a, rhs); break;
-            case 6: cpu.a = or8(cpu, cpu.a, rhs); break;
-            case 7: (void)sub8(cpu, cpu.a, rhs); break;
+            case 0:
+                cpu.a = add8(cpu, cpu.a, rhs);
+                break;
+            case 1:
+                cpu.a = adc8(cpu, cpu.a, rhs);
+                break;
+            case 2:
+                cpu.a = sub8(cpu, cpu.a, rhs);
+                break;
+            case 3:
+                cpu.a = sbc8(cpu, cpu.a, rhs);
+                break;
+            case 4:
+                cpu.a = and8(cpu, cpu.a, rhs);
+                break;
+            case 5:
+                cpu.a = xor8(cpu, cpu.a, rhs);
+                break;
+            case 6:
+                cpu.a = or8(cpu, cpu.a, rhs);
+                break;
+            case 7:
+                (void)sub8(cpu, cpu.a, rhs);
+                break;
             }
             cpu.cycles += 8;
             return;
@@ -1060,51 +1167,104 @@ std::string ed_mnemonic(const std::array<u8, 0x10000>& memory, u16 pc, u8 op) {
         return buffer;
     }
     switch (op) {
-    case 0x42: case 0x52: case 0x62: case 0x72:
+    case 0x42:
+    case 0x52:
+    case 0x62:
+    case 0x72:
         std::snprintf(buffer, sizeof(buffer), "sbc hl,%s", rp_name((op >> 4) & 0x03));
         return buffer;
-    case 0x4A: case 0x5A: case 0x6A: case 0x7A:
+    case 0x4A:
+    case 0x5A:
+    case 0x6A:
+    case 0x7A:
         std::snprintf(buffer, sizeof(buffer), "adc hl,%s", rp_name((op >> 4) & 0x03));
         return buffer;
-    case 0x44: case 0x4C: case 0x54: case 0x5C:
-    case 0x64: case 0x6C: case 0x74: case 0x7C:
+    case 0x44:
+    case 0x4C:
+    case 0x54:
+    case 0x5C:
+    case 0x64:
+    case 0x6C:
+    case 0x74:
+    case 0x7C:
         return "neg";
-    case 0x45: case 0x55: case 0x5D: case 0x65:
-    case 0x6D: case 0x75: case 0x7D:
+    case 0x45:
+    case 0x55:
+    case 0x5D:
+    case 0x65:
+    case 0x6D:
+    case 0x75:
+    case 0x7D:
         return "retn";
-    case 0x4D: return "reti";
-    case 0x46: case 0x66: return "im 0";
-    case 0x56: case 0x76: return "im 1";
-    case 0x5E: case 0x7E: return "im 2";
-    case 0x47: return "ld i,a";
-    case 0x4F: return "ld r,a";
-    case 0x57: return "ld a,i";
-    case 0x5F: return "ld a,r";
-    case 0x67: return "rrd";
-    case 0x6F: return "rld";
-    case 0x43: case 0x53: case 0x63: case 0x73:
-        std::snprintf(buffer, sizeof(buffer), "ld ($%04X),%s",
-            make_u16(memory[static_cast<u16>(pc + 2)], memory[static_cast<u16>(pc + 3)]),
-            rp_name((op >> 4) & 0x03));
+    case 0x4D:
+        return "reti";
+    case 0x46:
+    case 0x66:
+        return "im 0";
+    case 0x56:
+    case 0x76:
+        return "im 1";
+    case 0x5E:
+    case 0x7E:
+        return "im 2";
+    case 0x47:
+        return "ld i,a";
+    case 0x4F:
+        return "ld r,a";
+    case 0x57:
+        return "ld a,i";
+    case 0x5F:
+        return "ld a,r";
+    case 0x67:
+        return "rrd";
+    case 0x6F:
+        return "rld";
+    case 0x43:
+    case 0x53:
+    case 0x63:
+    case 0x73:
+        std::snprintf(buffer,
+                      sizeof(buffer),
+                      "ld ($%04X),%s",
+                      make_u16(memory[static_cast<u16>(pc + 2)], memory[static_cast<u16>(pc + 3)]),
+                      rp_name((op >> 4) & 0x03));
         return buffer;
-    case 0x4B: case 0x5B: case 0x6B: case 0x7B:
-        std::snprintf(buffer, sizeof(buffer), "ld %s,($%04X)",
-            rp_name((op >> 4) & 0x03),
-            make_u16(memory[static_cast<u16>(pc + 2)], memory[static_cast<u16>(pc + 3)]));
+    case 0x4B:
+    case 0x5B:
+    case 0x6B:
+    case 0x7B:
+        std::snprintf(buffer,
+                      sizeof(buffer),
+                      "ld %s,($%04X)",
+                      rp_name((op >> 4) & 0x03),
+                      make_u16(memory[static_cast<u16>(pc + 2)], memory[static_cast<u16>(pc + 3)]));
         return buffer;
-    case 0xA0: return "ldi";
-    case 0xB0: return "ldir";
-    case 0xA1: return "cpi";
-    case 0xA2: return "ini";
-    case 0xA3: return "outi";
-    case 0xAA: return "ind";
-    case 0xAB: return "outd";
-    case 0xB1: return "cpir";
-    case 0xB2: return "inir";
-    case 0xB3: return "otir";
-    case 0xBA: return "indr";
-    case 0xBB: return "otdr";
-    default: return "ed db";
+    case 0xA0:
+        return "ldi";
+    case 0xB0:
+        return "ldir";
+    case 0xA1:
+        return "cpi";
+    case 0xA2:
+        return "ini";
+    case 0xA3:
+        return "outi";
+    case 0xAA:
+        return "ind";
+    case 0xAB:
+        return "outd";
+    case 0xB1:
+        return "cpir";
+    case 0xB2:
+        return "inir";
+    case 0xB3:
+        return "otir";
+    case 0xBA:
+        return "indr";
+    case 0xBB:
+        return "otdr";
+    default:
+        return "ed db";
     }
 }
 
@@ -1119,25 +1279,37 @@ std::string index_mnemonic(const std::array<u8, 0x10000>& memory, u16 pc, bool i
         std::snprintf(buffer, sizeof(buffer), "%s (%s%+d)", cb_text.c_str(), name, displacement);
         return buffer;
     }
-    case 0x09: case 0x19: case 0x29: case 0x39: {
+    case 0x09:
+    case 0x19:
+    case 0x29:
+    case 0x39: {
         const u8 rp = static_cast<u8>((op >> 4) & 0x03);
         std::snprintf(buffer, sizeof(buffer), "add %s,%s", name, rp == 2 ? name : rp_name(rp));
         return buffer;
     }
     case 0x21:
-        std::snprintf(buffer, sizeof(buffer), "ld %s,$%04X", name,
-            make_u16(memory[static_cast<u16>(pc + 2)], memory[static_cast<u16>(pc + 3)]));
+        std::snprintf(buffer,
+                      sizeof(buffer),
+                      "ld %s,$%04X",
+                      name,
+                      make_u16(memory[static_cast<u16>(pc + 2)], memory[static_cast<u16>(pc + 3)]));
         return buffer;
     case 0x22:
-        std::snprintf(buffer, sizeof(buffer), "ld ($%04X),%s",
-            make_u16(memory[static_cast<u16>(pc + 2)], memory[static_cast<u16>(pc + 3)]), name);
+        std::snprintf(buffer,
+                      sizeof(buffer),
+                      "ld ($%04X),%s",
+                      make_u16(memory[static_cast<u16>(pc + 2)], memory[static_cast<u16>(pc + 3)]),
+                      name);
         return buffer;
     case 0x23:
         std::snprintf(buffer, sizeof(buffer), "inc %s", name);
         return buffer;
     case 0x2A:
-        std::snprintf(buffer, sizeof(buffer), "ld %s,($%04X)", name,
-            make_u16(memory[static_cast<u16>(pc + 2)], memory[static_cast<u16>(pc + 3)]));
+        std::snprintf(buffer,
+                      sizeof(buffer),
+                      "ld %s,($%04X)",
+                      name,
+                      make_u16(memory[static_cast<u16>(pc + 2)], memory[static_cast<u16>(pc + 3)]));
         return buffer;
     case 0x2B:
         std::snprintf(buffer, sizeof(buffer), "dec %s", name);
@@ -1149,9 +1321,12 @@ std::string index_mnemonic(const std::array<u8, 0x10000>& memory, u16 pc, bool i
         std::snprintf(buffer, sizeof(buffer), "dec (%s%+d)", name, static_cast<s8>(memory[static_cast<u16>(pc + 2)]));
         return buffer;
     case 0x36:
-        std::snprintf(buffer, sizeof(buffer), "ld (%s%+d),$%02X", name,
-            static_cast<s8>(memory[static_cast<u16>(pc + 2)]),
-            memory[static_cast<u16>(pc + 3)]);
+        std::snprintf(buffer,
+                      sizeof(buffer),
+                      "ld (%s%+d),$%02X",
+                      name,
+                      static_cast<s8>(memory[static_cast<u16>(pc + 2)]),
+                      memory[static_cast<u16>(pc + 3)]);
         return buffer;
     case 0xE1:
         std::snprintf(buffer, sizeof(buffer), "pop %s", name);
@@ -1170,19 +1345,31 @@ std::string index_mnemonic(const std::array<u8, 0x10000>& memory, u16 pc, bool i
         return buffer;
     default:
         if ((op & 0xC7) == 0x46) {
-            std::snprintf(buffer, sizeof(buffer), "ld %s,(%s%+d)",
-                reg_name((op >> 3) & 0x07), name, static_cast<s8>(memory[static_cast<u16>(pc + 2)]));
+            std::snprintf(buffer,
+                          sizeof(buffer),
+                          "ld %s,(%s%+d)",
+                          reg_name((op >> 3) & 0x07),
+                          name,
+                          static_cast<s8>(memory[static_cast<u16>(pc + 2)]));
             return buffer;
         }
         if ((op & 0xF8) == 0x70) {
-            std::snprintf(buffer, sizeof(buffer), "ld (%s%+d),%s",
-                name, static_cast<s8>(memory[static_cast<u16>(pc + 2)]), reg_name(op & 0x07));
+            std::snprintf(buffer,
+                          sizeof(buffer),
+                          "ld (%s%+d),%s",
+                          name,
+                          static_cast<s8>(memory[static_cast<u16>(pc + 2)]),
+                          reg_name(op & 0x07));
             return buffer;
         }
         if ((op & 0xC7) == 0x86) {
             static constexpr const char* ops[] = {"add a", "adc a", "sub", "sbc a", "and", "xor", "or", "cp"};
-            std::snprintf(buffer, sizeof(buffer), "%s,(%s%+d)",
-                ops[(op >> 3) & 0x07], name, static_cast<s8>(memory[static_cast<u16>(pc + 2)]));
+            std::snprintf(buffer,
+                          sizeof(buffer),
+                          "%s,(%s%+d)",
+                          ops[(op >> 3) & 0x07],
+                          name,
+                          static_cast<s8>(memory[static_cast<u16>(pc + 2)]));
             return buffer;
         }
         std::snprintf(buffer, sizeof(buffer), "%s db", iy ? "fd" : "dd");
@@ -1216,79 +1403,276 @@ DecodedInstruction decode_z80(const std::array<u8, 0x10000>& memory, u16 pc) {
     const u8 opcode = memory[pc];
     DecodedInstruction out{pc, opcode, 1, 4, "db"};
     switch (opcode) {
-    case 0x00: out.mnemonic = "nop"; break;
-    case 0x01: out.size = 3; out.cycles = 10; out.mnemonic = imm16(memory, pc, "ld bc,"); break;
-    case 0x02: out.cycles = 7; out.mnemonic = "ld (bc),a"; break;
-    case 0x04: out.cycles = 4; out.mnemonic = "inc b"; break;
-    case 0x05: out.cycles = 4; out.mnemonic = "dec b"; break;
-    case 0x06: out.size = 2; out.cycles = 7; out.mnemonic = imm8(memory, pc, "ld b,"); break;
-    case 0x07: out.cycles = 4; out.mnemonic = "rlca"; break;
-    case 0x0C: out.cycles = 4; out.mnemonic = "inc c"; break;
-    case 0x0D: out.cycles = 4; out.mnemonic = "dec c"; break;
-    case 0x0E: out.size = 2; out.cycles = 7; out.mnemonic = imm8(memory, pc, "ld c,"); break;
-    case 0x0F: out.cycles = 4; out.mnemonic = "rrca"; break;
-    case 0x08: out.cycles = 4; out.mnemonic = "ex af,af'"; break;
-    case 0x0A: out.cycles = 7; out.mnemonic = "ld a,(bc)"; break;
-    case 0x10: out.size = 2; out.cycles = 13; out.mnemonic = imm8(memory, pc, "djnz"); break;
-    case 0x11: out.size = 3; out.cycles = 10; out.mnemonic = imm16(memory, pc, "ld de,"); break;
-    case 0x12: out.cycles = 7; out.mnemonic = "ld (de),a"; break;
-    case 0x18: out.size = 2; out.cycles = 12; out.mnemonic = imm8(memory, pc, "jr"); break;
-    case 0x20: out.size = 2; out.cycles = 12; out.mnemonic = imm8(memory, pc, "jr nz,"); break;
-    case 0x16: out.size = 2; out.cycles = 7; out.mnemonic = imm8(memory, pc, "ld d,"); break;
-    case 0x17: out.cycles = 4; out.mnemonic = "rla"; break;
-    case 0x1E: out.size = 2; out.cycles = 7; out.mnemonic = imm8(memory, pc, "ld e,"); break;
-    case 0x1A: out.cycles = 7; out.mnemonic = "ld a,(de)"; break;
-    case 0x1F: out.cycles = 4; out.mnemonic = "rra"; break;
-    case 0x21: out.size = 3; out.cycles = 10; out.mnemonic = imm16(memory, pc, "ld hl,"); break;
-    case 0x22: out.size = 3; out.cycles = 16; out.mnemonic = imm16(memory, pc, "ld (),hl"); break;
-    case 0x27: out.cycles = 4; out.mnemonic = "daa"; break;
-    case 0x28: out.size = 2; out.cycles = 12; out.mnemonic = imm8(memory, pc, "jr z,"); break;
-    case 0x2F: out.cycles = 4; out.mnemonic = "cpl"; break;
-    case 0x30: out.size = 2; out.cycles = 12; out.mnemonic = imm8(memory, pc, "jr nc,"); break;
-    case 0x26: out.size = 2; out.cycles = 7; out.mnemonic = imm8(memory, pc, "ld h,"); break;
-    case 0x2E: out.size = 2; out.cycles = 7; out.mnemonic = imm8(memory, pc, "ld l,"); break;
-    case 0x2A: out.size = 3; out.cycles = 16; out.mnemonic = imm16(memory, pc, "ld hl,()"); break;
-    case 0x31: out.size = 3; out.cycles = 10; out.mnemonic = imm16(memory, pc, "ld sp,"); break;
-    case 0x32: out.size = 3; out.cycles = 13; out.mnemonic = imm16(memory, pc, "ld (),a"); break;
-    case 0x36: out.size = 2; out.cycles = 10; out.mnemonic = imm8(memory, pc, "ld (hl),"); break;
-    case 0x3A: out.size = 3; out.cycles = 13; out.mnemonic = imm16(memory, pc, "ld a,()"); break;
-    case 0x38: out.size = 2; out.cycles = 12; out.mnemonic = imm8(memory, pc, "jr c,"); break;
-    case 0x3C: out.cycles = 4; out.mnemonic = "inc a"; break;
-    case 0x3D: out.cycles = 4; out.mnemonic = "dec a"; break;
-    case 0x3E: out.size = 2; out.cycles = 7; out.mnemonic = imm8(memory, pc, "ld a,"); break;
+    case 0x00:
+        out.mnemonic = "nop";
+        break;
+    case 0x01:
+        out.size = 3;
+        out.cycles = 10;
+        out.mnemonic = imm16(memory, pc, "ld bc,");
+        break;
+    case 0x02:
+        out.cycles = 7;
+        out.mnemonic = "ld (bc),a";
+        break;
+    case 0x04:
+        out.cycles = 4;
+        out.mnemonic = "inc b";
+        break;
+    case 0x05:
+        out.cycles = 4;
+        out.mnemonic = "dec b";
+        break;
+    case 0x06:
+        out.size = 2;
+        out.cycles = 7;
+        out.mnemonic = imm8(memory, pc, "ld b,");
+        break;
+    case 0x07:
+        out.cycles = 4;
+        out.mnemonic = "rlca";
+        break;
+    case 0x0C:
+        out.cycles = 4;
+        out.mnemonic = "inc c";
+        break;
+    case 0x0D:
+        out.cycles = 4;
+        out.mnemonic = "dec c";
+        break;
+    case 0x0E:
+        out.size = 2;
+        out.cycles = 7;
+        out.mnemonic = imm8(memory, pc, "ld c,");
+        break;
+    case 0x0F:
+        out.cycles = 4;
+        out.mnemonic = "rrca";
+        break;
+    case 0x08:
+        out.cycles = 4;
+        out.mnemonic = "ex af,af'";
+        break;
+    case 0x0A:
+        out.cycles = 7;
+        out.mnemonic = "ld a,(bc)";
+        break;
+    case 0x10:
+        out.size = 2;
+        out.cycles = 13;
+        out.mnemonic = imm8(memory, pc, "djnz");
+        break;
+    case 0x11:
+        out.size = 3;
+        out.cycles = 10;
+        out.mnemonic = imm16(memory, pc, "ld de,");
+        break;
+    case 0x12:
+        out.cycles = 7;
+        out.mnemonic = "ld (de),a";
+        break;
+    case 0x18:
+        out.size = 2;
+        out.cycles = 12;
+        out.mnemonic = imm8(memory, pc, "jr");
+        break;
+    case 0x20:
+        out.size = 2;
+        out.cycles = 12;
+        out.mnemonic = imm8(memory, pc, "jr nz,");
+        break;
+    case 0x16:
+        out.size = 2;
+        out.cycles = 7;
+        out.mnemonic = imm8(memory, pc, "ld d,");
+        break;
+    case 0x17:
+        out.cycles = 4;
+        out.mnemonic = "rla";
+        break;
+    case 0x1E:
+        out.size = 2;
+        out.cycles = 7;
+        out.mnemonic = imm8(memory, pc, "ld e,");
+        break;
+    case 0x1A:
+        out.cycles = 7;
+        out.mnemonic = "ld a,(de)";
+        break;
+    case 0x1F:
+        out.cycles = 4;
+        out.mnemonic = "rra";
+        break;
+    case 0x21:
+        out.size = 3;
+        out.cycles = 10;
+        out.mnemonic = imm16(memory, pc, "ld hl,");
+        break;
+    case 0x22:
+        out.size = 3;
+        out.cycles = 16;
+        out.mnemonic = imm16(memory, pc, "ld (),hl");
+        break;
+    case 0x27:
+        out.cycles = 4;
+        out.mnemonic = "daa";
+        break;
+    case 0x28:
+        out.size = 2;
+        out.cycles = 12;
+        out.mnemonic = imm8(memory, pc, "jr z,");
+        break;
+    case 0x2F:
+        out.cycles = 4;
+        out.mnemonic = "cpl";
+        break;
+    case 0x30:
+        out.size = 2;
+        out.cycles = 12;
+        out.mnemonic = imm8(memory, pc, "jr nc,");
+        break;
+    case 0x26:
+        out.size = 2;
+        out.cycles = 7;
+        out.mnemonic = imm8(memory, pc, "ld h,");
+        break;
+    case 0x2E:
+        out.size = 2;
+        out.cycles = 7;
+        out.mnemonic = imm8(memory, pc, "ld l,");
+        break;
+    case 0x2A:
+        out.size = 3;
+        out.cycles = 16;
+        out.mnemonic = imm16(memory, pc, "ld hl,()");
+        break;
+    case 0x31:
+        out.size = 3;
+        out.cycles = 10;
+        out.mnemonic = imm16(memory, pc, "ld sp,");
+        break;
+    case 0x32:
+        out.size = 3;
+        out.cycles = 13;
+        out.mnemonic = imm16(memory, pc, "ld (),a");
+        break;
+    case 0x36:
+        out.size = 2;
+        out.cycles = 10;
+        out.mnemonic = imm8(memory, pc, "ld (hl),");
+        break;
+    case 0x3A:
+        out.size = 3;
+        out.cycles = 13;
+        out.mnemonic = imm16(memory, pc, "ld a,()");
+        break;
+    case 0x38:
+        out.size = 2;
+        out.cycles = 12;
+        out.mnemonic = imm8(memory, pc, "jr c,");
+        break;
+    case 0x3C:
+        out.cycles = 4;
+        out.mnemonic = "inc a";
+        break;
+    case 0x3D:
+        out.cycles = 4;
+        out.mnemonic = "dec a";
+        break;
+    case 0x3E:
+        out.size = 2;
+        out.cycles = 7;
+        out.mnemonic = imm8(memory, pc, "ld a,");
+        break;
     case 0xCB:
         out.size = 2;
         out.cycles = (memory[static_cast<u16>(pc + 1)] & 0x07) == 6
-            ? (((memory[static_cast<u16>(pc + 1)] >> 6) & 0x03) == 1 ? 12 : 15)
-            : 8;
+                         ? (((memory[static_cast<u16>(pc + 1)] >> 6) & 0x03) == 1 ? 12 : 15)
+                         : 8;
         out.mnemonic = cb_mnemonic(memory[static_cast<u16>(pc + 1)]);
         break;
-    case 0x76: out.cycles = 4; out.mnemonic = "halt"; break;
-    case 0x80: out.mnemonic = "add a,b"; break;
-    case 0x81: out.mnemonic = "add a,c"; break;
-    case 0x87: out.mnemonic = "add a,a"; break;
-    case 0x90: out.mnemonic = "sub b"; break;
-    case 0x91: out.mnemonic = "sub c"; break;
-    case 0xAF: out.mnemonic = "xor a"; break;
-    case 0xC3: out.size = 3; out.cycles = 10; out.mnemonic = imm16(memory, pc, "jp"); break;
-    case 0xC6: out.size = 2; out.cycles = 7; out.mnemonic = imm8(memory, pc, "add a,"); break;
-    case 0xC9: out.cycles = 10; out.mnemonic = "ret"; break;
-    case 0xCE: out.size = 2; out.cycles = 7; out.mnemonic = imm8(memory, pc, "adc a,"); break;
-    case 0xCD: out.size = 3; out.cycles = 17; out.mnemonic = imm16(memory, pc, "call"); break;
-    case 0xD6: out.size = 2; out.cycles = 7; out.mnemonic = imm8(memory, pc, "sub"); break;
-    case 0xD3: out.size = 2; out.cycles = 11; out.mnemonic = imm8(memory, pc, "out"), out.mnemonic += ",a"; break;
-    case 0xDB: out.size = 2; out.cycles = 11; out.mnemonic = imm8(memory, pc, "in a,"); break;
-    case 0xD9: out.cycles = 4; out.mnemonic = "exx"; break;
+    case 0x76:
+        out.cycles = 4;
+        out.mnemonic = "halt";
+        break;
+    case 0x80:
+        out.mnemonic = "add a,b";
+        break;
+    case 0x81:
+        out.mnemonic = "add a,c";
+        break;
+    case 0x87:
+        out.mnemonic = "add a,a";
+        break;
+    case 0x90:
+        out.mnemonic = "sub b";
+        break;
+    case 0x91:
+        out.mnemonic = "sub c";
+        break;
+    case 0xAF:
+        out.mnemonic = "xor a";
+        break;
+    case 0xC3:
+        out.size = 3;
+        out.cycles = 10;
+        out.mnemonic = imm16(memory, pc, "jp");
+        break;
+    case 0xC6:
+        out.size = 2;
+        out.cycles = 7;
+        out.mnemonic = imm8(memory, pc, "add a,");
+        break;
+    case 0xC9:
+        out.cycles = 10;
+        out.mnemonic = "ret";
+        break;
+    case 0xCE:
+        out.size = 2;
+        out.cycles = 7;
+        out.mnemonic = imm8(memory, pc, "adc a,");
+        break;
+    case 0xCD:
+        out.size = 3;
+        out.cycles = 17;
+        out.mnemonic = imm16(memory, pc, "call");
+        break;
+    case 0xD6:
+        out.size = 2;
+        out.cycles = 7;
+        out.mnemonic = imm8(memory, pc, "sub");
+        break;
+    case 0xD3:
+        out.size = 2;
+        out.cycles = 11;
+        out.mnemonic = imm8(memory, pc, "out"), out.mnemonic += ",a";
+        break;
+    case 0xDB:
+        out.size = 2;
+        out.cycles = 11;
+        out.mnemonic = imm8(memory, pc, "in a,");
+        break;
+    case 0xD9:
+        out.cycles = 4;
+        out.mnemonic = "exx";
+        break;
     case 0xDD: {
         const u8 op = memory[static_cast<u16>(pc + 1)];
-        out.size = (op == 0xCB || op == 0x36) ? 4 :
-            (((op & 0xC7) == 0x46 || (op & 0xF8) == 0x70 || (op & 0xC7) == 0x86 || op == 0x34 || op == 0x35) ? 3 :
-            ((op == 0x21 || op == 0x22 || op == 0x2A) ? 4 : 2));
+        out.size =
+            (op == 0xCB || op == 0x36)
+                ? 4
+                : (((op & 0xC7) == 0x46 || (op & 0xF8) == 0x70 || (op & 0xC7) == 0x86 || op == 0x34 || op == 0x35)
+                       ? 3
+                       : ((op == 0x21 || op == 0x22 || op == 0x2A) ? 4 : 2));
         out.cycles = 8;
         out.mnemonic = index_mnemonic(memory, pc, false, op);
         break;
     }
-    case 0xDE: out.size = 2; out.cycles = 7; out.mnemonic = imm8(memory, pc, "sbc a,"); break;
+    case 0xDE:
+        out.size = 2;
+        out.cycles = 7;
+        out.mnemonic = imm8(memory, pc, "sbc a,");
+        break;
     case 0xED: {
         const u8 ed = memory[static_cast<u16>(pc + 1)];
         out.size = ((ed & 0xCF) == 0x43 || (ed & 0xCF) == 0x4B) ? 4 : 2;
@@ -1296,32 +1680,78 @@ DecodedInstruction decode_z80(const std::array<u8, 0x10000>& memory, u16 pc) {
         out.mnemonic = ed_mnemonic(memory, pc, ed);
         break;
     }
-    case 0xE3: out.cycles = 19; out.mnemonic = "ex (sp),hl"; break;
-    case 0xE6: out.size = 2; out.cycles = 7; out.mnemonic = imm8(memory, pc, "and"); break;
-    case 0xE9: out.cycles = 4; out.mnemonic = "jp (hl)"; break;
-    case 0xEB: out.cycles = 4; out.mnemonic = "ex de,hl"; break;
-    case 0xEE: out.size = 2; out.cycles = 7; out.mnemonic = imm8(memory, pc, "xor"); break;
-    case 0x37: out.cycles = 4; out.mnemonic = "scf"; break;
-    case 0x3F: out.cycles = 4; out.mnemonic = "ccf"; break;
-    case 0xF3: out.cycles = 4; out.mnemonic = "di"; break;
+    case 0xE3:
+        out.cycles = 19;
+        out.mnemonic = "ex (sp),hl";
+        break;
+    case 0xE6:
+        out.size = 2;
+        out.cycles = 7;
+        out.mnemonic = imm8(memory, pc, "and");
+        break;
+    case 0xE9:
+        out.cycles = 4;
+        out.mnemonic = "jp (hl)";
+        break;
+    case 0xEB:
+        out.cycles = 4;
+        out.mnemonic = "ex de,hl";
+        break;
+    case 0xEE:
+        out.size = 2;
+        out.cycles = 7;
+        out.mnemonic = imm8(memory, pc, "xor");
+        break;
+    case 0x37:
+        out.cycles = 4;
+        out.mnemonic = "scf";
+        break;
+    case 0x3F:
+        out.cycles = 4;
+        out.mnemonic = "ccf";
+        break;
+    case 0xF3:
+        out.cycles = 4;
+        out.mnemonic = "di";
+        break;
     case 0xFD: {
         const u8 op = memory[static_cast<u16>(pc + 1)];
-        out.size = (op == 0xCB || op == 0x36) ? 4 :
-            (((op & 0xC7) == 0x46 || (op & 0xF8) == 0x70 || (op & 0xC7) == 0x86 || op == 0x34 || op == 0x35) ? 3 :
-            ((op == 0x21 || op == 0x22 || op == 0x2A) ? 4 : 2));
+        out.size =
+            (op == 0xCB || op == 0x36)
+                ? 4
+                : (((op & 0xC7) == 0x46 || (op & 0xF8) == 0x70 || (op & 0xC7) == 0x86 || op == 0x34 || op == 0x35)
+                       ? 3
+                       : ((op == 0x21 || op == 0x22 || op == 0x2A) ? 4 : 2));
         out.cycles = 8;
         out.mnemonic = index_mnemonic(memory, pc, true, op);
         break;
     }
-    case 0xF6: out.size = 2; out.cycles = 7; out.mnemonic = imm8(memory, pc, "or"); break;
-    case 0xF9: out.cycles = 6; out.mnemonic = "ld sp,hl"; break;
-    case 0xFB: out.cycles = 4; out.mnemonic = "ei"; break;
-    case 0xFE: out.size = 2; out.cycles = 7; out.mnemonic = imm8(memory, pc, "cp"); break;
+    case 0xF6:
+        out.size = 2;
+        out.cycles = 7;
+        out.mnemonic = imm8(memory, pc, "or");
+        break;
+    case 0xF9:
+        out.cycles = 6;
+        out.mnemonic = "ld sp,hl";
+        break;
+    case 0xFB:
+        out.cycles = 4;
+        out.mnemonic = "ei";
+        break;
+    case 0xFE:
+        out.size = 2;
+        out.cycles = 7;
+        out.mnemonic = imm8(memory, pc, "cp");
+        break;
     default:
         if ((opcode & 0xCF) == 0x01) {
             char buffer[40];
-            std::snprintf(buffer, sizeof(buffer), "ld %s,$%04X", rp_name((opcode >> 4) & 0x03),
-                make_u16(memory[static_cast<u16>(pc + 1)], memory[static_cast<u16>(pc + 2)]));
+            std::snprintf(buffer,
+                          sizeof(buffer),
+                          "ld %s,$%04X",
+                          rp_name((opcode >> 4) & 0x03),
+                          make_u16(memory[static_cast<u16>(pc + 1)], memory[static_cast<u16>(pc + 2)]));
             out.size = 3;
             out.cycles = 10;
             out.mnemonic = buffer;
@@ -1352,8 +1782,11 @@ DecodedInstruction decode_z80(const std::array<u8, 0x10000>& memory, u16 pc) {
             out.mnemonic = buffer;
         } else if ((opcode & 0xC7) == 0x06) {
             char buffer[32];
-            std::snprintf(buffer, sizeof(buffer), "ld %s,$%02X", reg_name((opcode >> 3) & 0x07),
-                memory[static_cast<u16>(pc + 1)]);
+            std::snprintf(buffer,
+                          sizeof(buffer),
+                          "ld %s,$%02X",
+                          reg_name((opcode >> 3) & 0x07),
+                          memory[static_cast<u16>(pc + 1)]);
             out.size = 2;
             out.cycles = ((opcode >> 3) & 0x07) == 6 ? 10 : 7;
             out.mnemonic = buffer;
@@ -1411,21 +1844,13 @@ DecodedInstruction decode_z80(const std::array<u8, 0x10000>& memory, u16 pc) {
 void dump_z80_state(std::ostream& out, const Z80State& cpu) {
     const auto flags = out.flags();
     const auto fill = out.fill();
-    out << std::hex << std::uppercase << std::setfill('0')
-        << "PC=" << std::setw(4) << cpu.pc
-        << " LAST=" << std::setw(4) << cpu.last_pc
-        << " SP=" << std::setw(4) << cpu.sp
-        << " AF=" << std::setw(4) << cpu.af()
-        << " BC=" << std::setw(4) << cpu.bc()
-        << " DE=" << std::setw(4) << cpu.de()
-        << " HL=" << std::setw(4) << cpu.hl()
-        << " IX=" << std::setw(4) << make_u16(cpu.ixl, cpu.ixh)
-        << " IY=" << std::setw(4) << make_u16(cpu.iyl, cpu.iyh)
-        << " I=" << std::setw(2) << static_cast<int>(cpu.i)
-        << " R=" << std::setw(2) << static_cast<int>(cpu.r)
-        << " IM=" << std::dec << static_cast<int>(cpu.interrupt_mode)
-        << " IFF=" << cpu.iff1 << "/" << cpu.iff2
-        << " CYC=" << cpu.cycles;
+    out << std::hex << std::uppercase << std::setfill('0') << "PC=" << std::setw(4) << cpu.pc
+        << " LAST=" << std::setw(4) << cpu.last_pc << " SP=" << std::setw(4) << cpu.sp << " AF=" << std::setw(4)
+        << cpu.af() << " BC=" << std::setw(4) << cpu.bc() << " DE=" << std::setw(4) << cpu.de()
+        << " HL=" << std::setw(4) << cpu.hl() << " IX=" << std::setw(4) << make_u16(cpu.ixl, cpu.ixh)
+        << " IY=" << std::setw(4) << make_u16(cpu.iyl, cpu.iyh) << " I=" << std::setw(2) << static_cast<int>(cpu.i)
+        << " R=" << std::setw(2) << static_cast<int>(cpu.r) << " IM=" << std::dec
+        << static_cast<int>(cpu.interrupt_mode) << " IFF=" << cpu.iff1 << "/" << cpu.iff2 << " CYC=" << cpu.cycles;
     out.flags(flags);
     out.fill(fill);
 }
@@ -1485,7 +1910,9 @@ void execute_one(Z80State& cpu, Bus& bus) {
     increment_refresh(cpu);
 
     switch (opcode) {
-    case 0x00: cpu.cycles += 4; break;
+    case 0x00:
+        cpu.cycles += 4;
+        break;
     case 0x02:
         bus.write(cpu.bc(), cpu.a);
         cpu.cycles += 7;
@@ -1493,8 +1920,8 @@ void execute_one(Z80State& cpu, Bus& bus) {
     case 0x07: {
         const bool carry = (cpu.a & 0x80) != 0;
         cpu.a = static_cast<u8>((cpu.a << 1) | (carry ? 1 : 0));
-        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) |
-            (cpu.a & (flag_y | flag_x)) | (carry ? flag_c : 0));
+        cpu.f =
+            static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) | (cpu.a & (flag_y | flag_x)) | (carry ? flag_c : 0));
         cpu.cycles += 4;
         break;
     }
@@ -1510,8 +1937,8 @@ void execute_one(Z80State& cpu, Bus& bus) {
     case 0x0F: {
         const bool carry = (cpu.a & 0x01) != 0;
         cpu.a = static_cast<u8>((cpu.a >> 1) | (carry ? 0x80 : 0));
-        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) |
-            (cpu.a & (flag_y | flag_x)) | (carry ? flag_c : 0));
+        cpu.f =
+            static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) | (cpu.a & (flag_y | flag_x)) | (carry ? flag_c : 0));
         cpu.cycles += 4;
         break;
     }
@@ -1533,12 +1960,15 @@ void execute_one(Z80State& cpu, Bus& bus) {
     case 0x17: {
         const bool carry = (cpu.a & 0x80) != 0;
         cpu.a = static_cast<u8>((cpu.a << 1) | (cpu.f & flag_c));
-        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) |
-            (cpu.a & (flag_y | flag_x)) | (carry ? flag_c : 0));
+        cpu.f =
+            static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) | (cpu.a & (flag_y | flag_x)) | (carry ? flag_c : 0));
         cpu.cycles += 4;
         break;
     }
-    case 0x18: relative_jump(cpu, static_cast<s8>(fetch8(cpu, bus))); cpu.cycles += 12; break;
+    case 0x18:
+        relative_jump(cpu, static_cast<s8>(fetch8(cpu, bus)));
+        cpu.cycles += 12;
+        break;
     case 0x1A:
         cpu.a = bus.read(cpu.de());
         cpu.cycles += 7;
@@ -1546,8 +1976,8 @@ void execute_one(Z80State& cpu, Bus& bus) {
     case 0x1F: {
         const bool carry = (cpu.a & 0x01) != 0;
         cpu.a = static_cast<u8>((cpu.a >> 1) | ((cpu.f & flag_c) ? 0x80 : 0));
-        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) |
-            (cpu.a & (flag_y | flag_x)) | (carry ? flag_c : 0));
+        cpu.f =
+            static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) | (cpu.a & (flag_y | flag_x)) | (carry ? flag_c : 0));
         cpu.cycles += 4;
         break;
     }
@@ -1585,8 +2015,8 @@ void execute_one(Z80State& cpu, Bus& bus) {
         break;
     case 0x2F:
         cpu.a = static_cast<u8>(~cpu.a);
-        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv | flag_c)) |
-            (cpu.a & (flag_y | flag_x)) | flag_h | flag_n);
+        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv | flag_c)) | (cpu.a & (flag_y | flag_x)) | flag_h |
+                                flag_n);
         cpu.cycles += 4;
         break;
     case 0x30: {
@@ -1599,7 +2029,10 @@ void execute_one(Z80State& cpu, Bus& bus) {
         }
         break;
     }
-    case 0x32: bus.write(fetch16(cpu, bus), cpu.a); cpu.cycles += 13; break;
+    case 0x32:
+        bus.write(fetch16(cpu, bus), cpu.a);
+        cpu.cycles += 13;
+        break;
     case 0x38: {
         const s8 displacement = static_cast<s8>(fetch8(cpu, bus));
         if ((cpu.f & flag_c) != 0) {
@@ -1611,24 +2044,36 @@ void execute_one(Z80State& cpu, Bus& bus) {
         break;
     }
     case 0x37:
-        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) |
-            (cpu.a & (flag_y | flag_x)) | flag_c);
+        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) | (cpu.a & (flag_y | flag_x)) | flag_c);
         cpu.cycles += 4;
         break;
     case 0x3F: {
         const bool old_carry = (cpu.f & flag_c) != 0;
-        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) |
-            (cpu.a & (flag_y | flag_x)) |
-            (old_carry ? flag_h : 0) |
-            (old_carry ? 0 : flag_c));
+        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) | (cpu.a & (flag_y | flag_x)) |
+                                (old_carry ? flag_h : 0) | (old_carry ? 0 : flag_c));
         cpu.cycles += 4;
         break;
     }
-    case 0x3A: cpu.a = bus.read(fetch16(cpu, bus)); cpu.cycles += 13; break;
-    case 0x76: cpu.halted = true; cpu.cycles += 4; break;
-    case 0xC3: cpu.pc = fetch16(cpu, bus); cpu.cycles += 10; break;
-    case 0xC6: cpu.a = add8(cpu, cpu.a, fetch8(cpu, bus)); cpu.cycles += 7; break;
-    case 0xC9: cpu.pc = pop16(cpu, bus); cpu.cycles += 10; break;
+    case 0x3A:
+        cpu.a = bus.read(fetch16(cpu, bus));
+        cpu.cycles += 13;
+        break;
+    case 0x76:
+        cpu.halted = true;
+        cpu.cycles += 4;
+        break;
+    case 0xC3:
+        cpu.pc = fetch16(cpu, bus);
+        cpu.cycles += 10;
+        break;
+    case 0xC6:
+        cpu.a = add8(cpu, cpu.a, fetch8(cpu, bus));
+        cpu.cycles += 7;
+        break;
+    case 0xC9:
+        cpu.pc = pop16(cpu, bus);
+        cpu.cycles += 10;
+        break;
     case 0xCB:
         increment_refresh(cpu);
         execute_cb(cpu, bus, fetch8(cpu, bus));
@@ -1640,10 +2085,22 @@ void execute_one(Z80State& cpu, Bus& bus) {
         cpu.cycles += 17;
         break;
     }
-    case 0xCE: cpu.a = adc8(cpu, cpu.a, fetch8(cpu, bus)); cpu.cycles += 7; break;
-    case 0xD3: bus.output(fetch8(cpu, bus), cpu.a); cpu.cycles += 11; break;
-    case 0xD6: cpu.a = sub8(cpu, cpu.a, fetch8(cpu, bus)); cpu.cycles += 7; break;
-    case 0xDB: cpu.a = bus.input(fetch8(cpu, bus)); cpu.cycles += 11; break;
+    case 0xCE:
+        cpu.a = adc8(cpu, cpu.a, fetch8(cpu, bus));
+        cpu.cycles += 7;
+        break;
+    case 0xD3:
+        bus.output(fetch8(cpu, bus), cpu.a);
+        cpu.cycles += 11;
+        break;
+    case 0xD6:
+        cpu.a = sub8(cpu, cpu.a, fetch8(cpu, bus));
+        cpu.cycles += 7;
+        break;
+    case 0xDB:
+        cpu.a = bus.input(fetch8(cpu, bus));
+        cpu.cycles += 11;
+        break;
     case 0xD9:
         std::swap(cpu.b, cpu.b_alt);
         std::swap(cpu.c, cpu.c_alt);
@@ -1657,7 +2114,10 @@ void execute_one(Z80State& cpu, Bus& bus) {
         increment_refresh(cpu);
         execute_index(cpu, bus, false, fetch8(cpu, bus));
         break;
-    case 0xDE: cpu.a = sbc8(cpu, cpu.a, fetch8(cpu, bus)); cpu.cycles += 7; break;
+    case 0xDE:
+        cpu.a = sbc8(cpu, cpu.a, fetch8(cpu, bus));
+        cpu.cycles += 7;
+        break;
     case 0xED:
         increment_refresh(cpu);
         execute_ed(cpu, bus, fetch8(cpu, bus));
@@ -1670,7 +2130,10 @@ void execute_one(Z80State& cpu, Bus& bus) {
         cpu.cycles += 19;
         break;
     }
-    case 0xE6: cpu.a = and8(cpu, cpu.a, fetch8(cpu, bus)); cpu.cycles += 7; break;
+    case 0xE6:
+        cpu.a = and8(cpu, cpu.a, fetch8(cpu, bus));
+        cpu.cycles += 7;
+        break;
     case 0xE9:
         cpu.pc = cpu.hl();
         cpu.cycles += 4;
@@ -1682,7 +2145,10 @@ void execute_one(Z80State& cpu, Bus& bus) {
         cpu.cycles += 4;
         break;
     }
-    case 0xEE: cpu.a = xor8(cpu, cpu.a, fetch8(cpu, bus)); cpu.cycles += 7; break;
+    case 0xEE:
+        cpu.a = xor8(cpu, cpu.a, fetch8(cpu, bus));
+        cpu.cycles += 7;
+        break;
     case 0xF3:
         cpu.iff1 = false;
         cpu.iff2 = false;
@@ -1693,7 +2159,10 @@ void execute_one(Z80State& cpu, Bus& bus) {
         increment_refresh(cpu);
         execute_index(cpu, bus, true, fetch8(cpu, bus));
         break;
-    case 0xF6: cpu.a = or8(cpu, cpu.a, fetch8(cpu, bus)); cpu.cycles += 7; break;
+    case 0xF6:
+        cpu.a = or8(cpu, cpu.a, fetch8(cpu, bus));
+        cpu.cycles += 7;
+        break;
     case 0xF9:
         cpu.sp = cpu.hl();
         cpu.cycles += 6;
@@ -1802,14 +2271,30 @@ void execute_one(Z80State& cpu, Bus& bus) {
         if ((opcode & 0xC0) == 0x80) {
             const u8 rhs = read_reg(cpu, bus, opcode & 0x07);
             switch ((opcode >> 3) & 0x07) {
-            case 0: cpu.a = add8(cpu, cpu.a, rhs); break;
-            case 1: cpu.a = adc8(cpu, cpu.a, rhs); break;
-            case 2: cpu.a = sub8(cpu, cpu.a, rhs); break;
-            case 3: cpu.a = sbc8(cpu, cpu.a, rhs); break;
-            case 4: cpu.a = and8(cpu, cpu.a, rhs); break;
-            case 5: cpu.a = xor8(cpu, cpu.a, rhs); break;
-            case 6: cpu.a = or8(cpu, cpu.a, rhs); break;
-            case 7: (void)sub8(cpu, cpu.a, rhs); break;
+            case 0:
+                cpu.a = add8(cpu, cpu.a, rhs);
+                break;
+            case 1:
+                cpu.a = adc8(cpu, cpu.a, rhs);
+                break;
+            case 2:
+                cpu.a = sub8(cpu, cpu.a, rhs);
+                break;
+            case 3:
+                cpu.a = sbc8(cpu, cpu.a, rhs);
+                break;
+            case 4:
+                cpu.a = and8(cpu, cpu.a, rhs);
+                break;
+            case 5:
+                cpu.a = xor8(cpu, cpu.a, rhs);
+                break;
+            case 6:
+                cpu.a = or8(cpu, cpu.a, rhs);
+                break;
+            case 7:
+                (void)sub8(cpu, cpu.a, rhs);
+                break;
             }
             cpu.cycles += (opcode & 0x07) == 6 ? 7 : 4;
             break;

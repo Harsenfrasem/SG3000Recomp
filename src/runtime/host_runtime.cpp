@@ -4,8 +4,7 @@
 
 namespace sgrecomp {
 
-HostRuntime::HostRuntime(ConsoleModel model, HostRuntimeConfig config)
-    : console_(model), config_(config) {
+HostRuntime::HostRuntime(ConsoleModel model, HostRuntimeConfig config) : console_(model), config_(config) {
     console_.vdp().set_timing({config_.cpu_cycles_per_scanline, config_.scanlines_per_frame});
 }
 

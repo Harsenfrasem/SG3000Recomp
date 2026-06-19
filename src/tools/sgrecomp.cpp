@@ -92,12 +92,10 @@ struct Options {
 };
 
 std::string trim_ascii(std::string value) {
-    const auto first = std::find_if_not(value.begin(), value.end(), [](unsigned char c) {
-        return std::isspace(c) != 0;
-    });
-    const auto last = std::find_if_not(value.rbegin(), value.rend(), [](unsigned char c) {
-        return std::isspace(c) != 0;
-    }).base();
+    const auto first =
+        std::find_if_not(value.begin(), value.end(), [](unsigned char c) { return std::isspace(c) != 0; });
+    const auto last =
+        std::find_if_not(value.rbegin(), value.rend(), [](unsigned char c) { return std::isspace(c) != 0; }).base();
     if (first >= last) {
         return {};
     }
@@ -105,9 +103,8 @@ std::string trim_ascii(std::string value) {
 }
 
 std::string lower_ascii(std::string value) {
-    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
-        return static_cast<char>(std::tolower(c));
-    });
+    std::transform(
+        value.begin(), value.end(), value.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     return value;
 }
 
@@ -159,11 +156,16 @@ HostVideoStandard parse_video_standard(std::string text) {
 
 CartridgeHeaderRegion parse_header_region(std::string text) {
     text = lower_ascii(strip_quotes(std::move(text)));
-    if (text == "sms-japan") return CartridgeHeaderRegion::SmsJapan;
-    if (text == "sms-export") return CartridgeHeaderRegion::SmsExport;
-    if (text == "gg-japan") return CartridgeHeaderRegion::GameGearJapan;
-    if (text == "gg-export") return CartridgeHeaderRegion::GameGearExport;
-    if (text == "gg-international") return CartridgeHeaderRegion::GameGearInternational;
+    if (text == "sms-japan")
+        return CartridgeHeaderRegion::SmsJapan;
+    if (text == "sms-export")
+        return CartridgeHeaderRegion::SmsExport;
+    if (text == "gg-japan")
+        return CartridgeHeaderRegion::GameGearJapan;
+    if (text == "gg-export")
+        return CartridgeHeaderRegion::GameGearExport;
+    if (text == "gg-international")
+        return CartridgeHeaderRegion::GameGearInternational;
     throw std::runtime_error("unknown cartridge header region: " + text);
 }
 
@@ -290,7 +292,8 @@ void apply_config_file(Options& opts, const std::filesystem::path& path) {
             if (key == "region" || key == "video_standard") {
                 opts.video_standard = parse_video_standard(value);
             } else if (key == "audio_sample_rate") {
-                opts.audio_sample_rate = static_cast<u32>(std::clamp(static_cast<int>(parse_number(value)), 8000, 96000));
+                opts.audio_sample_rate =
+                    static_cast<u32>(std::clamp(static_cast<int>(parse_number(value)), 8000, 96000));
             } else if (key == "enable_fm") {
                 opts.enhancements.enable_fm = parse_config_bool(value);
             } else if (key == "disable_sprite_limit") {
@@ -313,8 +316,10 @@ void apply_config_file(Options& opts, const std::filesystem::path& path) {
 }
 
 void print_usage() {
-    std::cout << "usage: sgrecomp <rom.sms|rom.sg> [--config config.toml] [-o generated.cpp] [--model sms|sg3000] [--mapper auto|plain|smapper|cmapper|kmapper|k8k] [--disasm] [--bios bios.sms]\n"
-              << "       sgrecomp <rom.sms|rom.sg> --run-smoke [--steps n] [--trace] [--bios bios.sms] [--mapper auto|plain|smapper|cmapper|kmapper|k8k]\n"
+    std::cout << "usage: sgrecomp <rom.sms|rom.sg> [--config config.toml] [-o generated.cpp] [--model sms|sg3000] "
+                 "[--mapper auto|plain|smapper|cmapper|kmapper|k8k] [--disasm] [--bios bios.sms]\n"
+              << "       sgrecomp <rom.sms|rom.sg> --run-smoke [--steps n] [--trace] [--bios bios.sms] [--mapper "
+                 "auto|plain|smapper|cmapper|kmapper|k8k]\n"
               << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp]\n"
               << "                [--dump-audio audio.wav] [--dump-vgm audio.vgm] [--dump-fm-log fm.csv]\n"
               << "                [--dump-io-log io.csv] [--dump-memory-log memory.csv] [--dump-vdp-log vdp.csv]\n"
@@ -324,14 +329,18 @@ void print_usage() {
               << "                [--load-sram save.sav] [--save-sram save.sav] [--dump-sram sram.bin]\n"
               << "                [--load-state state.sgstate] [--save-state state.sgstate] [--force-state]\n"
               << "                [--dump-coverage pcs.csv] [--disable-sprite-limit] [--reduce-flicker] [--enable-fm]\n"
-              << "       sgrecomp <rom.sms|rom.sg> --run-host [--frames n] [--input-script input.csv] [--bios bios.sms] [--video-standard ntsc|pal] [--audio-sample-rate hz]\n"
-              << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp] [--dump-audio audio.wav] [--dump-frame-log frames.csv]\n"
+              << "       sgrecomp <rom.sms|rom.sg> --run-host [--frames n] [--input-script input.csv] [--bios "
+                 "bios.sms] [--video-standard ntsc|pal] [--audio-sample-rate hz]\n"
+              << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp] [--dump-audio audio.wav] "
+                 "[--dump-frame-log frames.csv]\n"
               << "                [--dump-vgm audio.vgm] [--dump-fm-log fm.csv] [--dump-io-log io.csv]\n"
               << "                [--dump-memory-log memory.csv] [--dump-vdp-log vdp.csv]\n"
-              << "                [--dump-vram vram.bin] [--dump-cram cram.bin] [--dump-tilemap tilemap.csv] [--dump-sprites sprites.csv]\n"
+              << "                [--dump-vram vram.bin] [--dump-cram cram.bin] [--dump-tilemap tilemap.csv] "
+                 "[--dump-sprites sprites.csv]\n"
               << "       sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--dump-analysis analysis.txt]\n"
               << "       sgrecomp <rom.sms> --rebuild-header output.sms\n"
-              << "       sgrecomp <rom.sms> --generate-header output.sms [--header-region sms-japan|sms-export|gg-japan|gg-export|gg-international]\n"
+              << "       sgrecomp <rom.sms> --generate-header output.sms [--header-region "
+                 "sms-japan|sms-export|gg-japan|gg-export|gg-international]\n"
               << "                [--product-code 00000] [--header-version 0]\n";
 }
 
@@ -545,7 +554,10 @@ Options parse_args(int argc, char** argv) {
     return opts;
 }
 
-std::array<u8, 0x10000> image_for_decode(ConsoleModel model, CartridgeMapper mapper, const std::vector<u8>& rom, const std::vector<u8>* bios = nullptr) {
+std::array<u8, 0x10000> image_for_decode(ConsoleModel model,
+                                         CartridgeMapper mapper,
+                                         const std::vector<u8>& rom,
+                                         const std::vector<u8>* bios = nullptr) {
     Vdp vdp;
     Psg psg;
     Ym2413 ym2413;
@@ -563,9 +575,8 @@ void disassemble(const std::array<u8, 0x10000>& image, std::size_t limit) {
     u16 pc = 0;
     while (pc < limit && pc < 0xC000) {
         const auto insn = decode_z80(image, pc);
-        std::cout << std::hex << std::setw(4) << std::setfill('0') << insn.pc
-                  << "  " << std::setw(2) << static_cast<int>(insn.opcode)
-                  << "  " << insn.mnemonic << "\n";
+        std::cout << std::hex << std::setw(4) << std::setfill('0') << insn.pc << "  " << std::setw(2)
+                  << static_cast<int>(insn.opcode) << "  " << insn.mnemonic << "\n";
         pc = static_cast<u16>(pc + insn.size);
     }
 }
@@ -773,17 +784,14 @@ void write_fm_log_csv(const std::filesystem::path& path, const std::vector<Ym241
 
     out << "cycle,port,value\n";
     for (const auto& write : writes) {
-        out << write.cycle << ",0x"
-            << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(write.port)
-            << ",0x" << std::setw(2) << static_cast<int>(write.value)
-            << std::dec << std::setfill(' ') << "\n";
+        out << write.cycle << ",0x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(write.port)
+            << ",0x" << std::setw(2) << static_cast<int>(write.value) << std::dec << std::setfill(' ') << "\n";
     }
 }
 
-void write_io_log_csv(
-    const std::filesystem::path& path,
-    const std::vector<BusIoAccess>& accesses,
-    const std::vector<u8>& port_filters) {
+void write_io_log_csv(const std::filesystem::path& path,
+                      const std::vector<BusIoAccess>& accesses,
+                      const std::vector<u8>& port_filters) {
     if (path.has_parent_path()) {
         std::filesystem::create_directories(path.parent_path());
     }
@@ -798,26 +806,27 @@ void write_io_log_csv(
         if (!port_matches(port_filters, access.port)) {
             continue;
         }
-        out << access.cycle << "," << (access.write ? "write" : "read")
-            << ",0x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(access.port)
-            << ",0x" << std::setw(2) << static_cast<int>(access.value)
-            << std::dec << std::setfill(' ') << "\n";
+        out << access.cycle << "," << (access.write ? "write" : "read") << ",0x" << std::hex << std::setw(2)
+            << std::setfill('0') << static_cast<int>(access.port) << ",0x" << std::setw(2)
+            << static_cast<int>(access.value) << std::dec << std::setfill(' ') << "\n";
     }
 }
 
 const char* memory_kind_name(BusMemoryAccessKind kind) {
     switch (kind) {
-    case BusMemoryAccessKind::Ram: return "ram";
-    case BusMemoryAccessKind::CartridgeRam: return "cartridge_ram";
-    case BusMemoryAccessKind::Mapper: return "mapper";
+    case BusMemoryAccessKind::Ram:
+        return "ram";
+    case BusMemoryAccessKind::CartridgeRam:
+        return "cartridge_ram";
+    case BusMemoryAccessKind::Mapper:
+        return "mapper";
     }
     return "unknown";
 }
 
-void write_memory_log_csv(
-    const std::filesystem::path& path,
-    const std::vector<BusMemoryAccess>& accesses,
-    const std::vector<AddressRange>& filters) {
+void write_memory_log_csv(const std::filesystem::path& path,
+                          const std::vector<BusMemoryAccess>& accesses,
+                          const std::vector<AddressRange>& filters) {
     if (path.has_parent_path()) {
         std::filesystem::create_directories(path.parent_path());
     }
@@ -832,27 +841,27 @@ void write_memory_log_csv(
         if (!range_matches(filters, access.address) && !range_matches(filters, access.physical)) {
             continue;
         }
-        out << access.cycle << "," << memory_kind_name(access.kind)
-            << ",0x" << std::hex << std::setw(4) << std::setfill('0') << access.address
-            << ",0x" << std::setw(5) << access.physical
-            << ",0x" << std::setw(2) << static_cast<int>(access.value)
-            << std::dec << std::setfill(' ') << "\n";
+        out << access.cycle << "," << memory_kind_name(access.kind) << ",0x" << std::hex << std::setw(4)
+            << std::setfill('0') << access.address << ",0x" << std::setw(5) << access.physical << ",0x" << std::setw(2)
+            << static_cast<int>(access.value) << std::dec << std::setfill(' ') << "\n";
     }
 }
 
 const char* vdp_kind_name(VdpAccessKind kind) {
     switch (kind) {
-    case VdpAccessKind::Vram: return "vram";
-    case VdpAccessKind::Cram: return "cram";
-    case VdpAccessKind::Register: return "register";
+    case VdpAccessKind::Vram:
+        return "vram";
+    case VdpAccessKind::Cram:
+        return "cram";
+    case VdpAccessKind::Register:
+        return "register";
     }
     return "unknown";
 }
 
-void write_vdp_log_csv(
-    const std::filesystem::path& path,
-    const std::vector<VdpAccess>& accesses,
-    const std::vector<AddressRange>& filters) {
+void write_vdp_log_csv(const std::filesystem::path& path,
+                       const std::vector<VdpAccess>& accesses,
+                       const std::vector<AddressRange>& filters) {
     if (path.has_parent_path()) {
         std::filesystem::create_directories(path.parent_path());
     }
@@ -867,9 +876,8 @@ void write_vdp_log_csv(
         if (!range_matches(filters, access.address)) {
             continue;
         }
-        out << access.cycle << "," << vdp_kind_name(access.kind)
-            << ",0x" << std::hex << std::setw(4) << std::setfill('0') << access.address
-            << ",0x" << std::setw(2) << static_cast<int>(access.value)
+        out << access.cycle << "," << vdp_kind_name(access.kind) << ",0x" << std::hex << std::setw(4)
+            << std::setfill('0') << access.address << ",0x" << std::setw(2) << static_cast<int>(access.value)
             << std::dec << std::setfill(' ') << "\n";
     }
 }
@@ -886,14 +894,10 @@ void write_tilemap_csv(const std::filesystem::path& path, const std::vector<VdpT
 
     out << "x,y,address,tile,palette,flip_x,flip_y,priority\n";
     for (const auto& entry : entries) {
-        out << static_cast<int>(entry.x) << "," << static_cast<int>(entry.y)
-            << ",0x" << std::hex << std::setw(4) << std::setfill('0') << entry.address
-            << ",0x" << std::setw(3) << entry.tile << std::dec
-            << "," << (entry.palette1 ? 1 : 0)
-            << "," << (entry.flip_x ? 1 : 0)
-            << "," << (entry.flip_y ? 1 : 0)
-            << "," << (entry.priority ? 1 : 0)
-            << std::setfill(' ') << "\n";
+        out << static_cast<int>(entry.x) << "," << static_cast<int>(entry.y) << ",0x" << std::hex << std::setw(4)
+            << std::setfill('0') << entry.address << ",0x" << std::setw(3) << entry.tile << std::dec << ","
+            << (entry.palette1 ? 1 : 0) << "," << (entry.flip_x ? 1 : 0) << "," << (entry.flip_y ? 1 : 0) << ","
+            << (entry.priority ? 1 : 0) << std::setfill(' ') << "\n";
     }
 }
 
@@ -909,18 +913,14 @@ void write_sprites_csv(const std::filesystem::path& path, const std::vector<VdpS
 
     out << "index,raw_y,x,y,tile,terminator\n";
     for (const auto& entry : entries) {
-        out << static_cast<int>(entry.index)
-            << ",0x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(entry.raw_y)
-            << std::dec << "," << entry.x
-            << "," << entry.y
-            << ",0x" << std::hex << std::setw(2) << static_cast<int>(entry.tile)
-            << std::dec << "," << (entry.terminator ? 1 : 0)
+        out << static_cast<int>(entry.index) << ",0x" << std::hex << std::setw(2) << std::setfill('0')
+            << static_cast<int>(entry.raw_y) << std::dec << "," << entry.x << "," << entry.y << ",0x" << std::hex
+            << std::setw(2) << static_cast<int>(entry.tile) << std::dec << "," << (entry.terminator ? 1 : 0)
             << std::setfill(' ') << "\n";
     }
 }
 
-template <typename Container>
-void write_binary_dump(const std::filesystem::path& path, const Container& bytes) {
+template <typename Container> void write_binary_dump(const std::filesystem::path& path, const Container& bytes) {
     if (path.has_parent_path()) {
         std::filesystem::create_directories(path.parent_path());
     }
@@ -932,10 +932,9 @@ void write_binary_dump(const std::filesystem::path& path, const Container& bytes
     out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
 }
 
-void write_coverage_csv(
-    const std::filesystem::path& path,
-    const std::array<u32, 0x10000>& pc_counts,
-    const std::array<u8, 0x10000>& image) {
+void write_coverage_csv(const std::filesystem::path& path,
+                        const std::array<u32, 0x10000>& pc_counts,
+                        const std::array<u8, 0x10000>& image) {
     if (path.has_parent_path()) {
         std::filesystem::create_directories(path.parent_path());
     }
@@ -951,10 +950,9 @@ void write_coverage_csv(
             continue;
         }
         const auto decoded = decode_z80(image, static_cast<u16>(pc));
-        out << "0x" << std::hex << std::setw(4) << std::setfill('0') << pc
-            << std::dec << "," << pc_counts[pc]
-            << ",0x" << std::hex << std::setw(2) << static_cast<int>(decoded.opcode)
-            << std::dec << "," << decoded.mnemonic << "\n";
+        out << "0x" << std::hex << std::setw(4) << std::setfill('0') << pc << std::dec << "," << pc_counts[pc] << ",0x"
+            << std::hex << std::setw(2) << static_cast<int>(decoded.opcode) << std::dec << "," << decoded.mnemonic
+            << "\n";
     }
 }
 
@@ -1084,8 +1082,8 @@ bool is_direct_emit_supported(u8 opcode) {
 bool is_direct_emit_supported(const std::array<u8, 0x10000>& image, u16 pc) {
     const u8 opcode = image[pc];
     if (opcode != 0xED) {
-        if ((opcode == 0xDD || opcode == 0xFD)
-            && (image[static_cast<u16>(pc + 1)] == 0xE1 || image[static_cast<u16>(pc + 1)] == 0xE5)) {
+        if ((opcode == 0xDD || opcode == 0xFD) &&
+            (image[static_cast<u16>(pc + 1)] == 0xE1 || image[static_cast<u16>(pc + 1)] == 0xE5)) {
             return true;
         }
         return is_direct_emit_supported(opcode);
@@ -1116,14 +1114,15 @@ bool is_direct_emit_supported(const std::array<u8, 0x10000>& image, u16 pc) {
     }
 }
 
-InstructionFlow classify_flow(const std::array<u8, 0x10000>& image, u16 pc, const DecodedInstruction& insn, std::size_t limit) {
+InstructionFlow
+classify_flow(const std::array<u8, 0x10000>& image, u16 pc, const DecodedInstruction& insn, std::size_t limit) {
     const u8 opcode = insn.opcode;
     const u16 next = static_cast<u16>(pc + insn.size);
     InstructionFlow flow;
 
     const auto add_successor = [&](u16 target) {
-        if (in_code_window(target, limit)
-            && std::find(flow.successors.begin(), flow.successors.end(), target) == flow.successors.end()) {
+        if (in_code_window(target, limit) &&
+            std::find(flow.successors.begin(), flow.successors.end(), target) == flow.successors.end()) {
             flow.successors.push_back(target);
         }
     };
@@ -1196,10 +1195,8 @@ std::vector<u16> default_entry_points(std::size_t limit) {
     return entries;
 }
 
-std::vector<BasicBlock> discover_basic_blocks(
-    const std::array<u8, 0x10000>& image,
-    std::size_t limit,
-    std::span<const u16> entry_points) {
+std::vector<BasicBlock>
+discover_basic_blocks(const std::array<u8, 0x10000>& image, std::size_t limit, std::span<const u16> entry_points) {
     std::vector<BasicBlock> blocks;
     std::set<u16> queued_or_done;
     std::deque<u16> worklist;
@@ -1254,10 +1251,8 @@ std::vector<BasicBlock> discover_basic_blocks(
     return blocks;
 }
 
-std::vector<PointerTable> discover_pointer_tables(
-    const std::array<u8, 0x10000>& image,
-    std::size_t limit,
-    std::span<const BasicBlock> blocks) {
+std::vector<PointerTable>
+discover_pointer_tables(const std::array<u8, 0x10000>& image, std::size_t limit, std::span<const BasicBlock> blocks) {
     std::set<u16> block_starts;
     for (const auto& block : blocks) {
         block_starts.insert(block.start);
@@ -1275,8 +1270,8 @@ std::vector<PointerTable> discover_pointer_tables(
         std::vector<u16> targets;
         std::size_t cursor = offset;
         while (cursor + 1 < limit && cursor + 1 < 0xC000 && targets.size() < kMaxPointerTableEntries) {
-            if (block_starts.find(static_cast<u16>(cursor)) != block_starts.end()
-                || block_starts.find(static_cast<u16>(cursor + 1)) != block_starts.end()) {
+            if (block_starts.find(static_cast<u16>(cursor)) != block_starts.end() ||
+                block_starts.find(static_cast<u16>(cursor + 1)) != block_starts.end()) {
                 break;
             }
             const u16 target = make_u16(image[static_cast<u16>(cursor)], image[static_cast<u16>(cursor + 1)]);
@@ -1293,9 +1288,8 @@ std::vector<PointerTable> discover_pointer_tables(
         }
 
         const std::set<u16> distinct_targets(targets.begin(), targets.end());
-        const bool has_nonzero_target = std::any_of(targets.begin(), targets.end(), [](u16 target) {
-            return target != 0;
-        });
+        const bool has_nonzero_target =
+            std::any_of(targets.begin(), targets.end(), [](u16 target) { return target != 0; });
         std::size_t known_block_targets = 0;
         for (const u16 target : distinct_targets) {
             if (block_starts.find(target) != block_starts.end()) {
@@ -1331,9 +1325,8 @@ const char* static_port_note(u8 port) {
     return "io";
 }
 
-std::vector<StaticHardwareAccess> discover_static_hardware_accesses(
-    const std::array<u8, 0x10000>& image,
-    std::span<const BasicBlock> blocks) {
+std::vector<StaticHardwareAccess> discover_static_hardware_accesses(const std::array<u8, 0x10000>& image,
+                                                                    std::span<const BasicBlock> blocks) {
     std::vector<StaticHardwareAccess> accesses;
     for (const auto& block : blocks) {
         for (const auto& instruction : block.instructions) {
@@ -1356,13 +1349,12 @@ std::vector<StaticHardwareAccess> discover_static_hardware_accesses(
     return accesses;
 }
 
-void write_analysis_report(
-    const std::filesystem::path& path,
-    const std::array<u8, 0x10000>& image,
-    std::span<const u8> rom,
-    std::size_t limit,
-    std::span<const u16> entry_points,
-    const std::vector<BasicBlock>& blocks) {
+void write_analysis_report(const std::filesystem::path& path,
+                           const std::array<u8, 0x10000>& image,
+                           std::span<const u8> rom,
+                           std::size_t limit,
+                           std::span<const u16> entry_points,
+                           const std::vector<BasicBlock>& blocks) {
     if (path.has_parent_path()) {
         std::filesystem::create_directories(path.parent_path());
     }
@@ -1410,22 +1402,23 @@ void write_analysis_report(
     out << std::dec << "\n";
     out << "header_found: " << (header.found ? "yes" : "no") << "\n";
     if (header.found) {
-        out << "header_offset: 0x" << std::hex << std::setw(4) << std::setfill('0') << header.offset << std::dec << "\n";
+        out << "header_offset: 0x" << std::hex << std::setw(4) << std::setfill('0') << header.offset << std::dec
+            << "\n";
         out << "header_platform: " << cartridge_platform_name(cartridge_header_platform(header)) << "\n";
         out << "header_region: " << cartridge_region_name(header.region) << "\n";
         out << "header_size_code: " << cartridge_size_code_name(header.region_size) << "\n";
         out << "header_product_code: " << header.product_code << "\n";
         out << "header_version: " << static_cast<int>(header.version) << "\n";
-        out << "header_checksum_stored: 0x" << std::hex << std::setw(4) << std::setfill('0')
-            << header.stored_checksum << "\n";
+        out << "header_checksum_stored: 0x" << std::hex << std::setw(4) << std::setfill('0') << header.stored_checksum
+            << "\n";
         out << "header_checksum_diagnostic: 0x" << std::setw(4) << header.diagnostic_checksum << std::dec << "\n";
         out << "header_declared_size_bytes: " << header.declared_size_bytes << "\n";
         out << "header_declared_size_fits_rom: " << (header.declared_size_fits_rom ? "yes" : "no") << "\n";
         if (header.declared_size_fits_rom) {
             out << "header_checksum_declared_size: 0x" << std::hex << std::setw(4) << std::setfill('0')
                 << header.declared_size_checksum << std::dec << "\n";
-            out << "header_checksum_matches_declared_size: "
-                << (header.checksum_matches_declared_size ? "yes" : "no") << "\n";
+            out << "header_checksum_matches_declared_size: " << (header.checksum_matches_declared_size ? "yes" : "no")
+                << "\n";
         } else {
             out << "header_checksum_declared_size: unknown\n";
             out << "header_checksum_matches_declared_size: unknown\n";
@@ -1441,9 +1434,8 @@ void write_analysis_report(
 
     out << "blocks\n";
     for (const auto& block : blocks) {
-        out << "block 0x" << std::hex << std::setw(4) << std::setfill('0') << block.start
-            << "-0x" << std::setw(4) << block.end << std::dec
-            << " instructions=" << block.instructions.size();
+        out << "block 0x" << std::hex << std::setw(4) << std::setfill('0') << block.start << "-0x" << std::setw(4)
+            << block.end << std::dec << " instructions=" << block.instructions.size();
         if (block.indirect_exit) {
             out << " indirect_exit";
         }
@@ -1460,10 +1452,9 @@ void write_analysis_report(
         }
         out << "\n";
         for (const auto& instruction : block.instructions) {
-            out << "  0x" << std::hex << std::setw(4) << std::setfill('0') << instruction.decoded.pc
-                << "  0x" << std::setw(2) << static_cast<int>(instruction.decoded.opcode) << std::dec
-                << "  " << (instruction.direct_emit ? "direct  " : "fallback")
-                << "  " << instruction.decoded.mnemonic << "\n";
+            out << "  0x" << std::hex << std::setw(4) << std::setfill('0') << instruction.decoded.pc << "  0x"
+                << std::setw(2) << static_cast<int>(instruction.decoded.opcode) << std::dec << "  "
+                << (instruction.direct_emit ? "direct  " : "fallback") << "  " << instruction.decoded.mnemonic << "\n";
         }
     }
 
@@ -1475,8 +1466,7 @@ void write_analysis_report(
         }
         any_fallback = true;
         out << "0x" << std::hex << std::setw(2) << std::setfill('0') << opcode << std::dec
-            << " count=" << fallback_opcodes[opcode]
-            << " mnemonic=" << fallback_mnemonics[opcode] << "\n";
+            << " count=" << fallback_opcodes[opcode] << " mnemonic=" << fallback_mnemonics[opcode] << "\n";
     }
     if (!any_fallback) {
         out << "none\n";
@@ -1487,8 +1477,8 @@ void write_analysis_report(
         out << "none\n";
     } else {
         for (const auto& table : pointer_tables) {
-            out << "table 0x" << std::hex << std::setw(4) << std::setfill('0') << table.address
-                << std::dec << " entries=" << table.targets.size() << " targets=";
+            out << "table 0x" << std::hex << std::setw(4) << std::setfill('0') << table.address << std::dec
+                << " entries=" << table.targets.size() << " targets=";
             const std::size_t shown = std::min<std::size_t>(table.targets.size(), 16);
             for (std::size_t i = 0; i < shown; ++i) {
                 if (i != 0) {
@@ -1508,16 +1498,19 @@ void write_analysis_report(
         out << "none\n";
     } else {
         for (const auto& access : hardware_accesses) {
-            out << "0x" << std::hex << std::setw(4) << std::setfill('0') << access.pc
-                << std::dec << " " << access.kind
-                << " 0x" << std::hex << std::setw(access.target > 0xFF ? 4 : 2)
-                << std::setfill('0') << access.target << std::dec
-                << " " << access.note << "\n";
+            out << "0x" << std::hex << std::setw(4) << std::setfill('0') << access.pc << std::dec << " " << access.kind
+                << " 0x" << std::hex << std::setw(access.target > 0xFF ? 4 : 2) << std::setfill('0') << access.target
+                << std::dec << " " << access.note << "\n";
         }
     }
 }
 
-void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector<u8>* bios, std::size_t max_steps, bool trace, const Options& opts) {
+void run_smoke(ConsoleModel model,
+               const std::vector<u8>& rom,
+               const std::vector<u8>* bios,
+               std::size_t max_steps,
+               bool trace,
+               const Options& opts) {
     Vdp vdp;
     Psg psg;
     Ym2413 ym2413;
@@ -1587,21 +1580,18 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
     };
     const auto print_runtime_summary = [&]() {
         const auto& framebuffer = vdp.framebuffer();
-        const auto lit_pixels = std::count_if(framebuffer.begin(), framebuffer.end(), [](u32 pixel) {
-            return (pixel & 0x00FFFFFF) != 0;
-        });
+        const auto lit_pixels =
+            std::count_if(framebuffer.begin(), framebuffer.end(), [](u32 pixel) { return (pixel & 0x00FFFFFF) != 0; });
         const auto audio = psg.sample();
         const auto fm_audio = ym2413.sample();
-        std::cout << "visited pcs: " << visited_pc.count()
-                  << "\nframebuffer lit pixels: " << lit_pixels
-                  << "\npsg sample: " << std::fixed << std::setprecision(4)
-                  << audio[0] << "," << audio[1]
+        std::cout << "visited pcs: " << visited_pc.count() << "\nframebuffer lit pixels: " << lit_pixels
+                  << "\npsg sample: " << std::fixed << std::setprecision(4) << audio[0] << "," << audio[1]
                   << "\nfm present: " << (ym2413.present() ? "yes" : "no")
-                  << ", fm enabled: " << (ym2413.fm_enabled() ? "yes" : "no")
-                  << ", fm sample: " << fm_audio[0] << "," << fm_audio[1]
-                  << "\nenhancements: mode="
+                  << ", fm enabled: " << (ym2413.fm_enabled() ? "yes" : "no") << ", fm sample: " << fm_audio[0] << ","
+                  << fm_audio[1] << "\nenhancements: mode="
                   << (opts.enhancements.mode == RuntimeMode::Enhanced ? "enhanced"
-                      : opts.enhancements.mode == RuntimeMode::Hybrid ? "hybrid" : "accurate")
+                      : opts.enhancements.mode == RuntimeMode::Hybrid ? "hybrid"
+                                                                      : "accurate")
                   << ", disable_sprite_limit=" << (opts.enhancements.disable_sprite_limit ? "on" : "off")
                   << ", reduce_flicker=" << (opts.enhancements.reduce_flicker ? "on" : "off")
                   << ", enable_fm=" << (opts.enhancements.enable_fm ? "on" : "off") << "\n";
@@ -1615,33 +1605,33 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
         }
         if (!opts.dump_audio.empty()) {
             write_audio_wav(opts.dump_audio, audio_samples, audio_sample_rate);
-            std::cout << "audio dumped: " << opts.dump_audio.string()
-                      << " (" << (audio_samples.size() / 2) << " stereo samples)\n";
+            std::cout << "audio dumped: " << opts.dump_audio.string() << " (" << (audio_samples.size() / 2)
+                      << " stereo samples)\n";
         }
         if (!opts.dump_vgm.empty()) {
             write_psg_vgm(opts.dump_vgm, psg.logged_writes(), cpu.cycles);
-            std::cout << "vgm dumped: " << opts.dump_vgm.string()
-                      << " (" << psg.logged_writes().size() << " psg writes)\n";
+            std::cout << "vgm dumped: " << opts.dump_vgm.string() << " (" << psg.logged_writes().size()
+                      << " psg writes)\n";
         }
         if (!opts.dump_fm_log.empty()) {
             write_fm_log_csv(opts.dump_fm_log, ym2413.logged_writes());
-            std::cout << "fm log dumped: " << opts.dump_fm_log.string()
-                      << " (" << ym2413.logged_writes().size() << " writes)\n";
+            std::cout << "fm log dumped: " << opts.dump_fm_log.string() << " (" << ym2413.logged_writes().size()
+                      << " writes)\n";
         }
         if (!opts.dump_io_log.empty()) {
             write_io_log_csv(opts.dump_io_log, bus.logged_io(), opts.io_port_filters);
-            std::cout << "io log dumped: " << opts.dump_io_log.string()
-                      << " (" << bus.logged_io().size() << " accesses)\n";
+            std::cout << "io log dumped: " << opts.dump_io_log.string() << " (" << bus.logged_io().size()
+                      << " accesses)\n";
         }
         if (!opts.dump_memory_log.empty()) {
             write_memory_log_csv(opts.dump_memory_log, bus.logged_memory(), opts.memory_filters);
-            std::cout << "memory log dumped: " << opts.dump_memory_log.string()
-                      << " (" << bus.logged_memory().size() << " writes)\n";
+            std::cout << "memory log dumped: " << opts.dump_memory_log.string() << " (" << bus.logged_memory().size()
+                      << " writes)\n";
         }
         if (!opts.dump_vdp_log.empty()) {
             write_vdp_log_csv(opts.dump_vdp_log, vdp.logged_accesses(), opts.vdp_filters);
-            std::cout << "vdp log dumped: " << opts.dump_vdp_log.string()
-                      << " (" << vdp.logged_accesses().size() << " writes)\n";
+            std::cout << "vdp log dumped: " << opts.dump_vdp_log.string() << " (" << vdp.logged_accesses().size()
+                      << " writes)\n";
         }
         if (!opts.dump_vram.empty()) {
             write_binary_dump(opts.dump_vram, vdp.debug_vram());
@@ -1654,14 +1644,12 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
         if (!opts.dump_tilemap.empty()) {
             const auto tilemap = vdp.debug_tilemap();
             write_tilemap_csv(opts.dump_tilemap, tilemap);
-            std::cout << "tilemap dumped: " << opts.dump_tilemap.string()
-                      << " (" << tilemap.size() << " entries)\n";
+            std::cout << "tilemap dumped: " << opts.dump_tilemap.string() << " (" << tilemap.size() << " entries)\n";
         }
         if (!opts.dump_sprites.empty()) {
             const auto sprites = vdp.debug_sprites();
             write_sprites_csv(opts.dump_sprites, sprites);
-            std::cout << "sprites dumped: " << opts.dump_sprites.string()
-                      << " (" << sprites.size() << " entries)\n";
+            std::cout << "sprites dumped: " << opts.dump_sprites.string() << " (" << sprites.size() << " entries)\n";
         }
         if (!opts.dump_sram.empty()) {
             write_binary_dump(opts.dump_sram, bus.debug_cartridge_ram());
@@ -1721,10 +1709,8 @@ void run_smoke(ConsoleModel model, const std::vector<u8>& rom, const std::vector
         } catch (const std::exception& e) {
             std::cerr << "execution stopped at step " << step << ": " << e.what() << "\n";
             std::cerr << "instruction: ";
-            std::cerr << std::hex << std::uppercase << std::setfill('0')
-                      << std::setw(4) << pc_before << "  "
-                      << std::setw(2) << static_cast<int>(insn.opcode) << "  "
-                      << insn.mnemonic << "\n";
+            std::cerr << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << pc_before << "  "
+                      << std::setw(2) << static_cast<int>(insn.opcode) << "  " << insn.mnemonic << "\n";
             dump_z80_state(std::cerr, cpu);
             std::cerr << "\n";
             return;
@@ -1780,9 +1766,8 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
     bool bios_active_previous_frame = bios_active_at_start;
     std::optional<std::size_t> bios_handoff_frame;
 
-    const HostInputScript input_script = opts.input_script.empty()
-        ? HostInputScript{}
-        : parse_host_input_script(read_text_file(opts.input_script));
+    const HostInputScript input_script =
+        opts.input_script.empty() ? HostInputScript{} : parse_host_input_script(read_text_file(opts.input_script));
     std::ofstream frame_log;
     if (!opts.dump_frame_log.empty()) {
         frame_log.open(opts.dump_frame_log);
@@ -1790,7 +1775,8 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
             throw std::runtime_error("cannot open frame log output");
         }
         frame_log << "frame,start_cycle,end_cycle,instructions,pc_min,pc_max,framebuffer_fnv1a64,"
-                  << "audio_frames,nonzero_audio_samples,mapper,memory_control,bios_enabled,cartridge_enabled,work_ram_enabled,"
+                  << "audio_frames,nonzero_audio_samples,mapper,memory_control,bios_enabled,cartridge_enabled,work_ram_"
+                     "enabled,"
                   << "bank0,bank1,bank2,bank3,bank4,bank5,"
                   << "cartridge_ram,cartridge_ram_bank\n";
     }
@@ -1814,7 +1800,8 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
                 }
             }
             const auto nonzero_audio = std::count_if(host.audio().begin() + static_cast<std::ptrdiff_t>(audio_start),
-                host.audio().end(), [](s16 value) { return value != 0; });
+                                                     host.audio().end(),
+                                                     [](s16 value) { return value != 0; });
             const auto mapper = host.console().bus().mapper_snapshot();
             std::array<u8, 6> banks{{0, 1, 2, 0, 0, 0}};
             if (mapper.mapper == CartridgeMapper::SMapper) {
@@ -1828,13 +1815,12 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
             }
             frame_log << result.frame_index << ',' << result.start_cycle << ',' << result.end_cycle << ','
                       << result.instructions << ",0x" << std::hex << std::setw(4) << std::setfill('0') << result.pc_min
-                      << ",0x" << std::setw(4) << result.pc_max << ',' << std::setw(16) << framebuffer_hash
-                      << std::dec << std::setfill(' ') << ',' << (host.audio().size() - audio_start) / 2 << ','
-                      << nonzero_audio << ',' << cartridge_mapper_name(mapper.mapper) << ",0x"
-                      << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(mapper.memory_control)
-                      << std::dec << std::setfill(' ') << ',' << (mapper.bios_enabled ? 1 : 0)
-                      << ',' << (mapper.cartridge_enabled ? 1 : 0)
-                      << ',' << (mapper.work_ram_enabled ? 1 : 0);
+                      << ",0x" << std::setw(4) << result.pc_max << ',' << std::setw(16) << framebuffer_hash << std::dec
+                      << std::setfill(' ') << ',' << (host.audio().size() - audio_start) / 2 << ',' << nonzero_audio
+                      << ',' << cartridge_mapper_name(mapper.mapper) << ",0x" << std::hex << std::setw(2)
+                      << std::setfill('0') << static_cast<int>(mapper.memory_control) << std::dec << std::setfill(' ')
+                      << ',' << (mapper.bios_enabled ? 1 : 0) << ',' << (mapper.cartridge_enabled ? 1 : 0) << ','
+                      << (mapper.work_ram_enabled ? 1 : 0);
             for (u8 bank : banks) {
                 frame_log << ',' << static_cast<int>(bank);
             }
@@ -1844,29 +1830,24 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
     }
 
     const auto& framebuffer = host.framebuffer();
-    const auto lit_pixels = std::count_if(framebuffer.begin(), framebuffer.end(), [](u32 pixel) {
-        return (pixel & 0x00FFFFFF) != 0;
-    });
+    const auto lit_pixels =
+        std::count_if(framebuffer.begin(), framebuffer.end(), [](u32 pixel) { return (pixel & 0x00FFFFFF) != 0; });
     const auto sample = host.console().psg().sample();
     const auto fm_sample = host.console().ym2413().sample();
 
-    std::cout << "host frames: " << opts.host_frames
-              << "\nframe index: " << result.frame_index
+    std::cout << "host frames: " << opts.host_frames << "\nframe index: " << result.frame_index
               << "\ncycles: " << result.start_cycle << "-" << result.end_cycle
-              << "\nvideo standard: " << host_video_standard_name(opts.video_standard)
-              << " (" << host.config().cpu_cycles_per_scanline << "x"
-              << host.config().scanlines_per_frame << " cycles/frame)"
+              << "\nvideo standard: " << host_video_standard_name(opts.video_standard) << " ("
+              << host.config().cpu_cycles_per_scanline << "x" << host.config().scanlines_per_frame << " cycles/frame)"
               << "\naudio sample rate: " << host.config().audio_sample_rate
-              << "\nframebuffer lit pixels: " << lit_pixels
-              << "\naudio samples: " << result.stereo_samples
-              << "\npsg sample: " << std::fixed << std::setprecision(4)
-              << sample[0] << "," << sample[1]
+              << "\nframebuffer lit pixels: " << lit_pixels << "\naudio samples: " << result.stereo_samples
+              << "\npsg sample: " << std::fixed << std::setprecision(4) << sample[0] << "," << sample[1]
               << "\nfm present: " << (host.console().ym2413().present() ? "yes" : "no")
               << ", fm enabled: " << (host.console().ym2413().fm_enabled() ? "yes" : "no")
-              << ", fm sample: " << fm_sample[0] << "," << fm_sample[1]
-              << "\nenhancements: mode="
+              << ", fm sample: " << fm_sample[0] << "," << fm_sample[1] << "\nenhancements: mode="
               << (opts.enhancements.mode == RuntimeMode::Enhanced ? "enhanced"
-                  : opts.enhancements.mode == RuntimeMode::Hybrid ? "hybrid" : "accurate")
+                  : opts.enhancements.mode == RuntimeMode::Hybrid ? "hybrid"
+                                                                  : "accurate")
               << ", disable_sprite_limit=" << (opts.enhancements.disable_sprite_limit ? "on" : "off")
               << ", reduce_flicker=" << (opts.enhancements.reduce_flicker ? "on" : "off")
               << ", enable_fm=" << (opts.enhancements.enable_fm ? "on" : "off") << "\n";
@@ -1880,8 +1861,8 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
         std::cout << "bios: loaded, already disabled by restored state\n";
     }
     if (!opts.input_script.empty()) {
-        std::cout << "input script: " << opts.input_script.string()
-                  << " (" << input_script.events().size() << " events)\n";
+        std::cout << "input script: " << opts.input_script.string() << " (" << input_script.events().size()
+                  << " events)\n";
     }
     if (!opts.dump_frame_log.empty()) {
         std::cout << "frame log dumped: " << opts.dump_frame_log.string() << "\n";
@@ -1897,33 +1878,33 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
     }
     if (!opts.dump_audio.empty()) {
         write_audio_wav(opts.dump_audio, host.audio(), host.config().audio_sample_rate);
-        std::cout << "audio dumped: " << opts.dump_audio.string()
-                  << " (" << (host.audio().size() / 2) << " stereo samples)\n";
+        std::cout << "audio dumped: " << opts.dump_audio.string() << " (" << (host.audio().size() / 2)
+                  << " stereo samples)\n";
     }
     if (!opts.dump_vgm.empty()) {
         write_psg_vgm(opts.dump_vgm, host.console().psg().logged_writes(), host.console().cpu().cycles);
-        std::cout << "vgm dumped: " << opts.dump_vgm.string()
-                  << " (" << host.console().psg().logged_writes().size() << " psg writes)\n";
+        std::cout << "vgm dumped: " << opts.dump_vgm.string() << " (" << host.console().psg().logged_writes().size()
+                  << " psg writes)\n";
     }
     if (!opts.dump_fm_log.empty()) {
         write_fm_log_csv(opts.dump_fm_log, host.console().ym2413().logged_writes());
-        std::cout << "fm log dumped: " << opts.dump_fm_log.string()
-                  << " (" << host.console().ym2413().logged_writes().size() << " writes)\n";
+        std::cout << "fm log dumped: " << opts.dump_fm_log.string() << " ("
+                  << host.console().ym2413().logged_writes().size() << " writes)\n";
     }
     if (!opts.dump_io_log.empty()) {
         write_io_log_csv(opts.dump_io_log, host.console().bus().logged_io(), opts.io_port_filters);
-        std::cout << "io log dumped: " << opts.dump_io_log.string()
-                  << " (" << host.console().bus().logged_io().size() << " accesses)\n";
+        std::cout << "io log dumped: " << opts.dump_io_log.string() << " (" << host.console().bus().logged_io().size()
+                  << " accesses)\n";
     }
     if (!opts.dump_memory_log.empty()) {
         write_memory_log_csv(opts.dump_memory_log, host.console().bus().logged_memory(), opts.memory_filters);
-        std::cout << "memory log dumped: " << opts.dump_memory_log.string()
-                  << " (" << host.console().bus().logged_memory().size() << " writes)\n";
+        std::cout << "memory log dumped: " << opts.dump_memory_log.string() << " ("
+                  << host.console().bus().logged_memory().size() << " writes)\n";
     }
     if (!opts.dump_vdp_log.empty()) {
         write_vdp_log_csv(opts.dump_vdp_log, host.console().vdp().logged_accesses(), opts.vdp_filters);
-        std::cout << "vdp log dumped: " << opts.dump_vdp_log.string()
-                  << " (" << host.console().vdp().logged_accesses().size() << " writes)\n";
+        std::cout << "vdp log dumped: " << opts.dump_vdp_log.string() << " ("
+                  << host.console().vdp().logged_accesses().size() << " writes)\n";
     }
     if (!opts.dump_vram.empty()) {
         write_binary_dump(opts.dump_vram, host.console().vdp().debug_vram());
@@ -1936,14 +1917,12 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
     if (!opts.dump_tilemap.empty()) {
         const auto tilemap = host.console().vdp().debug_tilemap();
         write_tilemap_csv(opts.dump_tilemap, tilemap);
-        std::cout << "tilemap dumped: " << opts.dump_tilemap.string()
-                  << " (" << tilemap.size() << " entries)\n";
+        std::cout << "tilemap dumped: " << opts.dump_tilemap.string() << " (" << tilemap.size() << " entries)\n";
     }
     if (!opts.dump_sprites.empty()) {
         const auto sprites = host.console().vdp().debug_sprites();
         write_sprites_csv(opts.dump_sprites, sprites);
-        std::cout << "sprites dumped: " << opts.dump_sprites.string()
-                  << " (" << sprites.size() << " entries)\n";
+        std::cout << "sprites dumped: " << opts.dump_sprites.string() << " (" << sprites.size() << " entries)\n";
     }
     if (!opts.dump_sram.empty()) {
         write_binary_dump(opts.dump_sram, host.console().bus().debug_cartridge_ram());
@@ -2036,8 +2015,8 @@ void emit_push16(std::ostream& out, const std::string& value) {
 
 void emit_pop16_to(std::ostream& out, const std::string& target_call) {
     out << "{ const auto lo = bus.read(cpu.sp); cpu.sp = static_cast<sgrecomp::u16>(cpu.sp + 1); "
-        << "const auto hi = bus.read(cpu.sp); cpu.sp = static_cast<sgrecomp::u16>(cpu.sp + 1); "
-        << target_call << "(sgrecomp::make_u16(lo, hi)); ";
+        << "const auto hi = bus.read(cpu.sp); cpu.sp = static_cast<sgrecomp::u16>(cpu.sp + 1); " << target_call
+        << "(sgrecomp::make_u16(lo, hi)); ";
 }
 
 const char* alu_helper(u8 group) {
@@ -2071,12 +2050,11 @@ void emit_instruction_body(std::ostream& out, const std::array<u8, 0x10000>& ima
         out << "cpu.pc = 0x" << std::setw(4) << (pc + 1) << "; cpu.cycles += 4; return;\n";
         break;
     case 0x01:
-        out << "cpu.set_bc(0x" << std::setw(4) << make_u16(image[pc + 1], image[pc + 2])
-            << "); cpu.pc = 0x" << std::setw(4) << (pc + 3) << "; cpu.cycles += 10; return;\n";
+        out << "cpu.set_bc(0x" << std::setw(4) << make_u16(image[pc + 1], image[pc + 2]) << "); cpu.pc = 0x"
+            << std::setw(4) << (pc + 3) << "; cpu.cycles += 10; return;\n";
         break;
     case 0x02:
-        out << "bus.write(cpu.bc(), cpu.a); cpu.pc = 0x" << std::setw(4) << (pc + 1)
-            << "; cpu.cycles += 7; return;\n";
+        out << "bus.write(cpu.bc(), cpu.a); cpu.pc = 0x" << std::setw(4) << (pc + 1) << "; cpu.cycles += 7; return;\n";
         break;
     case 0x08:
         out << "{ const auto a = cpu.a; const auto f = cpu.f; cpu.a = cpu.a_alt; cpu.f = cpu.f_alt; "
@@ -2084,43 +2062,42 @@ void emit_instruction_body(std::ostream& out, const std::array<u8, 0x10000>& ima
             << "; cpu.cycles += 4; return; }\n";
         break;
     case 0x3E:
-        out << "cpu.a = 0x" << std::setw(2) << static_cast<int>(image[pc + 1])
-            << "; cpu.pc = 0x" << std::setw(4) << (pc + 2) << "; cpu.cycles += 7; return;\n";
+        out << "cpu.a = 0x" << std::setw(2) << static_cast<int>(image[pc + 1]) << "; cpu.pc = 0x" << std::setw(4)
+            << (pc + 2) << "; cpu.cycles += 7; return;\n";
         break;
     case 0x06:
-        out << "cpu.b = 0x" << std::setw(2) << static_cast<int>(image[pc + 1])
-            << "; cpu.pc = 0x" << std::setw(4) << (pc + 2) << "; cpu.cycles += 7; return;\n";
+        out << "cpu.b = 0x" << std::setw(2) << static_cast<int>(image[pc + 1]) << "; cpu.pc = 0x" << std::setw(4)
+            << (pc + 2) << "; cpu.cycles += 7; return;\n";
         break;
     case 0x0A:
-        out << "cpu.a = bus.read(cpu.bc()); cpu.pc = 0x" << std::setw(4) << (pc + 1)
-            << "; cpu.cycles += 7; return;\n";
+        out << "cpu.a = bus.read(cpu.bc()); cpu.pc = 0x" << std::setw(4) << (pc + 1) << "; cpu.cycles += 7; return;\n";
         break;
     case 0x0E:
-        out << "cpu.c = 0x" << std::setw(2) << static_cast<int>(image[pc + 1])
-            << "; cpu.pc = 0x" << std::setw(4) << (pc + 2) << "; cpu.cycles += 7; return;\n";
+        out << "cpu.c = 0x" << std::setw(2) << static_cast<int>(image[pc + 1]) << "; cpu.pc = 0x" << std::setw(4)
+            << (pc + 2) << "; cpu.cycles += 7; return;\n";
         break;
     case 0x10: {
         const auto displacement = static_cast<s8>(image[pc + 1]);
         const u16 target = static_cast<u16>(pc + 2 + displacement);
-        out << "cpu.b = static_cast<sgrecomp::u8>(cpu.b - 1); if (cpu.b != 0) { cpu.pc = 0x"
-            << std::setw(4) << target << "; cpu.cycles += 13; } else { cpu.pc = 0x"
-            << std::setw(4) << (pc + 2) << "; cpu.cycles += 8; } return;\n";
+        out << "cpu.b = static_cast<sgrecomp::u8>(cpu.b - 1); if (cpu.b != 0) { cpu.pc = 0x" << std::setw(4) << target
+            << "; cpu.cycles += 13; } else { cpu.pc = 0x" << std::setw(4) << (pc + 2)
+            << "; cpu.cycles += 8; } return;\n";
         break;
     }
     case 0x11:
-        out << "cpu.set_de(0x" << std::setw(4) << make_u16(image[pc + 1], image[pc + 2])
-            << "); cpu.pc = 0x" << std::setw(4) << (pc + 3) << "; cpu.cycles += 10; return;\n";
+        out << "cpu.set_de(0x" << std::setw(4) << make_u16(image[pc + 1], image[pc + 2]) << "); cpu.pc = 0x"
+            << std::setw(4) << (pc + 3) << "; cpu.cycles += 10; return;\n";
         break;
     case 0x12:
-        out << "bus.write(cpu.de(), cpu.a); cpu.pc = 0x" << std::setw(4) << (pc + 1)
-            << "; cpu.cycles += 7; return;\n";
+        out << "bus.write(cpu.de(), cpu.a); cpu.pc = 0x" << std::setw(4) << (pc + 1) << "; cpu.cycles += 7; return;\n";
         break;
     case 0x16:
-        out << "cpu.d = 0x" << std::setw(2) << static_cast<int>(image[pc + 1])
-            << "; cpu.pc = 0x" << std::setw(4) << (pc + 2) << "; cpu.cycles += 7; return;\n";
+        out << "cpu.d = 0x" << std::setw(2) << static_cast<int>(image[pc + 1]) << "; cpu.pc = 0x" << std::setw(4)
+            << (pc + 2) << "; cpu.cycles += 7; return;\n";
         break;
     case 0x17:
-        out << "{ const bool carry = (cpu.a & 0x80) != 0; cpu.a = static_cast<sgrecomp::u8>((cpu.a << 1) | (cpu.f & 0x01)); "
+        out << "{ const bool carry = (cpu.a & 0x80) != 0; cpu.a = static_cast<sgrecomp::u8>((cpu.a << 1) | (cpu.f & "
+               "0x01)); "
             << "cpu.f = static_cast<sgrecomp::u8>((cpu.f & 0x84) | (cpu.a & 0x28) | (carry ? 0x01 : 0)); cpu.pc = 0x"
             << std::setw(4) << (pc + 1) << "; cpu.cycles += 4; return; }\n";
         break;
@@ -2143,64 +2120,64 @@ void emit_instruction_body(std::ostream& out, const std::array<u8, 0x10000>& ima
         break;
     }
     case 0x1A:
-        out << "cpu.a = bus.read(cpu.de()); cpu.pc = 0x" << std::setw(4) << (pc + 1)
-            << "; cpu.cycles += 7; return;\n";
+        out << "cpu.a = bus.read(cpu.de()); cpu.pc = 0x" << std::setw(4) << (pc + 1) << "; cpu.cycles += 7; return;\n";
         break;
     case 0x1E:
-        out << "cpu.e = 0x" << std::setw(2) << static_cast<int>(image[pc + 1])
-            << "; cpu.pc = 0x" << std::setw(4) << (pc + 2) << "; cpu.cycles += 7; return;\n";
+        out << "cpu.e = 0x" << std::setw(2) << static_cast<int>(image[pc + 1]) << "; cpu.pc = 0x" << std::setw(4)
+            << (pc + 2) << "; cpu.cycles += 7; return;\n";
         break;
     case 0x19:
-        out << "{ const auto lhs = cpu.hl(); const auto rhs = cpu.de(); const auto sum = static_cast<unsigned>(lhs + rhs); "
-            << "const auto result = static_cast<sgrecomp::u16>(sum); cpu.f = static_cast<sgrecomp::u8>((cpu.f & 0x84) | ((result >> 8) & 0x28) | "
+        out << "{ const auto lhs = cpu.hl(); const auto rhs = cpu.de(); const auto sum = static_cast<unsigned>(lhs + "
+               "rhs); "
+            << "const auto result = static_cast<sgrecomp::u16>(sum); cpu.f = static_cast<sgrecomp::u8>((cpu.f & 0x84) "
+               "| ((result >> 8) & 0x28) | "
             << "(((lhs ^ rhs ^ result) & 0x1000) ? 0x10 : 0) | (sum > 0xffff ? 0x01 : 0)); "
-            << "cpu.set_hl(result); cpu.pc = 0x" << std::setw(4) << (pc + 1)
-            << "; cpu.cycles += 11; return; }\n";
+            << "cpu.set_hl(result); cpu.pc = 0x" << std::setw(4) << (pc + 1) << "; cpu.cycles += 11; return; }\n";
         break;
     case 0x21:
-        out << "cpu.set_hl(0x" << std::setw(4) << make_u16(image[pc + 1], image[pc + 2])
-            << "); cpu.pc = 0x" << std::setw(4) << (pc + 3) << "; cpu.cycles += 10; return;\n";
+        out << "cpu.set_hl(0x" << std::setw(4) << make_u16(image[pc + 1], image[pc + 2]) << "); cpu.pc = 0x"
+            << std::setw(4) << (pc + 3) << "; cpu.cycles += 10; return;\n";
         break;
     case 0x22: {
         const u16 address = make_u16(image[pc + 1], image[pc + 2]);
-        out << "bus.write(0x" << std::setw(4) << address << ", cpu.l); bus.write(0x"
-            << std::setw(4) << static_cast<u16>(address + 1)
-            << ", cpu.h); cpu.pc = 0x" << std::setw(4) << (pc + 3) << "; cpu.cycles += 16; return;\n";
+        out << "bus.write(0x" << std::setw(4) << address << ", cpu.l); bus.write(0x" << std::setw(4)
+            << static_cast<u16>(address + 1) << ", cpu.h); cpu.pc = 0x" << std::setw(4) << (pc + 3)
+            << "; cpu.cycles += 16; return;\n";
         break;
     }
     case 0x26:
-        out << "cpu.h = 0x" << std::setw(2) << static_cast<int>(image[pc + 1])
-            << "; cpu.pc = 0x" << std::setw(4) << (pc + 2) << "; cpu.cycles += 7; return;\n";
+        out << "cpu.h = 0x" << std::setw(2) << static_cast<int>(image[pc + 1]) << "; cpu.pc = 0x" << std::setw(4)
+            << (pc + 2) << "; cpu.cycles += 7; return;\n";
         break;
     case 0x2E:
-        out << "cpu.l = 0x" << std::setw(2) << static_cast<int>(image[pc + 1])
-            << "; cpu.pc = 0x" << std::setw(4) << (pc + 2) << "; cpu.cycles += 7; return;\n";
+        out << "cpu.l = 0x" << std::setw(2) << static_cast<int>(image[pc + 1]) << "; cpu.pc = 0x" << std::setw(4)
+            << (pc + 2) << "; cpu.cycles += 7; return;\n";
         break;
     case 0x2A: {
         const u16 address = make_u16(image[pc + 1], image[pc + 2]);
-        out << "cpu.l = bus.read(0x" << std::setw(4) << address << "); cpu.h = bus.read(0x"
-            << std::setw(4) << static_cast<u16>(address + 1)
-            << "); cpu.pc = 0x" << std::setw(4) << (pc + 3) << "; cpu.cycles += 16; return;\n";
+        out << "cpu.l = bus.read(0x" << std::setw(4) << address << "); cpu.h = bus.read(0x" << std::setw(4)
+            << static_cast<u16>(address + 1) << "); cpu.pc = 0x" << std::setw(4) << (pc + 3)
+            << "; cpu.cycles += 16; return;\n";
         break;
     }
     case 0x31:
-        out << "cpu.sp = 0x" << std::setw(4) << make_u16(image[pc + 1], image[pc + 2])
-            << "; cpu.pc = 0x" << std::setw(4) << (pc + 3) << "; cpu.cycles += 10; return;\n";
+        out << "cpu.sp = 0x" << std::setw(4) << make_u16(image[pc + 1], image[pc + 2]) << "; cpu.pc = 0x"
+            << std::setw(4) << (pc + 3) << "; cpu.cycles += 10; return;\n";
         break;
     case 0x32: {
         const u16 address = make_u16(image[pc + 1], image[pc + 2]);
-        out << "bus.write(0x" << std::setw(4) << address << ", cpu.a); cpu.pc = 0x"
-            << std::setw(4) << (pc + 3) << "; cpu.cycles += 13; return;\n";
+        out << "bus.write(0x" << std::setw(4) << address << ", cpu.a); cpu.pc = 0x" << std::setw(4) << (pc + 3)
+            << "; cpu.cycles += 13; return;\n";
         break;
     }
     case 0x36:
-        out << "bus.write(cpu.hl(), 0x" << std::setw(2) << static_cast<int>(image[pc + 1])
-            << "); cpu.pc = 0x" << std::setw(4) << (pc + 2) << "; cpu.cycles += 10; return;\n";
+        out << "bus.write(cpu.hl(), 0x" << std::setw(2) << static_cast<int>(image[pc + 1]) << "); cpu.pc = 0x"
+            << std::setw(4) << (pc + 2) << "; cpu.cycles += 10; return;\n";
         break;
     case 0x3A: {
         const u16 address = make_u16(image[pc + 1], image[pc + 2]);
-        out << "cpu.a = bus.read(0x" << std::setw(4) << address << "); cpu.pc = 0x"
-            << std::setw(4) << (pc + 3) << "; cpu.cycles += 13; return;\n";
+        out << "cpu.a = bus.read(0x" << std::setw(4) << address << "); cpu.pc = 0x" << std::setw(4) << (pc + 3)
+            << "; cpu.cycles += 13; return;\n";
         break;
     }
     case 0xC3: {
@@ -2230,17 +2207,18 @@ void emit_instruction_body(std::ostream& out, const std::array<u8, 0x10000>& ima
         break;
     case 0xCD: {
         const u16 target = make_u16(image[pc + 1], image[pc + 2]);
-        emit_push16(out, "0x" + [&] {
-            std::ostringstream ss;
-            ss << std::hex << std::setw(4) << std::setfill('0') << static_cast<u16>(pc + 3);
-            return ss.str();
-        }());
+        emit_push16(
+            out, "0x" + [&] {
+                std::ostringstream ss;
+                ss << std::hex << std::setw(4) << std::setfill('0') << static_cast<u16>(pc + 3);
+                return ss.str();
+            }());
         out << "cpu.pc = 0x" << std::setw(4) << target << "; cpu.cycles += 17; return;\n";
         break;
     }
     case 0xD3:
-        out << "bus.output(0x" << std::setw(2) << static_cast<int>(image[pc + 1])
-            << ", cpu.a); cpu.pc = 0x" << std::setw(4) << (pc + 2) << "; cpu.cycles += 11; return;\n";
+        out << "bus.output(0x" << std::setw(2) << static_cast<int>(image[pc + 1]) << ", cpu.a); cpu.pc = 0x"
+            << std::setw(4) << (pc + 2) << "; cpu.cycles += 11; return;\n";
         break;
     case 0xD9:
         out << "{ const auto b = cpu.b; const auto c = cpu.c; const auto d = cpu.d; const auto e = cpu.e; "
@@ -2250,8 +2228,8 @@ void emit_instruction_body(std::ostream& out, const std::array<u8, 0x10000>& ima
             << "cpu.pc = 0x" << std::setw(4) << (pc + 1) << "; cpu.cycles += 4; return; }\n";
         break;
     case 0xDB:
-        out << "cpu.a = bus.input(0x" << std::setw(2) << static_cast<int>(image[pc + 1])
-            << "); cpu.pc = 0x" << std::setw(4) << (pc + 2) << "; cpu.cycles += 11; return;\n";
+        out << "cpu.a = bus.input(0x" << std::setw(2) << static_cast<int>(image[pc + 1]) << "); cpu.pc = 0x"
+            << std::setw(4) << (pc + 2) << "; cpu.cycles += 11; return;\n";
         break;
     case 0xE9:
         out << "cpu.pc = cpu.hl(); cpu.cycles += 4; return;\n";
@@ -2264,10 +2242,9 @@ void emit_instruction_body(std::ostream& out, const std::array<u8, 0x10000>& ima
         case 0x73: {
             const u8 pair = static_cast<u8>((image[static_cast<u16>(pc + 1)] >> 4) & 0x03);
             const u16 address = make_u16(image[pc + 2], image[pc + 3]);
-            out << "{ const auto value = " << rp_read_expr(pair) << "; bus.write(0x"
-                << std::setw(4) << address << ", static_cast<sgrecomp::u8>(value & 0xff)); bus.write(0x"
-                << std::setw(4) << static_cast<u16>(address + 1)
-                << ", static_cast<sgrecomp::u8>((value >> 8) & 0xff)); cpu.pc = 0x"
+            out << "{ const auto value = " << rp_read_expr(pair) << "; bus.write(0x" << std::setw(4) << address
+                << ", static_cast<sgrecomp::u8>(value & 0xff)); bus.write(0x" << std::setw(4)
+                << static_cast<u16>(address + 1) << ", static_cast<sgrecomp::u8>((value >> 8) & 0xff)); cpu.pc = 0x"
                 << std::setw(4) << (pc + 4) << "; cpu.cycles += 20; return; }\n";
             break;
         }
@@ -2295,31 +2272,34 @@ void emit_instruction_body(std::ostream& out, const std::array<u8, 0x10000>& ima
             break;
         case 0x46:
         case 0x66:
-            out << "cpu.interrupt_mode = 0; cpu.pc = 0x" << std::setw(4) << (pc + 2)
-                << "; cpu.cycles += 8; return;\n";
+            out << "cpu.interrupt_mode = 0; cpu.pc = 0x" << std::setw(4) << (pc + 2) << "; cpu.cycles += 8; return;\n";
             break;
         case 0x56:
         case 0x76:
-            out << "cpu.interrupt_mode = 1; cpu.pc = 0x" << std::setw(4) << (pc + 2)
-                << "; cpu.cycles += 8; return;\n";
+            out << "cpu.interrupt_mode = 1; cpu.pc = 0x" << std::setw(4) << (pc + 2) << "; cpu.cycles += 8; return;\n";
             break;
         case 0x5E:
         case 0x7E:
-            out << "cpu.interrupt_mode = 2; cpu.pc = 0x" << std::setw(4) << (pc + 2)
-                << "; cpu.cycles += 8; return;\n";
+            out << "cpu.interrupt_mode = 2; cpu.pc = 0x" << std::setw(4) << (pc + 2) << "; cpu.cycles += 8; return;\n";
             break;
         case 0xA0:
-            out << "{ const auto value = bus.read(cpu.hl()); bus.write(cpu.de(), value); cpu.set_hl(static_cast<sgrecomp::u16>(cpu.hl() + 1)); "
-                << "cpu.set_de(static_cast<sgrecomp::u16>(cpu.de() + 1)); cpu.set_bc(static_cast<sgrecomp::u16>(cpu.bc() - 1)); "
+            out << "{ const auto value = bus.read(cpu.hl()); bus.write(cpu.de(), value); "
+                   "cpu.set_hl(static_cast<sgrecomp::u16>(cpu.hl() + 1)); "
+                << "cpu.set_de(static_cast<sgrecomp::u16>(cpu.de() + 1)); "
+                   "cpu.set_bc(static_cast<sgrecomp::u16>(cpu.bc() - 1)); "
                 << "const auto sum = static_cast<sgrecomp::u8>(cpu.a + value); "
-                << "cpu.f = static_cast<sgrecomp::u8>((cpu.f & 0xc1) | (sum & 0x08) | ((sum & 0x02) ? 0x20 : 0) | (cpu.bc() != 0 ? 0x04 : 0)); cpu.pc = 0x"
+                << "cpu.f = static_cast<sgrecomp::u8>((cpu.f & 0xc1) | (sum & 0x08) | ((sum & 0x02) ? 0x20 : 0) | "
+                   "(cpu.bc() != 0 ? 0x04 : 0)); cpu.pc = 0x"
                 << std::setw(4) << (pc + 2) << "; cpu.cycles += 16; return; }\n";
             break;
         case 0xB0:
-            out << "{ const auto value = bus.read(cpu.hl()); bus.write(cpu.de(), value); cpu.set_hl(static_cast<sgrecomp::u16>(cpu.hl() + 1)); "
-                << "cpu.set_de(static_cast<sgrecomp::u16>(cpu.de() + 1)); cpu.set_bc(static_cast<sgrecomp::u16>(cpu.bc() - 1)); "
+            out << "{ const auto value = bus.read(cpu.hl()); bus.write(cpu.de(), value); "
+                   "cpu.set_hl(static_cast<sgrecomp::u16>(cpu.hl() + 1)); "
+                << "cpu.set_de(static_cast<sgrecomp::u16>(cpu.de() + 1)); "
+                   "cpu.set_bc(static_cast<sgrecomp::u16>(cpu.bc() - 1)); "
                 << "const auto sum = static_cast<sgrecomp::u8>(cpu.a + value); "
-                << "cpu.f = static_cast<sgrecomp::u8>((cpu.f & 0xc1) | (sum & 0x08) | ((sum & 0x02) ? 0x20 : 0) | (cpu.bc() != 0 ? 0x04 : 0)); "
+                << "cpu.f = static_cast<sgrecomp::u8>((cpu.f & 0xc1) | (sum & 0x08) | ((sum & 0x02) ? 0x20 : 0) | "
+                   "(cpu.bc() != 0 ? 0x04 : 0)); "
                 << "if (cpu.bc() != 0) { cpu.pc = 0x" << std::setw(4) << pc
                 << "; cpu.cycles += 21; } else { cpu.pc = 0x" << std::setw(4) << (pc + 2)
                 << "; cpu.cycles += 16; } return; }\n";
@@ -2330,8 +2310,8 @@ void emit_instruction_body(std::ostream& out, const std::array<u8, 0x10000>& ima
         }
         break;
     case 0xF3:
-        out << "cpu.iff1 = false; cpu.iff2 = false; cpu.ei_pending = false; cpu.pc = 0x"
-            << std::setw(4) << (pc + 1) << "; cpu.cycles += 4; return;\n";
+        out << "cpu.iff1 = false; cpu.iff2 = false; cpu.ei_pending = false; cpu.pc = 0x" << std::setw(4) << (pc + 1)
+            << "; cpu.cycles += 4; return;\n";
         break;
     case 0xDD:
     case 0xFD:
@@ -2339,11 +2319,12 @@ void emit_instruction_body(std::ostream& out, const std::array<u8, 0x10000>& ima
             const std::string high = opcode == 0xDD ? "cpu.ixh" : "cpu.iyh";
             const std::string low = opcode == 0xDD ? "cpu.ixl" : "cpu.iyl";
             out << "{ const auto lo = bus.read(cpu.sp); cpu.sp = static_cast<sgrecomp::u16>(cpu.sp + 1); "
-                << "const auto hi = bus.read(cpu.sp); cpu.sp = static_cast<sgrecomp::u16>(cpu.sp + 1); "
-                << low << " = lo; " << high << " = hi; cpu.pc = 0x" << std::setw(4) << (pc + 2)
+                << "const auto hi = bus.read(cpu.sp); cpu.sp = static_cast<sgrecomp::u16>(cpu.sp + 1); " << low
+                << " = lo; " << high << " = hi; cpu.pc = 0x" << std::setw(4) << (pc + 2)
                 << "; cpu.cycles += 14; return; }\n";
         } else if (image[static_cast<u16>(pc + 1)] == 0xE5) {
-            const std::string value = opcode == 0xDD ? "sgrecomp::make_u16(cpu.ixl, cpu.ixh)" : "sgrecomp::make_u16(cpu.iyl, cpu.iyh)";
+            const std::string value =
+                opcode == 0xDD ? "sgrecomp::make_u16(cpu.ixl, cpu.ixh)" : "sgrecomp::make_u16(cpu.iyl, cpu.iyh)";
             emit_push16(out, value);
             out << "cpu.pc = 0x" << std::setw(4) << (pc + 2) << "; cpu.cycles += 15; return;\n";
         } else {
@@ -2351,12 +2332,10 @@ void emit_instruction_body(std::ostream& out, const std::array<u8, 0x10000>& ima
         }
         break;
     case 0xFB:
-        out << "cpu.ei_pending = true; cpu.pc = 0x" << std::setw(4) << (pc + 1)
-            << "; cpu.cycles += 4; return;\n";
+        out << "cpu.ei_pending = true; cpu.pc = 0x" << std::setw(4) << (pc + 1) << "; cpu.cycles += 4; return;\n";
         break;
     case 0x76:
-        out << "cpu.halted = true; cpu.pc = 0x" << std::setw(4) << (pc + 1)
-            << "; cpu.cycles += 4; return;\n";
+        out << "cpu.halted = true; cpu.pc = 0x" << std::setw(4) << (pc + 1) << "; cpu.cycles += 4; return;\n";
         break;
     default:
         if ((opcode & 0xC0) == 0x40 && opcode != 0x76) {
@@ -2372,8 +2351,10 @@ void emit_instruction_body(std::ostream& out, const std::array<u8, 0x10000>& ima
         } else if ((opcode & 0xCF) == 0x09) {
             const u8 pair = static_cast<u8>((opcode >> 4) & 0x03);
             out << "{ const auto lhs = cpu.hl(); const auto rhs = " << rp_read_expr(pair)
-                << "; const auto sum = static_cast<unsigned>(lhs + rhs); const auto result = static_cast<sgrecomp::u16>(sum); "
-                << "cpu.f = static_cast<sgrecomp::u8>((cpu.f & 0x84) | ((result >> 8) & 0x28) | (((lhs ^ rhs ^ result) & 0x1000) ? 0x10 : 0) | "
+                << "; const auto sum = static_cast<unsigned>(lhs + rhs); const auto result = "
+                   "static_cast<sgrecomp::u16>(sum); "
+                << "cpu.f = static_cast<sgrecomp::u8>((cpu.f & 0x84) | ((result >> 8) & 0x28) | (((lhs ^ rhs ^ result) "
+                   "& 0x1000) ? 0x10 : 0) | "
                 << "(sum > 0xffff ? 0x01 : 0)); cpu.set_hl(result); cpu.pc = 0x" << std::setw(4) << (pc + 1)
                 << "; cpu.cycles += 11; return; }\n";
         } else if ((opcode & 0xCF) == 0x0B) {
@@ -2383,26 +2364,26 @@ void emit_instruction_body(std::ostream& out, const std::array<u8, 0x10000>& ima
         } else if ((opcode & 0xC7) == 0x04) {
             const u8 reg = static_cast<u8>((opcode >> 3) & 0x07);
             emit_ld_reg_from_value(out, reg, "sgrecomp_inc8(cpu, " + read_reg_expr(reg) + ")");
-            out << "cpu.pc = 0x" << std::setw(4) << (pc + 1)
-                << "; cpu.cycles += " << (reg == 6 ? 11 : 4) << "; return;\n";
+            out << "cpu.pc = 0x" << std::setw(4) << (pc + 1) << "; cpu.cycles += " << (reg == 6 ? 11 : 4)
+                << "; return;\n";
         } else if ((opcode & 0xC7) == 0x05) {
             const u8 reg = static_cast<u8>((opcode >> 3) & 0x07);
             emit_ld_reg_from_value(out, reg, "sgrecomp_dec8(cpu, " + read_reg_expr(reg) + ")");
-            out << "cpu.pc = 0x" << std::setw(4) << (pc + 1)
-                << "; cpu.cycles += " << (reg == 6 ? 11 : 4) << "; return;\n";
+            out << "cpu.pc = 0x" << std::setw(4) << (pc + 1) << "; cpu.cycles += " << (reg == 6 ? 11 : 4)
+                << "; return;\n";
         } else if ((opcode & 0xC7) == 0x06) {
             const u8 reg = static_cast<u8>((opcode >> 3) & 0x07);
             std::ostringstream value;
             value << "0x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(image[pc + 1]);
             emit_ld_reg_from_value(out, reg, value.str());
-            out << "cpu.pc = 0x" << std::setw(4) << (pc + 2)
-                << "; cpu.cycles += " << (reg == 6 ? 10 : 7) << "; return;\n";
+            out << "cpu.pc = 0x" << std::setw(4) << (pc + 2) << "; cpu.cycles += " << (reg == 6 ? 10 : 7)
+                << "; return;\n";
         } else if ((opcode & 0xC0) == 0x80) {
             const u8 group = static_cast<u8>((opcode >> 3) & 0x07);
             const u8 src = static_cast<u8>(opcode & 0x07);
             emit_alu(out, group, read_reg_expr(src));
-            out << "cpu.pc = 0x" << std::setw(4) << (pc + 1)
-                << "; cpu.cycles += " << (src == 6 ? 7 : 4) << "; return;\n";
+            out << "cpu.pc = 0x" << std::setw(4) << (pc + 1) << "; cpu.cycles += " << (src == 6 ? 7 : 4)
+                << "; return;\n";
         } else if ((opcode & 0xC7) == 0xC0) {
             const u8 condition = static_cast<u8>((opcode >> 3) & 0x07);
             out << "if (" << condition_expr(condition) << ") { const auto lo = bus.read(cpu.sp); "
@@ -2414,20 +2395,19 @@ void emit_instruction_body(std::ostream& out, const std::array<u8, 0x10000>& ima
             const u8 condition = static_cast<u8>((opcode >> 3) & 0x07);
             const u16 target = make_u16(image[pc + 1], image[pc + 2]);
             out << "if (" << condition_expr(condition) << ") { cpu.pc = 0x" << std::setw(4) << target
-                << "; } else { cpu.pc = 0x" << std::setw(4) << (pc + 3)
-                << "; } cpu.cycles += 10; return;\n";
+                << "; } else { cpu.pc = 0x" << std::setw(4) << (pc + 3) << "; } cpu.cycles += 10; return;\n";
         } else if ((opcode & 0xC7) == 0xC4) {
             const u8 condition = static_cast<u8>((opcode >> 3) & 0x07);
             const u16 target = make_u16(image[pc + 1], image[pc + 2]);
             out << "if (" << condition_expr(condition) << ") { ";
-            emit_push16(out, "0x" + [&] {
-                std::ostringstream ss;
-                ss << std::hex << std::setw(4) << std::setfill('0') << static_cast<u16>(pc + 3);
-                return ss.str();
-            }());
-            out << "cpu.pc = 0x" << std::setw(4) << target
-                << "; cpu.cycles += 17; } else { cpu.pc = 0x" << std::setw(4) << (pc + 3)
-                << "; cpu.cycles += 10; } return;\n";
+            emit_push16(
+                out, "0x" + [&] {
+                    std::ostringstream ss;
+                    ss << std::hex << std::setw(4) << std::setfill('0') << static_cast<u16>(pc + 3);
+                    return ss.str();
+                }());
+            out << "cpu.pc = 0x" << std::setw(4) << target << "; cpu.cycles += 17; } else { cpu.pc = 0x" << std::setw(4)
+                << (pc + 3) << "; cpu.cycles += 10; } return;\n";
         } else if ((opcode & 0xCF) == 0xC1) {
             const u8 pair = static_cast<u8>((opcode >> 4) & 0x03);
             emit_pop16_to(out, qq_write_call(pair));
@@ -2437,13 +2417,13 @@ void emit_instruction_body(std::ostream& out, const std::array<u8, 0x10000>& ima
             emit_push16(out, qq_read_expr(pair));
             out << "cpu.pc = 0x" << std::setw(4) << (pc + 1) << "; cpu.cycles += 11; return;\n";
         } else if ((opcode & 0xC7) == 0xC7) {
-            emit_push16(out, "0x" + [&] {
-                std::ostringstream ss;
-                ss << std::hex << std::setw(4) << std::setfill('0') << static_cast<u16>(pc + 1);
-                return ss.str();
-            }());
-            out << "cpu.pc = 0x" << std::setw(4) << static_cast<u16>(opcode & 0x38)
-                << "; cpu.cycles += 11; return;\n";
+            emit_push16(
+                out, "0x" + [&] {
+                    std::ostringstream ss;
+                    ss << std::hex << std::setw(4) << std::setfill('0') << static_cast<u16>(pc + 1);
+                    return ss.str();
+                }());
+            out << "cpu.pc = 0x" << std::setw(4) << static_cast<u16>(opcode & 0x38) << "; cpu.cycles += 11; return;\n";
         } else {
             out << "sgrecomp::execute_one(cpu, bus); return;\n";
         }
@@ -2456,8 +2436,7 @@ void emit_case(std::ostream& out, const std::array<u8, 0x10000>& image, u16 pc) 
     if (is_direct_emit_supported(image, pc)) {
         const u8 opcode = image[pc];
         const int m1_fetches = opcode == 0xCB || opcode == 0xED || opcode == 0xDD || opcode == 0xFD ? 2 : 1;
-        out << "cpu.r = static_cast<sgrecomp::u8>((cpu.r & 0x80) | ((cpu.r + " << m1_fetches
-            << ") & 0x7f)); ";
+        out << "cpu.r = static_cast<sgrecomp::u8>((cpu.r & 0x80) | ((cpu.r + " << m1_fetches << ") & 0x7f)); ";
     }
     emit_instruction_body(out, image, pc);
 }
@@ -2469,8 +2448,7 @@ std::string block_function_name(u16 pc) {
 }
 
 void emit_block_function(std::ostream& out, const std::array<u8, 0x10000>& image, const BasicBlock& block) {
-    out << "void " << block_function_name(block.start)
-        << "(sgrecomp::Z80State& cpu, sgrecomp::Bus& bus) {\n";
+    out << "void " << block_function_name(block.start) << "(sgrecomp::Z80State& cpu, sgrecomp::Bus& bus) {\n";
     out << "    switch (cpu.pc) {\n";
     for (const auto& instruction : block.instructions) {
         emit_case(out, image, instruction.decoded.pc);
@@ -2481,16 +2459,14 @@ void emit_block_function(std::ostream& out, const std::array<u8, 0x10000>& image
 }
 
 bool is_block_start(std::span<const BasicBlock> blocks, u16 pc) {
-    return std::find_if(blocks.begin(), blocks.end(), [&](const BasicBlock& block) {
-        return block.start == pc;
-    }) != blocks.end();
+    return std::find_if(blocks.begin(), blocks.end(), [&](const BasicBlock& block) { return block.start == pc; }) !=
+           blocks.end();
 }
 
-void generate_cpp(
-    const std::filesystem::path& output,
-    const std::array<u8, 0x10000>& image,
-    std::size_t limit,
-    std::span<const BasicBlock> blocks) {
+void generate_cpp(const std::filesystem::path& output,
+                  const std::array<u8, 0x10000>& image,
+                  std::size_t limit,
+                  std::span<const BasicBlock> blocks) {
     std::ofstream out(output);
     if (!out) {
         throw std::runtime_error("cannot open output file");
@@ -2530,7 +2506,8 @@ void generate_cpp(
     out << "sgrecomp::u8 sgrecomp_add8(sgrecomp::Z80State& cpu, sgrecomp::u8 lhs, sgrecomp::u8 rhs) {\n";
     out << "    const unsigned sum = lhs + rhs;\n";
     out << "    const auto result = static_cast<sgrecomp::u8>(sum);\n";
-    out << "    cpu.f = static_cast<sgrecomp::u8>((result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? kFlagZ : 0) |\n";
+    out << "    cpu.f = static_cast<sgrecomp::u8>((result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? kFlagZ : 0) "
+           "|\n";
     out << "        (((lhs ^ rhs ^ result) & 0x10) ? kFlagH : 0) |\n";
     out << "        (((~(lhs ^ rhs) & (lhs ^ result)) & 0x80) ? kFlagPV : 0) |\n";
     out << "        (sum > 0xff ? kFlagC : 0));\n";
@@ -2540,7 +2517,8 @@ void generate_cpp(
     out << "    const auto carry = static_cast<sgrecomp::u8>(cpu.f & kFlagC);\n";
     out << "    const unsigned sum = lhs + rhs + carry;\n";
     out << "    const auto result = static_cast<sgrecomp::u8>(sum);\n";
-    out << "    cpu.f = static_cast<sgrecomp::u8>((result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? kFlagZ : 0) |\n";
+    out << "    cpu.f = static_cast<sgrecomp::u8>((result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? kFlagZ : 0) "
+           "|\n";
     out << "        (((lhs ^ rhs ^ result) & 0x10) ? kFlagH : 0) |\n";
     out << "        (((~(lhs ^ rhs) & (lhs ^ result)) & 0x80) ? kFlagPV : 0) |\n";
     out << "        (sum > 0xff ? kFlagC : 0));\n";
@@ -2549,7 +2527,8 @@ void generate_cpp(
     out << "sgrecomp::u8 sgrecomp_sub8(sgrecomp::Z80State& cpu, sgrecomp::u8 lhs, sgrecomp::u8 rhs) {\n";
     out << "    const unsigned diff = lhs - rhs;\n";
     out << "    const auto result = static_cast<sgrecomp::u8>(diff);\n";
-    out << "    cpu.f = static_cast<sgrecomp::u8>(kFlagN | (result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? kFlagZ : 0) |\n";
+    out << "    cpu.f = static_cast<sgrecomp::u8>(kFlagN | (result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? "
+           "kFlagZ : 0) |\n";
     out << "        (((lhs ^ rhs ^ result) & 0x10) ? kFlagH : 0) |\n";
     out << "        ((((lhs ^ rhs) & (lhs ^ result)) & 0x80) ? kFlagPV : 0) |\n";
     out << "        (diff & 0x100 ? kFlagC : 0));\n";
@@ -2559,7 +2538,8 @@ void generate_cpp(
     out << "    const auto carry = static_cast<sgrecomp::u8>(cpu.f & kFlagC);\n";
     out << "    const unsigned diff = lhs - rhs - carry;\n";
     out << "    const auto result = static_cast<sgrecomp::u8>(diff);\n";
-    out << "    cpu.f = static_cast<sgrecomp::u8>(kFlagN | (result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? kFlagZ : 0) |\n";
+    out << "    cpu.f = static_cast<sgrecomp::u8>(kFlagN | (result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? "
+           "kFlagZ : 0) |\n";
     out << "        (((lhs ^ rhs ^ result) & 0x10) ? kFlagH : 0) |\n";
     out << "        ((((lhs ^ rhs) & (lhs ^ result)) & 0x80) ? kFlagPV : 0) |\n";
     out << "        (diff & 0x100 ? kFlagC : 0));\n";
@@ -2567,17 +2547,20 @@ void generate_cpp(
     out << "}\n\n";
     out << "sgrecomp::u8 sgrecomp_and8(sgrecomp::Z80State& cpu, sgrecomp::u8 lhs, sgrecomp::u8 rhs) {\n";
     out << "    const auto result = static_cast<sgrecomp::u8>(lhs & rhs);\n";
-    out << "    cpu.f = static_cast<sgrecomp::u8>((result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? kFlagZ : 0) | kFlagH | sgrecomp_parity(result));\n";
+    out << "    cpu.f = static_cast<sgrecomp::u8>((result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? kFlagZ : 0) | "
+           "kFlagH | sgrecomp_parity(result));\n";
     out << "    return result;\n";
     out << "}\n\n";
     out << "sgrecomp::u8 sgrecomp_xor8(sgrecomp::Z80State& cpu, sgrecomp::u8 lhs, sgrecomp::u8 rhs) {\n";
     out << "    const auto result = static_cast<sgrecomp::u8>(lhs ^ rhs);\n";
-    out << "    cpu.f = static_cast<sgrecomp::u8>((result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? kFlagZ : 0) | sgrecomp_parity(result));\n";
+    out << "    cpu.f = static_cast<sgrecomp::u8>((result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? kFlagZ : 0) | "
+           "sgrecomp_parity(result));\n";
     out << "    return result;\n";
     out << "}\n\n";
     out << "sgrecomp::u8 sgrecomp_or8(sgrecomp::Z80State& cpu, sgrecomp::u8 lhs, sgrecomp::u8 rhs) {\n";
     out << "    const auto result = static_cast<sgrecomp::u8>(lhs | rhs);\n";
-    out << "    cpu.f = static_cast<sgrecomp::u8>((result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? kFlagZ : 0) | sgrecomp_parity(result));\n";
+    out << "    cpu.f = static_cast<sgrecomp::u8>((result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? kFlagZ : 0) | "
+           "sgrecomp_parity(result));\n";
     out << "    return result;\n";
     out << "}\n\n";
     out << "void sgrecomp_cp8(sgrecomp::Z80State& cpu, sgrecomp::u8 lhs, sgrecomp::u8 rhs) {\n";
@@ -2585,13 +2568,15 @@ void generate_cpp(
     out << "}\n\n";
     out << "sgrecomp::u8 sgrecomp_inc8(sgrecomp::Z80State& cpu, sgrecomp::u8 value) {\n";
     out << "    const auto result = static_cast<sgrecomp::u8>(value + 1);\n";
-    out << "    cpu.f = static_cast<sgrecomp::u8>((cpu.f & kFlagC) | (result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? kFlagZ : 0) |\n";
+    out << "    cpu.f = static_cast<sgrecomp::u8>((cpu.f & kFlagC) | (result & (kFlagS | kFlagY | kFlagX)) | (result "
+           "== 0 ? kFlagZ : 0) |\n";
     out << "        (((value ^ result) & 0x10) ? kFlagH : 0) | (value == 0x7f ? kFlagPV : 0));\n";
     out << "    return result;\n";
     out << "}\n\n";
     out << "sgrecomp::u8 sgrecomp_dec8(sgrecomp::Z80State& cpu, sgrecomp::u8 value) {\n";
     out << "    const auto result = static_cast<sgrecomp::u8>(value - 1);\n";
-    out << "    cpu.f = static_cast<sgrecomp::u8>((cpu.f & kFlagC) | kFlagN | (result & (kFlagS | kFlagY | kFlagX)) | (result == 0 ? kFlagZ : 0) |\n";
+    out << "    cpu.f = static_cast<sgrecomp::u8>((cpu.f & kFlagC) | kFlagN | (result & (kFlagS | kFlagY | kFlagX)) | "
+           "(result == 0 ? kFlagZ : 0) |\n";
     out << "        (((value ^ result) & 0x10) ? kFlagH : 0) | (value == 0x80 ? kFlagPV : 0));\n";
     out << "    return result;\n";
     out << "}\n";
@@ -2608,8 +2593,8 @@ void generate_cpp(
     out << "    if (cpu.ei_pending) { cpu.iff1 = true; cpu.iff2 = true; cpu.ei_pending = false; }\n";
     out << "    switch (cpu.pc) {\n";
     for (const auto& block : blocks) {
-        out << "    case 0x" << std::hex << std::setw(4) << std::setfill('0') << block.start
-            << ": " << block_function_name(block.start) << "(cpu, bus); return;\n";
+        out << "    case 0x" << std::hex << std::setw(4) << std::setfill('0') << block.start << ": "
+            << block_function_name(block.start) << "(cpu, bus); return;\n";
     }
     for (u16 pc = 0; pc < limit && pc < 0xC000;) {
         const auto insn = decode_z80(image, pc);
@@ -2637,16 +2622,15 @@ int main(int argc, char** argv) {
             header_options.version = opts.header_version;
             const CartridgeHeaderInfo header = rebuild_cartridge_header(rom, header_options);
             write_binary_file(opts.header_output, rom);
-            std::cout << (header_options.preserve_existing ? "rebuilt" : "generated")
-                      << " cartridge header at 0x" << std::hex << header.offset
-                      << ", checksum 0x" << std::setw(4) << std::setfill('0') << header.stored_checksum
-                      << std::dec << "\nwrote " << opts.header_output.string() << "\n";
+            std::cout << (header_options.preserve_existing ? "rebuilt" : "generated") << " cartridge header at 0x"
+                      << std::hex << header.offset << ", checksum 0x" << std::setw(4) << std::setfill('0')
+                      << header.stored_checksum << std::dec << "\nwrote " << opts.header_output.string() << "\n";
             return 0;
         }
-        const std::optional<std::vector<u8>> bios = opts.bios.empty()
-            ? std::optional<std::vector<u8>>{}
-            : std::optional<std::vector<u8>>{read_file(opts.bios)};
-        const auto image = image_for_decode(opts.model, opts.mapper, rom, opts.disassemble_only && bios ? &*bios : nullptr);
+        const std::optional<std::vector<u8>> bios =
+            opts.bios.empty() ? std::optional<std::vector<u8>>{} : std::optional<std::vector<u8>>{read_file(opts.bios)};
+        const auto image =
+            image_for_decode(opts.model, opts.mapper, rom, opts.disassemble_only && bios ? &*bios : nullptr);
         const std::size_t configured_limit = std::min<std::size_t>(opts.max_static_bytes.value_or(0xC000), 0xC000);
         const std::size_t limit = std::min<std::size_t>(rom.size(), configured_limit);
         if (!opts.dump_analysis.empty()) {

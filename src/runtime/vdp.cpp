@@ -162,9 +162,7 @@ void Vdp::render_scanline(int line) {
     scanline_bg_priority_.fill(false);
     if ((registers_[1] & 0x40) == 0) {
         for (int x = 0; x < width; ++x) {
-            framebuffer_[line * width + x] = is_tms_mode()
-                ? tms_color(registers_[7] & 0x0F)
-                : backdrop_color();
+            framebuffer_[line * width + x] = is_tms_mode() ? tms_color(registers_[7] & 0x0F) : backdrop_color();
         }
         return;
     }
@@ -328,9 +326,7 @@ void Vdp::render_sprites(int line) {
     const bool shift_sprites_left = (registers_[0] & 0x08) != 0;
     const int base_sprite_height = tall_sprites ? 16 : 8;
     const int sprite_height = zoomed_sprites ? base_sprite_height * 2 : base_sprite_height;
-    const int sprite_render_limit = enhancements_.disable_sprite_limit
-        ? 64
-        : (enhancements_.reduce_flicker ? 16 : 8);
+    const int sprite_render_limit = enhancements_.disable_sprite_limit ? 64 : (enhancements_.reduce_flicker ? 16 : 8);
     std::array<bool, width> sprite_pixels{};
     int visible_sprites = 0;
 
@@ -370,11 +366,10 @@ void Vdp::render_sprites(int line) {
         const u16 pattern = static_cast<u16>((sprite_pattern + tile * 32 + row * 4) & 0x3FFF);
         for (int px = 0; px < 8; ++px) {
             const int bit = 7 - px;
-            const u8 color = static_cast<u8>(
-                (((vram_[pattern] >> bit) & 0x01) << 0) |
-                (((vram_[(pattern + 1) & 0x3FFF] >> bit) & 0x01) << 1) |
-                (((vram_[(pattern + 2) & 0x3FFF] >> bit) & 0x01) << 2) |
-                (((vram_[(pattern + 3) & 0x3FFF] >> bit) & 0x01) << 3));
+            const u8 color = static_cast<u8>((((vram_[pattern] >> bit) & 0x01) << 0) |
+                                             (((vram_[(pattern + 1) & 0x3FFF] >> bit) & 0x01) << 1) |
+                                             (((vram_[(pattern + 2) & 0x3FFF] >> bit) & 0x01) << 2) |
+                                             (((vram_[(pattern + 3) & 0x3FFF] >> bit) & 0x01) << 3));
             if (color == 0) {
                 continue;
             }
@@ -410,9 +405,7 @@ void Vdp::render_tms_sprites(int line) {
     const bool zoomed_sprites = (registers_[1] & 0x01) != 0;
     const int base_sprite_size = large_sprites ? 16 : 8;
     const int sprite_height = zoomed_sprites ? base_sprite_size * 2 : base_sprite_size;
-    const int sprite_limit = enhancements_.disable_sprite_limit
-        ? 32
-        : (enhancements_.reduce_flicker ? 8 : 4);
+    const int sprite_limit = enhancements_.disable_sprite_limit ? 32 : (enhancements_.reduce_flicker ? 8 : 4);
     std::array<bool, width> sprite_pixels{};
     int visible_sprites = 0;
 
@@ -501,11 +494,10 @@ u32 Vdp::tms_display_color(u8 index) const {
 }
 
 u8 Vdp::background_color_index(u16 pattern, int bit) const {
-    return static_cast<u8>(
-        (((vram_[pattern] >> bit) & 0x01) << 0) |
-        (((vram_[(pattern + 1) & 0x3FFF] >> bit) & 0x01) << 1) |
-        (((vram_[(pattern + 2) & 0x3FFF] >> bit) & 0x01) << 2) |
-        (((vram_[(pattern + 3) & 0x3FFF] >> bit) & 0x01) << 3));
+    return static_cast<u8>((((vram_[pattern] >> bit) & 0x01) << 0) |
+                           (((vram_[(pattern + 1) & 0x3FFF] >> bit) & 0x01) << 1) |
+                           (((vram_[(pattern + 2) & 0x3FFF] >> bit) & 0x01) << 2) |
+                           (((vram_[(pattern + 3) & 0x3FFF] >> bit) & 0x01) << 3));
 }
 
 u8 Vdp::backdrop_color_index() const {
