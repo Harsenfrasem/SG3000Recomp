@@ -388,7 +388,9 @@ void Vdp::render_sprites(int line) {
                     continue;
                 }
                 if (sprite_pixels[static_cast<std::size_t>(x)]) {
-                    status_ |= 0x20;
+                    if (visible_sprites <= 8) {
+                        status_ |= 0x20;
+                    }
                     continue;
                 }
                 sprite_pixels[static_cast<std::size_t>(x)] = true;
@@ -470,7 +472,9 @@ void Vdp::render_tms_sprites(int line) {
                     continue;
                 }
                 if (sprite_pixels[static_cast<std::size_t>(x)]) {
-                    status_ |= 0x20;
+                    if (visible_sprites <= 4) {
+                        status_ |= 0x20;
+                    }
                     continue;
                 }
                 sprite_pixels[static_cast<std::size_t>(x)] = true;

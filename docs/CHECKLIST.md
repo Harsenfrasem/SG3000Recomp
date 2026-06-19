@@ -242,6 +242,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Sprites: base de pattern via registrador 6 e 8x16 usando tile par/impar.
 - [x] Sprites: colisao e overflow iniciais.
 - [x] Sprites SMS/TMS: colisao preserva prioridade visual do menor indice da SAT em pixels sobrepostos.
+- [x] Sprites SMS/TMS: enhancements nao geram colisao de hardware com sprites alem do limite original por scanline.
 - [x] Sprites: prioridade inicial de background sobre sprite no Mode 4.
 - [ ] Sprites: limite por scanline exato e edge cases de prioridade.
 - [x] Paleta CRAM inicial, backdrop/display disabled e framebuffer com background Mode 4 basico.

@@ -1804,6 +1804,40 @@ void test_tms_sprite_overflow_reports_fifth_sprite_index() {
     assert(vdp.read_status() == 0);
 }
 
+void test_tms_enhanced_sprites_do_not_create_hardware_collision() {
+    Console console(ConsoleModel::SG3000);
+    Vdp& vdp = console.vdp();
+    EnhancementConfig config;
+    config.mode = RuntimeMode::Enhanced;
+    config.disable_sprite_limit = true;
+    vdp.set_enhancements(config);
+    vdp.write_control(0x40);
+    vdp.write_control(0x81); // display enabled
+    vdp.write_control(0x36);
+    vdp.write_control(0x85); // SAT at $1b00
+    vdp.write_control(0x00);
+    vdp.write_control(0x86); // sprite patterns at $0000
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x40);
+    vdp.write_data(0x80); // one opaque pixel in pattern zero
+    vdp.write_control(0x00);
+    vdp.write_control(0x5B);
+    for (u8 sprite = 0; sprite < 5; ++sprite) {
+        vdp.write_data(0xFF);
+        vdp.write_data(sprite == 4 ? 0 : static_cast<u8>(sprite * 8));
+        vdp.write_data(0x00);
+        vdp.write_data(0x02);
+    }
+    vdp.write_data(0xD0);
+
+    vdp.tick(228);
+    assert(vdp.framebuffer()[0] == 0xFF21C842);
+    const u8 status = vdp.read_status();
+    assert((status & 0x40) != 0);
+    assert((status & 0x20) == 0);
+}
+
 void test_vdp_background_priority_hides_sprite_pixel() {
     Vdp vdp;
     vdp.write_control(0x40);
@@ -1945,6 +1979,25 @@ void test_vdp_sprite_limit_enhancement() {
     assert(enhanced.framebuffer()[0] == 0xFF00FF00);
     assert(enhanced.framebuffer()[0x40] == 0xFF00FF00);
     assert((enhanced.read_status() & 0x40) != 0);
+}
+
+void test_vdp_enhanced_sprites_do_not_create_hardware_collision() {
+    Vdp vdp;
+    EnhancementConfig config;
+    config.mode = RuntimeMode::Enhanced;
+    config.disable_sprite_limit = true;
+    vdp.set_enhancements(config);
+    setup_visible_sprites(vdp, 9);
+
+    vdp.write_control(0x90);
+    vdp.write_control(0x7F); // ninth sprite attribute at $3f90
+    vdp.write_data(0x00); // overlap sprite zero beyond the hardware limit
+
+    vdp.tick(228);
+    assert(vdp.framebuffer()[0] == 0xFF00FF00);
+    const u8 status = vdp.read_status();
+    assert((status & 0x40) != 0);
+    assert((status & 0x20) == 0);
 }
 
 void test_vdp_reduce_flicker_uses_conservative_sprite_limit() {
@@ -3112,9 +3165,11 @@ int main() {
     test_vdp_overlapping_sprites_keep_lower_index_priority();
     test_tms_overlapping_sprites_keep_lower_index_priority();
     test_tms_sprite_overflow_reports_fifth_sprite_index();
+    test_tms_enhanced_sprites_do_not_create_hardware_collision();
     test_vdp_background_priority_hides_sprite_pixel();
     test_vdp_sprite_overlays_non_priority_background_pixel();
     test_vdp_sprite_limit_enhancement();
+    test_vdp_enhanced_sprites_do_not_create_hardware_collision();
     test_vdp_reduce_flicker_uses_conservative_sprite_limit();
     test_vdp_debug_tilemap_and_sprite_snapshots();
     test_bus_io_logging_records_reads_and_writes();

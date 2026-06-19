@@ -10,7 +10,7 @@ Game Gear is a planned future target because it can reuse much of the SMS core, 
 
 The SG-3000 VDP path selects the four standard TMS9918 display modes from register bits M1/M2/M3. Graphics I and II use their distinct pattern/color table addressing, Text uses the 40-column six-pixel glyph layout and border, and Multicolor uses four-pixel color blocks. TMS sprites remain active in the graphics modes and disabled in Text mode.
 
-Sprite evaluation is ordered by SAT index in both SMS Mode 4 and TMS modes. Overlapping opaque pixels set the collision flag while retaining the lower-index sprite's color; optional sprite-limit enhancements change only how many evaluated sprites may render.
+Sprite evaluation is ordered by SAT index in both SMS Mode 4 and TMS modes. Overlapping opaque pixels set the collision flag while retaining the lower-index sprite's color. Optional sprite-limit enhancements may render sprites beyond the original per-line limit, but those extra pixels do not create hardware collision status.
 
 Mode 4 horizontal scroll treats register 8 as a rightward screen displacement: the renderer samples background source coordinate `(screen_x - R8) & 0xff`. Top-row scroll lock suppresses that displacement for the protected lines, while right-column vertical lock remains based on the destination screen column.
 
