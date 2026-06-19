@@ -34,7 +34,7 @@ Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
 - [ ] CPU Z80: fechar flags, ciclos e opcodes raros contra suite conhecida.
 - [ ] Memoria/cartucho: completar SMapper, layouts SG-3000 e mappers alternativos.
 - [ ] VDP: completar Mode 4, TMS9918/SG-3000 modes, prioridade de sprites e limite por scanline exato.
-- [ ] PSG: mixer estereo, buffer de audio e sample rate configuravel.
+- [x] PSG: mixer estereo, buffer de audio e sample rate configuravel.
 - [ ] Timing: NTSC/PAL, VBlank, line IRQ, Pause/NMI e prioridades.
 - [ ] Validacao: traces comparados com emulador de referencia e ROMs homebrew permitidas.
 
@@ -274,13 +274,13 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Dump VGM local de writes PSG pelo smoke runner.
 - [x] Infraestrutura inicial YM2413/OPLL: portas, audio control, logging e mix no host.
 - [ ] YM2413/OPLL fiel: instrumentos, envelopes, rhythm mode, LFO e tabelas validadas.
-- [ ] Mixer estereo e sample rate configuravel.
+- [x] Mixer estereo PSG+FM e sample rate configuravel no runtime/WAV.
 - [x] Buffer de audio para host backend headless.
 - [x] Saida Win32 waveOut inicial no host.
 - [x] Contadores de fila, underrun e buffers descartados no host.
 - [x] Volume, mute e latencia configuravel no host Win32.
 - [x] Sample rate configuravel no HostRuntime, CLI headless, host Win32, WAV dumps e perfis locais.
-- [ ] Mixer estereo e sample rate configuravel no host.
+- [x] Mixer estereo e sample rate configuravel no host Win32.
 
 ## Entrada
 

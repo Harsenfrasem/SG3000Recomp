@@ -3097,6 +3097,41 @@ void test_host_runtime_frame_audio_and_input() {
     assert(host.framebuffer()[0] == 0xFFFF0000);
 }
 
+void test_host_runtime_stereo_mixer_respects_sample_rate() {
+    const std::vector<u8> rom = {
+        0x3E, 0x81,       // ld a,$81: tone channel 0 period low
+        0xD3, 0x7F,       // out ($7f),a
+        0x3E, 0x00,       // ld a,$00: period high
+        0xD3, 0x7F,       // out ($7f),a
+        0x3E, 0x90,       // ld a,$90: maximum channel volume
+        0xD3, 0x7F,       // out ($7f),a
+        0x18, 0xFE,       // jr -2
+    };
+
+    const auto run_at_rate = [&](u32 sample_rate) {
+        HostRuntimeConfig config;
+        config.audio_sample_rate = sample_rate;
+        HostRuntime host(ConsoleModel::SMS, config);
+        host.load_rom(rom);
+        const HostFrameResult frame = host.run_frame();
+        const std::size_t expected_frames = static_cast<std::size_t>(
+            (frame.end_cycle * sample_rate) / config.cpu_clock_hz);
+        assert(frame.stereo_samples == expected_frames);
+        assert(host.audio().size() == expected_frames * 2);
+        bool heard_audio = false;
+        for (std::size_t index = 0; index < host.audio().size(); index += 2) {
+            assert(host.audio()[index] == host.audio()[index + 1]);
+            heard_audio = heard_audio || host.audio()[index] != 0;
+        }
+        assert(heard_audio);
+        return frame.stereo_samples;
+    };
+
+    const std::size_t frames_22050 = run_at_rate(22050);
+    const std::size_t frames_44100 = run_at_rate(44100);
+    assert(frames_44100 == frames_22050 * 2 || frames_44100 == frames_22050 * 2 + 1);
+}
+
 void test_host_input_script_tracks_frame_state() {
     const HostInputScript script = parse_host_input_script(
         "# deterministic title-screen input\n"
@@ -3361,6 +3396,7 @@ int main() {
     test_bc_de_indirect_loads();
     test_hl_absolute_load_store();
     test_host_runtime_frame_audio_and_input();
+    test_host_runtime_stereo_mixer_respects_sample_rate();
     test_host_input_script_tracks_frame_state();
     test_console_save_state_round_trip_restores_runtime_state();
     test_game_profile_hash_and_parse();

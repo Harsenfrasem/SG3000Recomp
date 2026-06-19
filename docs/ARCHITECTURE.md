@@ -50,6 +50,12 @@ ROM image
 - `Psg` models SN76489-compatible writes and audio generation.
 - `Joypad` exposes active-low controller reads.
 
+The host audio boundary uses interleaved signed 16-bit stereo frames. SMS PSG and the
+current FM path are historically/initially mono sources, so each source is duplicated
+to left and right before PSG+FM mixing, clipping, WAV output, or Win32 `waveOut`
+submission. `HostRuntimeConfig::audio_sample_rate` controls sampling from CPU cycles;
+the same configured rate is written to WAV headers and the backend format.
+
 ## Compatibility Strategy
 
 The project uses a hybrid path while the lifter matures:
