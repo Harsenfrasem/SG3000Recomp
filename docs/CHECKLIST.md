@@ -8,8 +8,8 @@ Use esta lista como guia de implementacao. Marque cada item somente depois de te
 - [x] Presets CMake para Debug, Release, Visual Studio e Zig.
 - [x] Separacao entre `include`, `src/runtime`, `src/tools`, `docs`, `config` e `templates`.
 - [x] Gerar pacote CMake consumivel com `find_package(SG3000Recomp)`.
-- [ ] Adicionar CI para Windows, Linux e macOS.
-- [ ] Adicionar formatador (`clang-format`) e preset de lint.
+- [x] Adicionar CI para Windows, Linux e macOS.
+- [x] Adicionar formatador (`clang-format`) e preset de lint.
 
 ## Roadmap: Emulador/Recompiler com Enhancements
 
@@ -363,7 +363,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Status inicial do Z80.
 - [x] Checklist de continuidade.
 - [x] Roadmap de engenharia reversa/enhanced ports.
-- [ ] Guia de criacao de port por ROM.
+- [x] Guia de criacao de port por ROM.
 - [x] Especificacao inicial de config TOML em `config/example.toml` e README.
 - [x] Guia de build/toolchain.
-- [ ] Guia de contribuicao e estilo de codigo.
+- [x] Guia de contribuicao e estilo de codigo.

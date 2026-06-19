@@ -50,6 +50,16 @@
         "SGRECOMP_BUILD_TOOLS": "ON",
         "SGRECOMP_BUILD_TESTS": "ON"
       }
+    },
+    {
+      "name": "lint",
+      "displayName": "Lint and warnings-as-errors",
+      "inherits": "zig-debug",
+      "binaryDir": "${sourceDir}/build/lint",
+      "cacheVariables": {
+        "SGRECOMP_WARNINGS_AS_ERRORS": "ON",
+        "SGRECOMP_REQUIRE_CLANG_FORMAT": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -69,6 +79,10 @@
     {
       "name": "zig-debug",
       "configurePreset": "zig-debug"
+    },
+    {
+      "name": "lint",
+      "configurePreset": "lint"
     }
   ],
   "testPresets": [
@@ -90,6 +104,13 @@
     {
       "name": "zig-debug",
       "configurePreset": "zig-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "lint",
+      "configurePreset": "lint",
       "output": {
         "outputOnFailure": true
       }

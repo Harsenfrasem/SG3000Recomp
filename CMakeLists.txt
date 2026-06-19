@@ -12,10 +12,38 @@ option(SGRECOMP_BUILD_TOOLS "Build SG3000Recomp command line tools" ON)
 option(SGRECOMP_BUILD_HOST "Build SG3000Recomp host executables" ON)
 option(SGRECOMP_BUILD_TESTS "Build SG3000Recomp tests" ON)
 option(SGRECOMP_WARNINGS_AS_ERRORS "Treat warnings as errors" OFF)
+option(SGRECOMP_REQUIRE_CLANG_FORMAT "Fail configure when clang-format is unavailable" OFF)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+find_program(SGRECOMP_CLANG_FORMAT_EXECUTABLE NAMES clang-format clang-format-19)
+if(SGRECOMP_REQUIRE_CLANG_FORMAT AND NOT SGRECOMP_CLANG_FORMAT_EXECUTABLE)
+    message(FATAL_ERROR "clang-format 19 is required by this configuration")
+endif()
+
+file(GLOB_RECURSE SGRECOMP_FORMAT_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp"
+)
+
+if(SGRECOMP_CLANG_FORMAT_EXECUTABLE)
+    add_custom_target(format
+        COMMAND "${SGRECOMP_CLANG_FORMAT_EXECUTABLE}" -i --style=file ${SGRECOMP_FORMAT_SOURCES}
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        COMMENT "Formatting C++ sources"
+        VERBATIM
+    )
+    add_custom_target(format-check
+        COMMAND "${SGRECOMP_CLANG_FORMAT_EXECUTABLE}" --dry-run --Werror --style=file ${SGRECOMP_FORMAT_SOURCES}
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        COMMENT "Checking C++ source formatting"
+        VERBATIM
+    )
+endif()
 
 add_library(sgrecomp_runtime STATIC
     src/runtime/bus.cpp

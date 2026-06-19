@@ -23,6 +23,10 @@ Full compatibility requires completing external Z80 conformance, mapper variants
 
 The runtime now reaches active gameplay in four deterministic private regressions. One completed a five-minute NTSC session with continuous audio, save-state round-trip, and accurate/enhanced comparison; the other three completed shorter 1,200-frame gameplay probes with audio. This is a compatibility milestone, not a blanket compatibility claim. The evidence and remaining expansion gates are tracked in `docs/PLAYABLE_STATUS.md`.
 
+Contributions follow [`CONTRIBUTING.md`](CONTRIBUTING.md). The per-ROM workflow is
+documented in [`docs/PORTING_GUIDE.md`](docs/PORTING_GUIDE.md) and keeps private game
+material outside version control.
+
 ## Build
 
 Portable local build, already validated for this workspace:

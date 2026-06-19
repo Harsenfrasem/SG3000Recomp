@@ -41,6 +41,22 @@ ctest --preset msvc-debug
 
 If that fails with “generator could not find Visual Studio”, open the Visual Studio Installer and install or repair the C++ workload.
 
+## Formatação e lint
+
+O projeto fixa `clang-format` 19 para que a saída seja igual localmente e na CI:
+
+```powershell
+python -m pip install --user clang-format==19.1.7
+$env:PATH="$env:APPDATA\Python\Python314\Scripts;$env:PATH"
+cmake --preset lint
+cmake --build --preset lint --target format-check
+cmake --build --preset lint
+ctest --preset lint
+```
+
+Use o alvo `format` para aplicar a formatação automaticamente. O preset `lint` também
+compila com warnings tratados como erros.
+
 ## Build Outputs
 
 - `sgrecomp_runtime`: static runtime library.
