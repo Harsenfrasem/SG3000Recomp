@@ -22,8 +22,9 @@ Ordem de trabalho aprovada para transformar o projeto em runtime fiel com melhor
 - [x] Validacao privada local produz telas/titulos reconheciveis em multiplas imagens sem versionar artefatos.
 - [x] Host Win32 possui video, teclado, Pause/NMI, audio e toggles de enhancement por CLI/perfil.
 - [x] Script headless de input por frame para automatizar entrada em gameplay.
-- [ ] Validar uma sessao jogavel de cinco minutos com input, audio e enhancement.
-- [ ] Validar save state/SRAM durante gameplay real.
+- [x] Validar uma sessao jogavel privada de cinco minutos com input, audio e enhancement, sem versionar artefatos proprietarios.
+- [x] Validar save state durante gameplay real com round-trip byte a byte.
+- [ ] Validar SRAM durante gameplay em titulo que realmente habilite cartridge RAM.
 
 Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
 

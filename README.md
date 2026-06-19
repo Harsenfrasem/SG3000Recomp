@@ -19,9 +19,9 @@ This repository is intentionally not a clone of any existing recompilation proje
 - `sgrecomp` CLI that can disassemble, analyze reachable basic blocks, or generate a C++ instruction dispatcher.
 - Smoke tests for the Z80 runtime and for generated C++ compilation.
 
-Full compatibility requires completing the Z80/CB/DD/FD/ED opcode tables, exact cycle accounting, SMapper variants, VDP rendering modes, PSG synthesis, pause/NMI behavior, and ROM database heuristics.
+Full compatibility requires completing external Z80 conformance, mapper variants, remaining VDP edge cases, faithful FM synthesis, timing validation, and ROM database heuristics.
 
-The runtime now reaches recognizable multicolor title/opening screens in private local regression tests. This is a boot-visual milestone, not a blanket compatibility claim. The remaining minimum-playability gates are tracked in `docs/PLAYABLE_STATUS.md`.
+The runtime now reaches active gameplay in a deterministic private regression and completed a five-minute NTSC session with continuous audio, save-state round-trip, and accurate/enhanced comparison. This is a single-title playability milestone, not a blanket compatibility claim. The evidence and remaining expansion gates are tracked in `docs/PLAYABLE_STATUS.md`.
 
 ## Build
 

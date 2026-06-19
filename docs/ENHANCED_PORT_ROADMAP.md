@@ -82,8 +82,8 @@ Melhorias profundas como viewport maior, cenario expandido, HUD reposicionado e 
 
 ### 8. Validacao
 
-- [ ] Comparar modo fiel e enhanced no mesmo trecho de jogo.
-- [ ] Verificar que saves, input e audio continuam funcionando.
+- [x] Comparar modo fiel e enhanced no mesmo trecho privado de jogo com estado e input deterministas.
+- [x] Verificar save state, input e audio durante gameplay; SRAM permanece dependente de titulo compativel.
 - [ ] Medir FPS, underruns, fallback count e estabilidade de frame.
 - [ ] Guardar artefatos privados somente em `out/` ou `local-*`.
 - [ ] Promover apenas ferramentas genericas e testes sinteticos para o repositorio.
