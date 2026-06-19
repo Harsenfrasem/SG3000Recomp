@@ -341,7 +341,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Smoke test de programa Z80 minimo.
 - [x] Varredura automatica de todas as entradas base, ED, DD e FD sem caminhos nao implementados.
 - [ ] Testes unitarios de semantica/flags por familia de opcode contra vetores externos conhecidos.
-- [ ] ROMs sinteticas para mapper, VDP, PSG e input.
+- [x] ROM sintetica integrada para mapper, VDP, PSG e input via CPU/HostRuntime.
 - [ ] Comparacao de traces com emulador de referencia.
 - [x] Testes do gerador C++ compilando o arquivo emitido.
 - [x] Teste do gerador C++ linkando/executando o binario emitido e validando estado/flags.

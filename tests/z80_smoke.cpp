@@ -3197,6 +3197,49 @@ void test_host_runtime_frame_audio_and_input() {
     assert(host.framebuffer()[0] == 0xFFFF0000);
 }
 
+void test_synthetic_rom_integrates_mapper_vdp_psg_and_input() {
+    std::vector<u8> rom(0xC000, 0x00);
+    const std::vector<u8> program = {
+        0x3E, 0x02,             // ld a,$02
+        0x32, 0xFD, 0xFF,       // ld ($fffd),a: page slot zero while fixed 1 KiB keeps executing
+        0x3E, 0x0E, 0xD3, 0xBF, // VDP R2 value: name table at $3800
+        0x3E, 0x82, 0xD3, 0xBF, // VDP register 2
+        0x3E, 0x40, 0xD3, 0xBF, // VDP R1 value: display enabled
+        0x3E, 0x81, 0xD3, 0xBF, // VDP register 1
+        0x3E, 0x01, 0xD3, 0xBF, // CRAM address 1
+        0x3E, 0xC0, 0xD3, 0xBF, 0x3E, 0x03, 0xD3, 0xBE,                         // palette color 1: red
+        0x3E, 0x20, 0xD3, 0xBF,                                                 // VRAM tile 1, row zero
+        0x3E, 0x40, 0xD3, 0xBF, 0x3E, 0x80, 0xD3, 0xBE,                         // plane zero, first pixel set
+        0x3E, 0x00, 0xD3, 0xBE, 0xD3, 0xBE, 0xD3, 0xBE, 0x3E, 0x00, 0xD3, 0xBF, // VRAM name table at $3800
+        0x3E, 0x78, 0xD3, 0xBF, 0x3E, 0x01, 0xD3, 0xBE,                         // tile 1, low entry byte
+        0x3E, 0x00, 0xD3, 0xBE,                                                 // entry attributes
+        0x3E, 0x81, 0xD3, 0x7F,                                                 // PSG tone channel zero period low
+        0x3E, 0x00, 0xD3, 0x7F,                                                 // PSG period high
+        0x3E, 0x90, 0xD3, 0x7F,                                                 // PSG channel zero at full volume
+        0xDB, 0xDC,                                                             // in a,($dc): player one
+        0x32, 0x00, 0xC0,                                                       // ld ($c000),a
+        0x18, 0xFE,                                                             // jr -2
+    };
+    std::copy(program.begin(), program.end(), rom.begin());
+
+    HostRuntime host(ConsoleModel::SMS);
+    host.console().bus().set_mapper(CartridgeMapper::SMapper);
+    host.load_rom(rom);
+    HostInputState input;
+    input.player1 = static_cast<u8>(Joypad::Right | Joypad::Button2);
+    (void)host.run_frame(input); // program configures scanline zero after its first render
+    const HostFrameResult frame = host.run_frame(input);
+
+    const BusMapperSnapshot mapper = host.console().bus().mapper_snapshot();
+    assert(mapper.mapper == CartridgeMapper::SMapper);
+    assert(mapper.smapper_slots[0] == 2);
+    assert((host.console().bus().read(0xC000) & Joypad::Right) == 0);
+    assert((host.console().bus().read(0xC000) & Joypad::Button2) == 0);
+    assert(host.framebuffer()[0] == 0xFFFF0000);
+    assert(frame.stereo_samples > 0);
+    assert(std::any_of(host.audio().begin(), host.audio().end(), [](s16 sample) { return sample != 0; }));
+}
+
 void test_host_runtime_stereo_mixer_respects_sample_rate() {
     const std::vector<u8> rom = {
         0x3E,
@@ -3501,6 +3544,7 @@ int main() {
     test_bc_de_indirect_loads();
     test_hl_absolute_load_store();
     test_host_runtime_frame_audio_and_input();
+    test_synthetic_rom_integrates_mapper_vdp_psg_and_input();
     test_host_runtime_stereo_mixer_respects_sample_rate();
     test_host_input_script_tracks_frame_state();
     test_console_save_state_round_trip_restores_runtime_state();
