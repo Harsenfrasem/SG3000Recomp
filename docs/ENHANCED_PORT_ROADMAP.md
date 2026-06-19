@@ -8,9 +8,9 @@ ROMs, BIOS, saves, screenshots proprietarias, dumps de memoria privados e caminh
 
 Estado atual observado localmente:
 
-- 3 ROMs privadas disponiveis em `local-roms/`.
+- 9 ROMs privadas disponiveis em `local-roms/`.
 - Formatos presentes: `.sms` e `.bin`.
-- Tamanhos presentes: 128 KiB e 256 KiB.
+- Tamanhos presentes: 32 KiB, 128 KiB e 256 KiB.
 - BIOS privadas disponiveis em `local-bios/`.
 
 O repositorio deve guardar somente ferramentas, formatos, exemplos neutros e perfis demonstrativos sem hash real de acervo privado.
@@ -28,16 +28,16 @@ Melhorias profundas como viewport maior, cenario expandido, HUD reposicionado e 
 
 ### 1. Inventario por hash
 
-- [ ] Gerar hash local com `sgrecomp_host --print-hash`.
-- [ ] Criar perfil local ignorado pelo Git para cada ROM privada.
-- [ ] Registrar modelo, necessidade de BIOS, mapper suspeito e status visual/audio.
-- [ ] Nunca salvar nome de arquivo local, caminho absoluto, ROM ou BIOS no repositorio.
+- [x] Gerar hash local com `sgrecomp_host --print-hash` para o acervo atual.
+- [x] Criar perfil local ignorado pelo Git para cada ROM privada.
+- [x] Registrar modelo, uso de BIOS, mapper e status visual/audio em inventario anonimo local.
+- [x] Manter nomes, caminhos, ROMs, BIOS, hashes e rotas especificas fora do repositorio.
 
 ### 2. Baseline fiel
 
-- [ ] Rodar cada ROM no host em modo `accurate`.
+- [x] Rodar cada ROM atual no host headless em modo `accurate` por 300 frames.
 - [ ] Capturar frame BMP, audio WAV/VGM e cobertura de PC em `out/`.
-- [ ] Registrar localmente se chega em tela, se toca audio e se depende de BIOS.
+- [x] Registrar localmente atividade visual, audio nao-zero, mapper, PC e uso de BIOS.
 - [ ] Comparar o comportamento com o smoke runner para separar bugs do host e bugs do runtime.
 
 ### 3. Mapas tecnicos por jogo
@@ -85,8 +85,8 @@ Melhorias profundas como viewport maior, cenario expandido, HUD reposicionado e 
 - [x] Comparar modo fiel e enhanced no mesmo trecho privado de jogo com estado e input deterministas.
 - [x] Verificar save state, input e audio durante gameplay; SRAM permanece dependente de titulo compativel.
 - [ ] Medir FPS, underruns, fallback count e estabilidade de frame.
-- [ ] Guardar artefatos privados somente em `out/` ou `local-*`.
-- [ ] Promover apenas ferramentas genericas e testes sinteticos para o repositorio.
+- [x] Guardar artefatos privados somente em `out/` ou `local-*`.
+- [x] Promover apenas ferramentas genericas e testes sinteticos para o repositorio.
 
 ## Tipos De Enhancement
 
