@@ -18,13 +18,18 @@ O menu **Melhorias** também alterna explicitamente entre o modo fiel e o enhanc
 Antes da primeira ativação enhanced da sessão, a GUI explica que essas opções podem
 alterar a aparência original e pede confirmação. Voltar ao modo fiel desliga as duas melhorias visuais.
 
+Em **Exibição > Tamanho da tela**, a janela pode usar escala inteira de `1x` a `6x` sem
+alterar a resolução interna do console. Em **Controles**, cada ação do jogador pode ser
+remapeada: escolha a ação e pressione a nova tecla. Se a tecla já estiver em uso, os dois
+vínculos são trocados para evitar conflitos. Há também uma opção para restaurar o padrão.
+
 Nenhuma ROM ou BIOS é copiada para o projeto. Cancelar qualquer seletor encerra o fluxo sem alterar arquivos.
 
 ## Controles
 
-- Setas: direcional do jogador 1.
-- `Z` / `X`: botões 1 e 2.
-- `Enter`: Pause/NMI do Master System.
+- Setas: direcional padrão do jogador 1.
+- `Z` / `X`: botões 1 e 2 por padrão.
+- `Enter`: Pause/NMI do Master System por padrão.
 - `Space`: pausa a emulação.
 - `R`: reset.
 - `M`: mute.
@@ -41,7 +46,7 @@ No fluxo gráfico, a SRAM é carregada automaticamente ao abrir a ROM e salva ao
 %LOCALAPPDATA%\SG3000Recomp\saves\
 ```
 
-O modo de execução, overlay, melhorias de vídeo, mute e volume ficam em `settings.ini`, diretamente
+O modo de execução, escala da janela, controles, overlay, melhorias de vídeo, mute e volume ficam em `settings.ini`, diretamente
 na pasta `SG3000Recomp`. `recent-games.txt` guarda localmente até dez caminhos de ROM para alimentar
 o menu de recentes; caminhos de BIOS não são salvos. Esses arquivos permanecem fora do repositório.
 

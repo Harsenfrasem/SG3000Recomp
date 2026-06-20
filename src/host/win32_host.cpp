@@ -18,6 +18,7 @@
 #include <cctype>
 #include <cstdlib>
 #include <cstdint>
+#include <cstring>
 #include <exception>
 #include <filesystem>
 #include <fstream>
@@ -280,6 +281,22 @@ class Win32Audio {
     }
 };
 
+enum class ControlAction : std::size_t {
+    Up,
+    Down,
+    Left,
+    Right,
+    Button1,
+    Button2,
+    Pause,
+    Count,
+};
+
+struct InputBindings {
+    std::array<UINT, static_cast<std::size_t>(ControlAction::Count)> keys{
+        VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT, 'Z', 'X', VK_RETURN};
+};
+
 struct AppState {
     std::unique_ptr<HostRuntime> host;
     std::unique_ptr<Win32Audio> audio;
@@ -290,6 +307,10 @@ struct AppState {
     std::filesystem::path quick_state_path;
     std::vector<std::filesystem::path> recent_games;
     std::optional<std::filesystem::path> pending_gui_rom;
+    InputBindings bindings;
+    std::optional<ControlAction> pending_binding;
+    HMENU controls_menu = nullptr;
+    HMENU scale_menu = nullptr;
     SaveStateMetadata state_metadata;
     std::string status_message;
     BITMAPINFO bitmap_info{};
@@ -297,6 +318,7 @@ struct AppState {
     bool emulation_paused = false;
     bool overlay_enabled = true;
     bool compatibility_warning_acknowledged = false;
+    int window_scale = 3;
     double fps = 0.0;
     u64 rendered_frames = 0;
     std::size_t quit_after_frames = 0;
@@ -311,6 +333,8 @@ struct GraphicalSettings {
     bool disable_sprite_limit = false;
     bool muted = false;
     int volume_percent = 100;
+    int window_scale = 3;
+    InputBindings bindings;
 };
 
 enum MenuCommand : UINT {
@@ -326,6 +350,11 @@ enum MenuCommand : UINT {
     MenuHelpControls,
     MenuRecentFirst = 1100,
     MenuRecentLast = MenuRecentFirst + 9,
+    MenuScaleFirst = 1200,
+    MenuScaleLast = MenuScaleFirst + 5,
+    MenuControlFirst = 1300,
+    MenuControlLast = MenuControlFirst + static_cast<UINT>(ControlAction::Count) - 1,
+    MenuControlReset,
 };
 
 std::vector<u8> read_file(const std::filesystem::path& path) {
@@ -390,6 +419,9 @@ bool parse_setting_bool(const std::string& value, bool fallback) {
     return fallback;
 }
 
+constexpr std::array<const char*, static_cast<std::size_t>(ControlAction::Count)> control_setting_names{
+    "key_up", "key_down", "key_left", "key_right", "key_button1", "key_button2", "key_pause"};
+
 GraphicalSettings load_graphical_settings(const std::filesystem::path& path) {
     GraphicalSettings settings;
     std::ifstream file(path);
@@ -417,6 +449,36 @@ GraphicalSettings load_graphical_settings(const std::filesystem::path& path) {
             } catch (const std::exception&) {
                 // Keep the default when a local setting was edited incorrectly.
             }
+        } else if (key == "window_scale") {
+            try {
+                settings.window_scale = std::clamp(std::stoi(value), 1, 6);
+            } catch (const std::exception&) {
+                // Keep the default when a local setting was edited incorrectly.
+            }
+        } else {
+            for (std::size_t index = 0; index < control_setting_names.size(); ++index) {
+                if (key == control_setting_names[index]) {
+                    try {
+                        settings.bindings.keys[index] = static_cast<UINT>(std::clamp(std::stoi(value), 1, 255));
+                    } catch (const std::exception&) {
+                        // Keep the default when a local setting was edited incorrectly.
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    const InputBindings defaults;
+    for (std::size_t index = 0; index < settings.bindings.keys.size(); ++index) {
+        const auto duplicate = std::find(
+            settings.bindings.keys.begin(), settings.bindings.keys.begin() + index, settings.bindings.keys[index]);
+        if (duplicate != settings.bindings.keys.begin() + index) {
+            const auto replacement = std::find_if(defaults.keys.begin(), defaults.keys.end(), [&](UINT candidate) {
+                return std::find(settings.bindings.keys.begin(), settings.bindings.keys.begin() + index, candidate) ==
+                       settings.bindings.keys.begin() + index;
+            });
+            settings.bindings.keys[index] =
+                replacement == defaults.keys.end() ? static_cast<UINT>('A' + index) : *replacement;
         }
     }
     return settings;
@@ -433,13 +495,17 @@ void save_graphical_settings(const std::filesystem::path& path,
     const auto& enhancements = app.host->console().enhancements();
     const bool muted = app.audio ? app.audio->muted() : previous.muted;
     const int volume = app.audio ? app.audio->volume_percent() : previous.volume_percent;
-    file << "version=2\n"
+    file << "version=3\n"
          << "overlay=" << (app.overlay_enabled ? 1 : 0) << "\n"
          << "enhanced_mode=" << (enhancements.mode == RuntimeMode::Enhanced ? 1 : 0) << "\n"
          << "reduce_flicker=" << (enhancements.reduce_flicker ? 1 : 0) << "\n"
          << "disable_sprite_limit=" << (enhancements.disable_sprite_limit ? 1 : 0) << "\n"
          << "muted=" << (muted ? 1 : 0) << "\n"
-         << "volume_percent=" << volume << "\n";
+         << "volume_percent=" << volume << "\n"
+         << "window_scale=" << app.window_scale << "\n";
+    for (std::size_t index = 0; index < control_setting_names.size(); ++index) {
+        file << control_setting_names[index] << '=' << app.bindings.keys[index] << '\n';
+    }
 }
 
 std::string hash_file_stem(std::string hash) {
@@ -657,23 +723,60 @@ bool complete_graphical_launch_options(Options& opts) {
     return true;
 }
 
-u8 button_for_key(WPARAM key) {
-    switch (key) {
-    case VK_UP:
+const char* control_action_name(ControlAction action) {
+    switch (action) {
+    case ControlAction::Up:
+        return "Cima";
+    case ControlAction::Down:
+        return "Baixo";
+    case ControlAction::Left:
+        return "Esquerda";
+    case ControlAction::Right:
+        return "Direita";
+    case ControlAction::Button1:
+        return "Botao 1";
+    case ControlAction::Button2:
+        return "Botao 2";
+    case ControlAction::Pause:
+        return "Pause/NMI";
+    case ControlAction::Count:
+        break;
+    }
+    return "Desconhecido";
+}
+
+std::wstring key_display_name(UINT key) {
+    UINT scan_code = MapVirtualKeyW(key, MAPVK_VK_TO_VSC) << 16;
+    if (key == VK_LEFT || key == VK_UP || key == VK_RIGHT || key == VK_DOWN || key == VK_INSERT || key == VK_DELETE ||
+        key == VK_HOME || key == VK_END || key == VK_PRIOR || key == VK_NEXT) {
+        scan_code |= 1U << 24;
+    }
+    std::array<wchar_t, 64> name{};
+    if (GetKeyNameTextW(static_cast<LONG>(scan_code), name.data(), static_cast<int>(name.size())) > 0) {
+        return name.data();
+    }
+    return L"VK " + std::to_wstring(key);
+}
+
+u8 joypad_button_for_action(ControlAction action) {
+    switch (action) {
+    case ControlAction::Up:
         return Joypad::Up;
-    case VK_DOWN:
+    case ControlAction::Down:
         return Joypad::Down;
-    case VK_LEFT:
+    case ControlAction::Left:
         return Joypad::Left;
-    case VK_RIGHT:
+    case ControlAction::Right:
         return Joypad::Right;
-    case 'Z':
+    case ControlAction::Button1:
         return Joypad::Button1;
-    case 'X':
+    case ControlAction::Button2:
         return Joypad::Button2;
-    default:
+    case ControlAction::Pause:
+    case ControlAction::Count:
         return 0;
     }
+    return 0;
 }
 
 void set_emulation_paused(AppState& app, bool paused) {
@@ -698,6 +801,36 @@ void reset_emulation(AppState& app) {
 void request_gui_relaunch(HWND hwnd, AppState& app, std::filesystem::path rom) {
     app.pending_gui_rom = std::move(rom);
     DestroyWindow(hwnd);
+}
+
+void resize_game_window(HWND hwnd, AppState& app, int scale) {
+    app.window_scale = std::clamp(scale, 1, 6);
+    RECT window{};
+    GetWindowRect(hwnd, &window);
+    RECT desired{0, 0, Vdp::width * app.window_scale, app.host->console().vdp().active_height() * app.window_scale};
+    AdjustWindowRectEx(&desired,
+                       static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_STYLE)),
+                       GetMenu(hwnd) != nullptr,
+                       static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_EXSTYLE)));
+    SetWindowPos(hwnd,
+                 nullptr,
+                 window.left,
+                 window.top,
+                 desired.right - desired.left,
+                 desired.bottom - desired.top,
+                 SWP_NOACTIVATE | SWP_NOZORDER);
+    app.status_message = "tela ajustada para " + std::to_string(app.window_scale) + "x";
+}
+
+void request_control_binding(HWND hwnd, AppState& app, ControlAction action) {
+    app.pending_binding = action;
+    app.input = {};
+    const std::wstring message = L"Apos fechar esta mensagem, pressione a nova tecla para " +
+                                 std::wstring(control_action_name(action),
+                                              control_action_name(action) + std::strlen(control_action_name(action))) +
+                                 L".\n\nPressione Esc para cancelar.";
+    MessageBoxW(hwnd, message.c_str(), L"SG3000Recomp - Remapear controle", MB_OK | MB_ICONINFORMATION);
+    app.status_message = std::string{"aguardando tecla para "} + control_action_name(action);
 }
 
 bool confirm_enhanced_mode(HWND hwnd, AppState& app) {
@@ -765,19 +898,65 @@ void update_menu_checks(HWND hwnd, const AppState& app) {
     check(MenuEnhancementReduceFlicker, config.reduce_flicker);
     check(MenuEnhancementDisableSpriteLimit, config.disable_sprite_limit);
     check(MenuViewOverlay, app.overlay_enabled);
+    CheckMenuRadioItem(app.scale_menu,
+                       MenuScaleFirst,
+                       MenuScaleLast,
+                       MenuScaleFirst + static_cast<UINT>(app.window_scale - 1),
+                       MF_BYCOMMAND);
+    if (app.controls_menu != nullptr) {
+        for (std::size_t index = 0; index < app.bindings.keys.size(); ++index) {
+            const auto action = static_cast<ControlAction>(index);
+            const std::wstring label =
+                std::wstring(control_action_name(action),
+                             control_action_name(action) + std::strlen(control_action_name(action))) +
+                L"\t" + key_display_name(app.bindings.keys[index]);
+            ModifyMenuW(app.controls_menu,
+                        MenuControlFirst + static_cast<UINT>(index),
+                        MF_BYCOMMAND | MF_STRING,
+                        MenuControlFirst + static_cast<UINT>(index),
+                        label.c_str());
+        }
+    }
 }
 
 void update_key(AppState& app, WPARAM key, bool pressed) {
-    const u8 button = button_for_key(key);
-    if (button != 0) {
-        if (pressed) {
-            app.input.player1 = static_cast<u8>(app.input.player1 | button);
+    if (pressed && app.pending_binding) {
+        if (key == VK_ESCAPE) {
+            app.status_message = "remapeamento cancelado";
         } else {
-            app.input.player1 = static_cast<u8>(app.input.player1 & ~button);
+            const std::size_t target = static_cast<std::size_t>(*app.pending_binding);
+            const UINT previous = app.bindings.keys[target];
+            const auto conflict = std::find(app.bindings.keys.begin(), app.bindings.keys.end(), static_cast<UINT>(key));
+            if (conflict != app.bindings.keys.end()) {
+                *conflict = previous;
+            }
+            app.bindings.keys[target] = static_cast<UINT>(key);
+            app.status_message = std::string{control_action_name(*app.pending_binding)} + " remapeado";
+        }
+        app.pending_binding.reset();
+        app.input = {};
+        return;
+    }
+
+    bool matched_game_control = false;
+    for (std::size_t index = 0; index < app.bindings.keys.size(); ++index) {
+        if (app.bindings.keys[index] != key) {
+            continue;
+        }
+        matched_game_control = true;
+        const auto action = static_cast<ControlAction>(index);
+        if (action == ControlAction::Pause) {
+            app.input.pause = pressed;
+        } else if (const u8 button = joypad_button_for_action(action); button != 0) {
+            if (pressed) {
+                app.input.player1 = static_cast<u8>(app.input.player1 | button);
+            } else {
+                app.input.player1 = static_cast<u8>(app.input.player1 & ~button);
+            }
         }
     }
-    if (key == VK_RETURN) {
-        app.input.pause = pressed;
+    if (matched_game_control) {
+        return;
     }
     if (key == VK_F1 && pressed) {
         app.overlay_enabled = !app.overlay_enabled;
@@ -914,6 +1093,20 @@ std::string overlay_text(const AppState& app) {
     return out.str();
 }
 
+std::wstring controls_help_text(const AppState& app) {
+    std::wstring text = L"Controles do jogo:\n";
+    for (std::size_t index = 0; index < app.bindings.keys.size(); ++index) {
+        const auto action = static_cast<ControlAction>(index);
+        text += std::wstring(control_action_name(action),
+                             control_action_name(action) + std::strlen(control_action_name(action))) +
+                L": " + key_display_name(app.bindings.keys[index]) + L"\n";
+    }
+    text += L"\nAtalhos livres:\nSpace: pausar emulacao\nR: reset\nM: mute\n+ / -: volume\n"
+            L"F1: overlay\nF5: salvar rapido\nF9: carregar rapido\n\n"
+            L"Um atalho deixa de agir no host quando for atribuido a um controle do jogo.";
+    return text;
+}
+
 void draw_overlay(HDC dc, const AppState& app) {
     if (!app.overlay_enabled) {
         return;
@@ -996,6 +1189,16 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
             request_gui_relaunch(hwnd, *app, app->recent_games[command - MenuRecentFirst]);
             return 0;
         }
+        if (const UINT command = LOWORD(wparam); command >= MenuScaleFirst && command <= MenuScaleLast) {
+            resize_game_window(hwnd, *app, static_cast<int>(command - MenuScaleFirst + 1));
+            update_menu_checks(hwnd, *app);
+            InvalidateRect(hwnd, nullptr, FALSE);
+            return 0;
+        }
+        if (const UINT command = LOWORD(wparam); command >= MenuControlFirst && command <= MenuControlLast) {
+            request_control_binding(hwnd, *app, static_cast<ControlAction>(command - MenuControlFirst));
+            return 0;
+        }
         switch (LOWORD(wparam)) {
         case MenuFileExit:
             DestroyWindow(hwnd);
@@ -1034,13 +1237,14 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
         case MenuViewOverlay:
             app->overlay_enabled = !app->overlay_enabled;
             break;
+        case MenuControlReset:
+            app->bindings = {};
+            app->input = {};
+            app->status_message = "controles restaurados";
+            break;
         case MenuHelpControls:
-            MessageBoxW(hwnd,
-                        L"Setas: direcional\nZ / X: botoes 1 e 2\nEnter: Pause/NMI do console\n"
-                        L"Space: pausar emulacao\nR: reset\nM: mute\n+ / -: volume\n"
-                        L"F1: overlay\nF5: salvar rapido\nF9: carregar rapido",
-                        L"SG3000Recomp - Controles",
-                        MB_OK | MB_ICONINFORMATION);
+            MessageBoxW(
+                hwnd, controls_help_text(*app).c_str(), L"SG3000Recomp - Controles", MB_OK | MB_ICONINFORMATION);
             return 0;
         default:
             return 0;
@@ -1074,14 +1278,18 @@ std::wstring recent_game_menu_label(std::size_t index, const std::filesystem::pa
     return L"&" + std::to_wstring(index + 1) + L" " + filename;
 }
 
-HMENU create_application_menu(const AppState& app) {
+HMENU create_application_menu(AppState& app) {
     const HMENU menu = CreateMenu();
     const HMENU file = CreatePopupMenu();
     const HMENU recent = CreatePopupMenu();
     const HMENU emulation = CreatePopupMenu();
     const HMENU enhancements = CreatePopupMenu();
     const HMENU view = CreatePopupMenu();
+    const HMENU scale = CreatePopupMenu();
+    const HMENU controls = CreatePopupMenu();
     const HMENU help = CreatePopupMenu();
+    app.scale_menu = scale;
+    app.controls_menu = controls;
 
     AppendMenuW(file, MF_STRING, MenuFileOpenRom, L"Abrir outro jogo...");
     if (app.recent_games.empty()) {
@@ -1103,12 +1311,28 @@ HMENU create_application_menu(const AppState& app) {
     AppendMenuW(enhancements, MF_STRING, MenuEnhancementReduceFlicker, L"Reduzir flicker");
     AppendMenuW(enhancements, MF_STRING, MenuEnhancementDisableSpriteLimit, L"Desativar limite de sprites");
     AppendMenuW(view, MF_STRING, MenuViewOverlay, L"Overlay de diagnostico\tF1");
+    for (UINT factor = 1; factor <= 6; ++factor) {
+        const std::wstring label = std::to_wstring(factor) + L"x";
+        AppendMenuW(scale, MF_STRING, MenuScaleFirst + factor - 1, label.c_str());
+    }
+    AppendMenuW(view, MF_POPUP, reinterpret_cast<UINT_PTR>(scale), L"Tamanho da tela");
+    for (std::size_t index = 0; index < app.bindings.keys.size(); ++index) {
+        const auto action = static_cast<ControlAction>(index);
+        const std::wstring label =
+            std::wstring(control_action_name(action),
+                         control_action_name(action) + std::strlen(control_action_name(action))) +
+            L"\t" + key_display_name(app.bindings.keys[index]);
+        AppendMenuW(controls, MF_STRING, MenuControlFirst + index, label.c_str());
+    }
+    AppendMenuW(controls, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(controls, MF_STRING, MenuControlReset, L"Restaurar padrao");
     AppendMenuW(help, MF_STRING, MenuHelpControls, L"Controles");
 
     AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(file), L"Arquivo");
     AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(emulation), L"Emulacao");
     AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(enhancements), L"Melhorias");
     AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(view), L"Exibicao");
+    AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(controls), L"Controles");
     AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(help), L"Ajuda");
     return menu;
 }
@@ -1219,6 +1443,7 @@ int run(int argc, char** argv) {
     if (opts.gui_launch) {
         graphical_settings = load_graphical_settings(graphical_settings_path);
         opts.overlay = graphical_settings.overlay;
+        opts.scale = graphical_settings.window_scale;
         opts.enhancements.reduce_flicker = graphical_settings.reduce_flicker;
         opts.enhancements.disable_sprite_limit = graphical_settings.disable_sprite_limit;
         if (graphical_settings.enhanced_mode || opts.enhancements.reduce_flicker ||
@@ -1311,6 +1536,8 @@ int run(int argc, char** argv) {
     app.profile_name = profile_name;
     app.quick_state_path = graphical_quick_state_path;
     app.recent_games = std::move(recent_games);
+    app.bindings = graphical_settings.bindings;
+    app.window_scale = opts.scale;
     if (bios) {
         app.host->load_bios(*bios);
     }

@@ -89,6 +89,7 @@ Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
 - [x] Smoke runner com log CSV local de escritas FM.
 - [ ] FM opcional fiel para jogos com suporte conhecido.
 - [ ] Substituir sintetizador FM aproximado por nucleo YM2413/OPLL validado.
+- [ ] YM2612 opcional como enhancement nao historico, com mixer, estado e validacao proprios.
 - [ ] Experimento de FM enhancement para PSG-only com perfis manuais.
 - [ ] Fallback obrigatorio para PSG original.
 - [ ] Documentar limites: FM sintetico nao deve ser tratado como fidelidade historica.
@@ -96,10 +97,17 @@ Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
 ### 6. GUI amigavel para usuario final
 
 - [x] GUI inicial disponivel apos estabilizacao do host runtime com janela/audio.
-- [x] Duplo clique no host abre seletores nativos de ROM e BIOS opcional sem copiar ou versionar arquivos.
+- [ ] GUI inicia em estado ocioso, com tela preta e menus disponiveis, sem abrir seletores automaticamente.
+- [ ] Abrir ou trocar ROM na mesma janela e no mesmo processo, salvando a sessao anterior com seguranca.
+- [ ] Seletor independente para carregar/remover BIOS antes da ROM; sem BIOS, iniciar diretamente pelo cartucho.
+- [ ] Boot com BIOS selecionada executa BIOS antes do jogo e preserva handoff pelo controle de memoria.
+- [ ] Soft reset reinicia somente a CPU/sessao ativa sem reabrir ROM nem forcar novo boot da BIOS.
+- [x] GUI usa seletores nativos de ROM e BIOS sem copiar ou versionar arquivos.
 - [ ] Biblioteca local de jogos por hash/header, com apelidos configurados pelo usuario.
 - [x] Tela de configuracao simples para modo fiel/enhanced e toggles de enhancements.
 - [x] GUI: SRAM automatica e quick-save/load por hash em `%LOCALAPPDATA%`, com validacao de estado.
+- [x] GUI: escala inteira de janela entre 1x e 6x, configuravel e persistente.
+- [x] GUI: remapeamento persistente de direcional, botoes e Pause/NMI, com troca de conflitos.
 - [ ] GUI: gerenciamento visual de saves, screenshots e audio dumps.
 - [ ] Perfis por jogo editaveis pela GUI.
 - [ ] Tela de logs/status com FPS, backend ativo, modelo, fallback/recompiler e avisos de compatibilidade.
