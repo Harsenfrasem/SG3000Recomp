@@ -20,6 +20,11 @@ O menu **Melhorias** também alterna explicitamente entre o modo fiel e o enhanc
 Antes da primeira ativação enhanced da sessão, a GUI explica que essas opções podem
 alterar a aparência original e pede confirmação. Voltar ao modo fiel desliga as duas melhorias visuais.
 
+**YM2612 experimental (portas F4-F7)** ativa o núcleo [Nuked-OPN2](https://github.com/nukeykt/Nuked-OPN2)
+em modo compatível com YM2612. Essa extensão não pertence ao hardware SMS/SG-3000 e não
+substitui automaticamente o PSG ou o YM2413: software preparado deve escrever endereço/dados
+nos pares `F4/F5` (banco 0) e `F6/F7` (banco 1). Voltar ao modo fiel desativa a extensão.
+
 Em **Exibição > Tamanho da tela**, a janela pode usar escala inteira de `1x` a `6x` sem
 alterar a resolução interna do console. Em **Controles**, cada ação do jogador pode ser
 remapeada: escolha a ação e pressione a nova tecla. Se a tecla já estiver em uso, os dois
@@ -48,7 +53,7 @@ No fluxo gráfico, a SRAM é carregada automaticamente ao abrir a ROM e salva ao
 %LOCALAPPDATA%\SG3000Recomp\saves\
 ```
 
-O modo de execução, escala da janela, controles, overlay, melhorias de vídeo, mute e volume ficam em `settings.ini`, diretamente
+O modo de execução, escala da janela, controles, overlay, melhorias de vídeo/áudio, mute e volume ficam em `settings.ini`, diretamente
 na pasta `SG3000Recomp`. `recent-games.txt` guarda localmente até dez caminhos de ROM para alimentar
 o menu de recentes; caminhos de BIOS não são salvos. Esses arquivos permanecem fora do repositório.
 

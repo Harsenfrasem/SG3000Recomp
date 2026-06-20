@@ -335,6 +335,7 @@ struct GraphicalSettings {
     bool enhanced_mode = false;
     bool reduce_flicker = false;
     bool disable_sprite_limit = false;
+    bool enable_ym2612 = false;
     bool muted = false;
     int volume_percent = 100;
     int window_scale = 3;
@@ -352,6 +353,7 @@ enum MenuCommand : UINT {
     MenuModeEnhanced,
     MenuEnhancementReduceFlicker,
     MenuEnhancementDisableSpriteLimit,
+    MenuEnhancementYm2612,
     MenuViewOverlay,
     MenuHelpControls,
     MenuRecentFirst = 1100,
@@ -447,6 +449,8 @@ GraphicalSettings load_graphical_settings(const std::filesystem::path& path) {
             settings.reduce_flicker = parse_setting_bool(value, settings.reduce_flicker);
         } else if (key == "disable_sprite_limit") {
             settings.disable_sprite_limit = parse_setting_bool(value, settings.disable_sprite_limit);
+        } else if (key == "enable_ym2612") {
+            settings.enable_ym2612 = parse_setting_bool(value, settings.enable_ym2612);
         } else if (key == "muted") {
             settings.muted = parse_setting_bool(value, settings.muted);
         } else if (key == "volume_percent") {
@@ -501,11 +505,12 @@ void save_graphical_settings(const std::filesystem::path& path,
     const auto& enhancements = app.host->console().enhancements();
     const bool muted = app.audio ? app.audio->muted() : previous.muted;
     const int volume = app.audio ? app.audio->volume_percent() : previous.volume_percent;
-    file << "version=3\n"
+    file << "version=4\n"
          << "overlay=" << (app.overlay_enabled ? 1 : 0) << "\n"
          << "enhanced_mode=" << (enhancements.mode == RuntimeMode::Enhanced ? 1 : 0) << "\n"
          << "reduce_flicker=" << (enhancements.reduce_flicker ? 1 : 0) << "\n"
          << "disable_sprite_limit=" << (enhancements.disable_sprite_limit ? 1 : 0) << "\n"
+         << "enable_ym2612=" << (enhancements.enable_ym2612 ? 1 : 0) << "\n"
          << "muted=" << (muted ? 1 : 0) << "\n"
          << "volume_percent=" << volume << "\n"
          << "window_scale=" << app.window_scale << "\n";
@@ -536,7 +541,7 @@ void print_usage() {
         << "                    [--profile profiles.txt]\n"
         << "                    [--print-hash]\n"
         << "                    [--quit-after-frames n]\n"
-        << "                    [--disable-sprite-limit] [--reduce-flicker] [--enable-fm]\n";
+        << "                    [--disable-sprite-limit] [--reduce-flicker] [--enable-fm] [--enable-ym2612]\n";
 }
 
 Options parse_args(int argc, char** argv) {
@@ -644,6 +649,11 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--enable-fm") {
             opts.enhancements.enable_fm = true;
+            continue;
+        }
+        if (arg == "--enable-ym2612") {
+            opts.enhancements.enable_ym2612 = true;
+            opts.enhancements.mode = RuntimeMode::Enhanced;
             continue;
         }
         if (opts.rom.empty()) {
@@ -970,8 +980,9 @@ bool confirm_enhanced_mode(HWND hwnd, AppState& app) {
     const int result =
         MessageBoxW(hwnd,
                     L"O modo enhanced pode alterar a aparencia original do jogo.\n\n"
-                    L"Reducao de flicker e remocao do limite de sprites nao representam "
-                    L"exatamente o hardware historico. Voce pode voltar ao modo fiel a qualquer momento.\n\n"
+                    L"Reducao de flicker, remocao do limite de sprites e o YM2612 experimental nao representam "
+                    L"exatamente o hardware historico do SMS/SG-3000. Voce pode voltar ao modo fiel a qualquer "
+                    L"momento.\n\n"
                     L"Deseja continuar?",
                     L"SG3000Recomp - Aviso de compatibilidade",
                     MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2);
@@ -988,6 +999,7 @@ void set_runtime_mode(AppState& app, RuntimeMode mode) {
     if (mode == RuntimeMode::Accurate) {
         config.reduce_flicker = false;
         config.disable_sprite_limit = false;
+        config.enable_ym2612 = false;
         app.status_message = "modo fiel ativado";
     } else {
         app.status_message = "modo enhanced ativado";
@@ -1003,6 +1015,9 @@ void set_enhancement(AppState& app, MenuCommand command, bool enabled) {
     } else if (command == MenuEnhancementDisableSpriteLimit) {
         config.disable_sprite_limit = enabled;
         app.status_message = enabled ? "limite de sprites desativado" : "limite de sprites restaurado";
+    } else if (command == MenuEnhancementYm2612) {
+        config.enable_ym2612 = enabled;
+        app.status_message = enabled ? "YM2612 experimental ativado" : "YM2612 experimental desativado";
     }
     if (enabled && config.mode == RuntimeMode::Accurate) {
         config.mode = RuntimeMode::Enhanced;
@@ -1031,6 +1046,7 @@ void update_menu_checks(HWND hwnd, const AppState& app) {
                        MF_BYCOMMAND);
     check(MenuEnhancementReduceFlicker, config.reduce_flicker);
     check(MenuEnhancementDisableSpriteLimit, config.disable_sprite_limit);
+    check(MenuEnhancementYm2612, config.enable_ym2612);
     check(MenuViewOverlay, app.overlay_enabled);
     CheckMenuRadioItem(app.scale_menu,
                        MenuScaleFirst,
@@ -1169,7 +1185,8 @@ std::string overlay_text(const AppState& app) {
         << " cycles " << cpu.cycles << (cpu.halted ? " halted" : "") << "\n"
         << "mode " << runtime_mode_name(config.mode) << "  sprite_limit "
         << (config.disable_sprite_limit ? "off" : "on") << "  reduce_flicker " << (config.reduce_flicker ? "on" : "off")
-        << "  " << (app.emulation_paused ? "paused" : "running") << "\n"
+        << "  ym2612 " << (config.enable_ym2612 ? "on" : "off") << "  " << (app.emulation_paused ? "paused" : "running")
+        << "\n"
         << "execution " << host_execution_mode_name(app.host->config().execution_mode) << "  interpreted "
         << app.last_frame.interpreted_instructions << "  recompiled " << app.last_frame.recompiled_instructions
         << "  fallback " << app.last_frame.fallback_instructions << "\n";
@@ -1400,6 +1417,12 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
             set_enhancement(
                 *app, MenuEnhancementDisableSpriteLimit, !app->host->console().enhancements().disable_sprite_limit);
             break;
+        case MenuEnhancementYm2612:
+            if (!app->host->console().enhancements().enable_ym2612 && !confirm_enhanced_mode(hwnd, *app)) {
+                return 0;
+            }
+            set_enhancement(*app, MenuEnhancementYm2612, !app->host->console().enhancements().enable_ym2612);
+            break;
         case MenuViewOverlay:
             app->overlay_enabled = !app->overlay_enabled;
             break;
@@ -1480,6 +1503,7 @@ HMENU create_application_menu(AppState& app) {
     AppendMenuW(enhancements, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(enhancements, MF_STRING, MenuEnhancementReduceFlicker, L"Reduzir flicker");
     AppendMenuW(enhancements, MF_STRING, MenuEnhancementDisableSpriteLimit, L"Desativar limite de sprites");
+    AppendMenuW(enhancements, MF_STRING, MenuEnhancementYm2612, L"YM2612 experimental (portas F4-F7)");
     AppendMenuW(view, MF_STRING, MenuViewOverlay, L"Overlay de diagnostico\tF1");
     for (UINT factor = 1; factor <= 6; ++factor) {
         const std::wstring label = std::to_wstring(factor) + L"x";
@@ -1665,8 +1689,9 @@ int run(int argc, char** argv) {
         opts.scale = graphical_settings.window_scale;
         opts.enhancements.reduce_flicker = graphical_settings.reduce_flicker;
         opts.enhancements.disable_sprite_limit = graphical_settings.disable_sprite_limit;
+        opts.enhancements.enable_ym2612 = graphical_settings.enable_ym2612;
         if (graphical_settings.enhanced_mode || opts.enhancements.reduce_flicker ||
-            opts.enhancements.disable_sprite_limit) {
+            opts.enhancements.disable_sprite_limit || opts.enhancements.enable_ym2612) {
             opts.enhancements.mode = RuntimeMode::Enhanced;
         }
     }

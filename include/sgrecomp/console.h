@@ -6,6 +6,7 @@
 #include "sgrecomp/psg.h"
 #include "sgrecomp/vdp.h"
 #include "sgrecomp/ym2413.h"
+#include "sgrecomp/ym2612.h"
 #include "sgrecomp/z80.h"
 
 #include <span>
@@ -18,6 +19,7 @@ struct ConsoleState {
     VdpState vdp;
     PsgState psg;
     Ym2413State ym2413;
+    Ym2612State ym2612;
     u8 joypad_player1 = 0;
     u8 joypad_player2 = 0;
 };
@@ -69,6 +71,12 @@ class Console {
     const Ym2413& ym2413() const {
         return ym2413_;
     }
+    Ym2612& ym2612() {
+        return ym2612_;
+    }
+    const Ym2612& ym2612() const {
+        return ym2612_;
+    }
     Joypad& joypad() {
         return joypad_;
     }
@@ -80,6 +88,7 @@ class Console {
     Vdp vdp_;
     Psg psg_;
     Ym2413 ym2413_;
+    Ym2612 ym2612_;
     Joypad joypad_;
     Bus bus_;
     Z80State cpu_;

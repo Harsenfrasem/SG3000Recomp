@@ -78,6 +78,13 @@ to left and right before PSG+FM mixing, clipping, WAV output, or Win32 `waveOut`
 submission. `HostRuntimeConfig::audio_sample_rate` controls sampling from CPU cycles;
 the same configured rate is written to WAV headers and the backend format.
 
+An explicit non-historical enhancement can add a YM2612-compatible OPN2 path. It uses the
+cycle-accurate Nuked-OPN2 core in YM2612 mode, built as a replaceable LGPL shared library.
+The extension is disabled by default and exposes custom Z80 I/O ports `F4/F5` for bank 0 and
+`F6/F7` for bank 1. It is additive in the host mixer and never replaces PSG/YM2413 in accurate
+mode. Ordinary SMS software does not target these ports, so profiles or purpose-built software
+must opt in and drive the registers explicitly.
+
 ## Compatibility Strategy
 
 The project exposes three measured host execution modes while the lifter matures:

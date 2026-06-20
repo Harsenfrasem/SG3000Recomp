@@ -1,4 +1,7 @@
 set(CMAKE_SYSTEM_NAME Windows)
+set(CMAKE_C_COMPILER python-zig)
+set(CMAKE_C_COMPILER_ARG1 cc)
+set(CMAKE_C_COMPILER_TARGET x86_64-windows-gnu)
 set(CMAKE_CXX_COMPILER python-zig)
 set(CMAKE_CXX_COMPILER_ARG1 c++)
 set(CMAKE_CXX_COMPILER_TARGET x86_64-windows-gnu)

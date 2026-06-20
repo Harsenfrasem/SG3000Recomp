@@ -89,7 +89,7 @@ Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
 - [x] Smoke runner com log CSV local de escritas FM.
 - [ ] FM opcional fiel para jogos com suporte conhecido.
 - [ ] Substituir sintetizador FM aproximado por nucleo YM2413/OPLL validado.
-- [ ] YM2612 opcional como enhancement nao historico, com mixer, estado e validacao proprios.
+- [x] YM2612 opcional nao historico via Nuked-OPN2: DLL LGPL substituivel, portas F4-F7, mixer, GUI/CLI/perfil e estado v11.
 - [ ] Experimento de FM enhancement para PSG-only com perfis manuais.
 - [ ] Fallback obrigatorio para PSG original.
 - [ ] Documentar limites: FM sintetico nao deve ser tratado como fidelidade historica.
@@ -318,7 +318,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Save RAM em arquivo local pelo host Win32.
 - [x] Estado serializavel inicial para save states.
 - [x] Save states com versao inicial e validacao de ROM hash/modelo.
-- [x] Save states v10 com migracao de v1-v9, framebuffer 240 e validacao de ambiente.
+- [x] Save states v11 com migracao de v1-v10, framebuffer 240, identidade de ambiente e estado Nuked-OPN2.
 - [x] Save state v7 preserva o read buffer do VDP e continua lendo formatos v1-v6.
 - [x] Save state v8 preserva o lock da familia de mapper e continua lendo formatos v1-v7.
 - [x] Debug overlay de PC, FPS, frame, modo runtime e audio.

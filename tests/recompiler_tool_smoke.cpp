@@ -35,6 +35,10 @@
 #error "SGRECOMP_RUNTIME_PATH must be provided by CMake"
 #endif
 
+#ifndef SGRECOMP_OPN2_LINK_PATH
+#error "SGRECOMP_OPN2_LINK_PATH must be provided by CMake"
+#endif
+
 namespace {
 
 std::string quote(const std::filesystem::path& path) {
@@ -117,14 +121,15 @@ void compile_generated_executable(const std::filesystem::path& generated,
                                   const std::filesystem::path& executable) {
     const std::filesystem::path include_dir = std::filesystem::path(SGRECOMP_SOURCE_DIR) / "include";
     const std::filesystem::path runtime = SGRECOMP_RUNTIME_PATH;
+    const std::filesystem::path opn2 = SGRECOMP_OPN2_LINK_PATH;
     std::string command = compiler_command_prefix();
     const std::string compiler_id = SGRECOMP_CXX_COMPILER_ID;
     if (compiler_id == "MSVC") {
         command += " /nologo /EHsc /std:c++20 /I" + quote(include_dir) + " " + quote(generated) + " " + quote(harness) +
-                   " " + quote(runtime) + " /Fe" + quote(executable);
+                   " " + quote(runtime) + " " + quote(opn2) + " /Fe" + quote(executable);
     } else {
         command += " -std=c++20 -I" + quote(include_dir) + " " + quote(generated) + " " + quote(harness) + " " +
-                   quote(runtime) + " -o " + quote(executable);
+                   quote(runtime) + " " + quote(opn2) + " -o " + quote(executable);
     }
     assert(run_command(command) == 0);
 }
@@ -746,6 +751,7 @@ int main() {
                "region = \"pal\"\n"
                "audio_sample_rate = 32000\n"
                "enable_fm = false\n"
+               "enable_ym2612 = false\n"
                "\n"
                "[run]\n"
                "mode = \"host\"\n"

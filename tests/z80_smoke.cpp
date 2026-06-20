@@ -8,6 +8,7 @@
 
 #include <array>
 #include <cassert>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
@@ -2457,6 +2458,95 @@ void test_ym2413_absent_audio_control_probe() {
     assert(!console.ym2413().fm_enabled());
 }
 
+void test_ym2612_experimental_ports_audio_and_state() {
+    Console accurate(ConsoleModel::SMS);
+    accurate.bus().output(0xF4, 0xA0);
+    accurate.bus().output(0xF5, 0x69);
+    assert(!accurate.ym2612().enabled());
+    assert(accurate.ym2612().debug_registers()[0xA0] == 0);
+
+    EnhancementConfig config;
+    config.mode = RuntimeMode::Enhanced;
+    config.enable_ym2612 = true;
+    Console console(ConsoleModel::SMS, config);
+    assert(console.ym2612().enabled());
+
+    const auto write = [&](int bank, u8 address, u8 value) {
+        console.bus().output(bank == 0 ? 0xF4 : 0xF6, address);
+        console.run_cycles(64);
+        console.bus().output(bank == 0 ? 0xF5 : 0xF7, value);
+        console.run_cycles(64);
+    };
+
+    write(0, 0xA0, 0x69);
+    write(0, 0xA4, 0x22);
+    for (u8 slot = 0; slot < 4; ++slot) {
+        write(0, static_cast<u8>(0x30 + slot * 4), 0x01);
+        write(0, static_cast<u8>(0x40 + slot * 4), 0x00);
+        write(0, static_cast<u8>(0x50 + slot * 4), 0x1F);
+        write(0, static_cast<u8>(0x80 + slot * 4), 0x0F);
+    }
+    write(0, 0xB0, 0x07);
+    write(0, 0xB4, 0xC0);
+    write(1, 0xA0, 0x55);
+    assert(console.ym2612().selected_register(0) == 0xB4);
+    assert(console.ym2612().selected_register(1) == 0xA0);
+    assert(console.ym2612().debug_registers()[0x1A0] == 0x55);
+    assert(console.bus().input(0xF4) != 0xFF);
+
+    write(0, 0x28, 0xF0);
+    assert(console.ym2612().channel_key_on(0));
+    console.run_cycles(32768);
+    const auto tone = console.ym2612().sample();
+    assert(std::abs(tone[0]) > 0.0001F || std::abs(tone[1]) > 0.0001F);
+
+    const auto saved = console.save_state();
+    const auto serialized = serialize_console_state(saved);
+    const auto serialized_state = deserialize_console_state(serialized);
+    assert(serialized_state.ym2612.enabled);
+    assert(!serialized_state.ym2612.core_state.empty());
+    assert(serialized_state.ym2612.registers[0xA0] == 0x69);
+    write(0, 0x28, 0x00);
+    assert(!console.ym2612().channel_key_on(0));
+    console.load_state(saved);
+    assert(console.ym2612().enabled());
+    assert(console.enhancements().enable_ym2612);
+    assert(console.ym2612().channel_key_on(0));
+    assert(console.ym2612().debug_registers()[0xA0] == 0x69);
+
+    write(0, 0x2B, 0x80);
+    write(0, 0x2A, 0xFF);
+    const auto dac = console.ym2612().sample();
+    assert(dac[0] > 0.0F && dac[1] > 0.0F);
+}
+
+void test_host_runtime_mixes_ym2612_when_enabled() {
+    EnhancementConfig config;
+    config.mode = RuntimeMode::Enhanced;
+    config.enable_ym2612 = true;
+    HostRuntime host(ConsoleModel::SMS, config);
+    host.load_rom(std::vector<u8>(0x8000, 0x00));
+    const auto write = [&](u8 address, u8 value) {
+        host.console().bus().output(0xF4, address);
+        host.console().run_cycles(64);
+        host.console().bus().output(0xF5, value);
+        host.console().run_cycles(64);
+    };
+    write(0xA0, 0x69);
+    write(0xA4, 0x22);
+    for (u8 slot = 0; slot < 4; ++slot) {
+        write(static_cast<u8>(0x30 + slot * 4), 0x01);
+        write(static_cast<u8>(0x40 + slot * 4), 0x00);
+        write(static_cast<u8>(0x50 + slot * 4), 0x1F);
+        write(static_cast<u8>(0x80 + slot * 4), 0x0F);
+    }
+    write(0xB0, 0x07);
+    write(0xB4, 0xC0);
+    write(0x28, 0xF0);
+    host.run_frame();
+    assert(std::any_of(host.audio().begin(), host.audio().end(), [](s16 sample) { return sample != 0; }));
+}
+
 void test_misc_jumps_and_flags() {
     std::vector<u8> rom(0x40, 0x00);
     rom[0x00] = 0x3E; // ld a,$55
@@ -3623,6 +3713,7 @@ void test_console_save_state_round_trip_restores_runtime_state() {
     metadata.bios_hash = "fnv1a64:bios";
     metadata.profile_fingerprint = "fnv1a64:profile";
     const auto bytes = save_console_state(console, metadata);
+    assert(bytes[4] == 11 && bytes[5] == 0);
     console.bus().write(0xC000, 0x99);
     console.cpu().a = 0x11;
     assert(console.bus().read(0xC000) == 0x99);
@@ -3663,7 +3754,16 @@ void test_console_save_state_round_trip_restores_runtime_state() {
     wrong_profile.profile_fingerprint = "fnv1a64:other-profile";
     assert(rejects_metadata(wrong_profile));
 
-    std::vector<u8> legacy_v9 = bytes;
+    constexpr std::size_t ym2612_fixed_state_size = 537;
+    const std::size_t ym2612_state_size = ym2612_fixed_state_size + console.save_state().ym2612.core_state.size();
+    std::vector<u8> legacy_v10 = bytes;
+    legacy_v10.erase(legacy_v10.end() - static_cast<std::ptrdiff_t>(ym2612_state_size + 2), legacy_v10.end() - 2);
+    legacy_v10[4] = 10;
+    legacy_v10[5] = 0;
+    const auto legacy_v10_image = deserialize_console_state_image(legacy_v10);
+    assert(!legacy_v10_image.state.ym2612.enabled);
+
+    std::vector<u8> legacy_v9 = legacy_v10;
     constexpr std::size_t cpu_state_size = 41;
     constexpr std::size_t bus_state_size = 98325;
     constexpr std::size_t vdp_arrays_before_framebuffer = 16432;
@@ -3710,6 +3810,7 @@ void test_game_profile_hash_and_parse() {
                                                      "mode = \"enhanced\"\n"
                                                      "disable_sprite_limit = true\n"
                                                      "enable_fm = true\n"
+                                                     "enable_ym2612 = true\n"
                                                      "audio_latency_ms = 120\n"
                                                      "audio_sample_rate = 48000\n"
                                                      "video_standard = \"pal\"\n");
@@ -3724,6 +3825,7 @@ void test_game_profile_hash_and_parse() {
     assert(profile->enhancements.mode == RuntimeMode::Enhanced);
     assert(profile->enhancements.disable_sprite_limit);
     assert(profile->enhancements.enable_fm);
+    assert(profile->enhancements.enable_ym2612);
     assert(profile->has_audio_latency_ms);
     assert(profile->audio_latency_ms == 120);
     assert(profile->has_audio_sample_rate);
@@ -3832,6 +3934,8 @@ int main() {
     test_psg_tone_generates_sample();
     test_ym2413_audio_control_and_register_writes();
     test_ym2413_absent_audio_control_probe();
+    test_ym2612_experimental_ports_audio_and_state();
+    test_host_runtime_mixes_ym2612_when_enabled();
     test_misc_jumps_and_flags();
     test_v_counter_port();
     test_v_counter_uses_video_standard_timing();

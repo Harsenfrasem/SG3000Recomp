@@ -4,6 +4,7 @@
 #include "sgrecomp/psg.h"
 #include "sgrecomp/vdp.h"
 #include "sgrecomp/ym2413.h"
+#include "sgrecomp/ym2612.h"
 
 #include <algorithm>
 #include <cctype>
@@ -50,8 +51,8 @@ CartridgeMapper cartridge_mapper_from_name(std::string_view name) {
     throw std::runtime_error("unknown mapper: " + normalized);
 }
 
-Bus::Bus(ConsoleModel model, Vdp& vdp, Psg& psg, Ym2413& ym2413, Joypad& joypad)
-    : model_(model), vdp_(vdp), psg_(psg), ym2413_(ym2413), joypad_(joypad) {}
+Bus::Bus(ConsoleModel model, Vdp& vdp, Psg& psg, Ym2413& ym2413, Joypad& joypad, Ym2612* ym2612)
+    : model_(model), vdp_(vdp), psg_(psg), ym2413_(ym2413), ym2612_(ym2612), joypad_(joypad) {}
 
 void Bus::load_rom(std::span<const u8> rom) {
     rom_header_removed_ = has_copier_header(rom);
@@ -260,6 +261,11 @@ void Bus::write(u16 address, u8 value) {
 }
 
 u8 Bus::input(u8 port) {
+    if (model_ == ConsoleModel::SMS && ym2612_ != nullptr && ym2612_->enabled() && (port == 0xF4 || port == 0xF6)) {
+        const u8 value = ym2612_->read_status(port == 0xF6 ? 1 : 0);
+        log_io(false, port, value);
+        return value;
+    }
     if (model_ == ConsoleModel::SMS && port == 0xF2) {
         const u8 value = ym2413_.read_audio_control();
         log_io(false, port, value);
@@ -301,6 +307,16 @@ u8 Bus::input(u8 port) {
 
 void Bus::output(u8 port, u8 value) {
     log_io(true, port, value);
+    if (model_ == ConsoleModel::SMS && ym2612_ != nullptr && ym2612_->enabled()) {
+        if (port == 0xF4 || port == 0xF6) {
+            ym2612_->write_address(port == 0xF6 ? 1 : 0, value);
+            return;
+        }
+        if (port == 0xF5 || port == 0xF7) {
+            ym2612_->write_data(port == 0xF7 ? 1 : 0, value);
+            return;
+        }
+    }
     if (model_ == ConsoleModel::SMS && port == 0xF0) {
         ym2413_.write_address(value);
         return;

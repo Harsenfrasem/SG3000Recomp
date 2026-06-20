@@ -1,12 +1,26 @@
 cmake_minimum_required(VERSION 3.20)
 project(SG3000Recomp
     VERSION 0.1.0
-    LANGUAGES CXX
+    LANGUAGES C CXX
     DESCRIPTION "Static recompilation toolkit for SMS and SG-3000 ROMs"
 )
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
+
+add_library(nuked_opn2 SHARED
+    third_party/Nuked-OPN2/ym3438.c
+)
+target_include_directories(nuked_opn2 PUBLIC
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third_party/Nuked-OPN2>"
+    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/Nuked-OPN2>"
+)
+set_target_properties(nuked_opn2 PROPERTIES
+    C_STANDARD 99
+    C_STANDARD_REQUIRED ON
+    PREFIX ""
+    WINDOWS_EXPORT_ALL_SYMBOLS ON
+)
 
 option(SGRECOMP_BUILD_TOOLS "Build SG3000Recomp command line tools" ON)
 option(SGRECOMP_BUILD_HOST "Build SG3000Recomp host executables" ON)
@@ -58,6 +72,7 @@ add_library(sgrecomp_runtime STATIC
     src/runtime/save_state.cpp
     src/runtime/vdp.cpp
     src/runtime/ym2413.cpp
+    src/runtime/ym2612.cpp
     src/runtime/z80.cpp
 )
 
@@ -65,6 +80,7 @@ target_include_directories(sgrecomp_runtime PUBLIC
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
     "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 )
+target_link_libraries(sgrecomp_runtime PUBLIC nuked_opn2)
 
 if(MSVC)
     target_compile_options(sgrecomp_runtime PRIVATE /W4 /permissive-)
@@ -169,6 +185,7 @@ if(SGRECOMP_BUILD_TESTS)
             SGRECOMP_CXX_COMPILER_ARG1="${CMAKE_CXX_COMPILER_ARG1}"
             SGRECOMP_CXX_COMPILER_ID="${CMAKE_CXX_COMPILER_ID}"
             SGRECOMP_RUNTIME_PATH="$<TARGET_FILE:sgrecomp_runtime>"
+            SGRECOMP_OPN2_LINK_PATH="$<TARGET_LINKER_FILE:nuked_opn2>"
         )
 
         if(TARGET sgrecomp_host)
@@ -200,12 +217,13 @@ if(SGRECOMP_BUILD_TESTS)
     endif()
 endif()
 
-install(TARGETS sgrecomp_runtime
+install(TARGETS sgrecomp_runtime nuked_opn2
     EXPORT SG3000RecompTargets
     ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
     LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
     RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
 )
+install(FILES third_party/Nuked-OPN2/ym3438.h DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/Nuked-OPN2")
 
 if(TARGET sgrecomp)
     install(TARGETS sgrecomp RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
@@ -219,11 +237,23 @@ if(TARGET sgrecomp_host)
         COMPONENT Portable
     )
     install(FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/THIRD_PARTY_NOTICES.md"
+        DESTINATION "."
+        COMPONENT Portable
+    )
+    install(FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/third_party/Nuked-OPN2/LICENSE"
+        DESTINATION "."
+        RENAME NUKED-OPN2-LICENSE.txt
+        COMPONENT Portable
+    )
+    install(FILES
         "${CMAKE_CURRENT_SOURCE_DIR}/docs/PORTABLE.md"
         DESTINATION "."
         RENAME README.md
         COMPONENT Portable
     )
+    install(FILES "$<TARGET_FILE:nuked_opn2>" DESTINATION "." COMPONENT Portable)
 endif()
 
 install(DIRECTORY include/ DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")

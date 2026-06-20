@@ -13,6 +13,7 @@ struct EnhancementConfig {
     bool disable_sprite_limit = false;
     bool reduce_flicker = false;
     bool enable_fm = false;
+    bool enable_ym2612 = false;
 };
 
 } // namespace sgrecomp

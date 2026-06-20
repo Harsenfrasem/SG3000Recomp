@@ -165,6 +165,7 @@ void HostRuntime::tick_devices(int elapsed_cycles) {
     console_.vdp().tick(elapsed_cycles);
     console_.psg().tick(elapsed_cycles);
     console_.ym2413().tick(elapsed_cycles);
+    console_.ym2612().tick(elapsed_cycles);
     append_audio_samples(elapsed_cycles);
 }
 
@@ -174,7 +175,8 @@ void HostRuntime::append_audio_samples(int elapsed_cycles) {
         audio_cycle_accumulator_ -= config_.cpu_clock_hz;
         const auto psg = console_.ym2413().psg_enabled() ? console_.psg().sample() : std::array<float, 2>{0.0F, 0.0F};
         const auto fm = console_.ym2413().sample();
-        const std::array<float, 2> mixed{psg[0] + fm[0], psg[1] + fm[1]};
+        const auto ym2612 = console_.ym2612().sample();
+        const std::array<float, 2> mixed{psg[0] + fm[0] + ym2612[0], psg[1] + fm[1] + ym2612[1]};
         for (float channel : mixed) {
             const float clipped = std::clamp(channel, -1.0F, 1.0F);
             audio_.push_back(static_cast<s16>(clipped * 32767.0F));

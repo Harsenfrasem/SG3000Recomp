@@ -10,6 +10,7 @@ mode = "accurate"
 disable_sprite_limit = false
 reduce_flicker = false
 enable_fm = false
+enable_ym2612 = false
 audio_latency_ms = 80
 audio_sample_rate = 44100
 video_standard = "ntsc"

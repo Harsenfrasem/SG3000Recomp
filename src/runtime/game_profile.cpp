@@ -105,10 +105,10 @@ std::string game_profile_fingerprint(const GameProfile& profile) {
               << ";mapper=" << profile.has_mapper << ':' << static_cast<int>(profile.mapper)
               << ";enhancements=" << profile.has_enhancements << ':' << static_cast<int>(profile.enhancements.mode)
               << ':' << profile.enhancements.disable_sprite_limit << ':' << profile.enhancements.reduce_flicker << ':'
-              << profile.enhancements.enable_fm << ";audio_latency=" << profile.has_audio_latency_ms << ':'
-              << profile.audio_latency_ms << ";audio_rate=" << profile.has_audio_sample_rate << ':'
-              << profile.audio_sample_rate << ";video_standard=" << profile.has_video_standard << ':'
-              << static_cast<int>(profile.video_standard);
+              << profile.enhancements.enable_fm << ':' << profile.enhancements.enable_ym2612
+              << ";audio_latency=" << profile.has_audio_latency_ms << ':' << profile.audio_latency_ms
+              << ";audio_rate=" << profile.has_audio_sample_rate << ':' << profile.audio_sample_rate
+              << ";video_standard=" << profile.has_video_standard << ':' << static_cast<int>(profile.video_standard);
     const std::string text = canonical.str();
     return rom_hash_fnv1a64(std::span<const u8>(reinterpret_cast<const u8*>(text.data()), text.size()));
 }
@@ -176,6 +176,12 @@ GameProfileDatabase GameProfileDatabase::parse(std::string_view text) {
             current.has_enhancements = true;
         } else if (key == "enable_fm") {
             current.enhancements.enable_fm = parse_bool(value);
+            current.has_enhancements = true;
+        } else if (key == "enable_ym2612") {
+            current.enhancements.enable_ym2612 = parse_bool(value);
+            if (current.enhancements.enable_ym2612) {
+                current.enhancements.mode = RuntimeMode::Enhanced;
+            }
             current.has_enhancements = true;
         } else if (key == "audio_latency_ms") {
             current.audio_latency_ms = std::clamp(std::stoi(strip_quotes(value)), 10, 300);

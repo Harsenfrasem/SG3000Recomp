@@ -8,6 +8,7 @@
 #include "sgrecomp/save_state.h"
 #include "sgrecomp/vdp.h"
 #include "sgrecomp/ym2413.h"
+#include "sgrecomp/ym2612.h"
 #include "sgrecomp/z80.h"
 
 #include <array>
@@ -317,6 +318,11 @@ void apply_config_file(Options& opts, const std::filesystem::path& path) {
                     static_cast<u32>(std::clamp(static_cast<int>(parse_number(value)), 8000, 96000));
             } else if (key == "enable_fm") {
                 opts.enhancements.enable_fm = parse_config_bool(value);
+            } else if (key == "enable_ym2612") {
+                opts.enhancements.enable_ym2612 = parse_config_bool(value);
+                if (opts.enhancements.enable_ym2612) {
+                    opts.enhancements.mode = RuntimeMode::Enhanced;
+                }
             } else if (key == "disable_sprite_limit") {
                 opts.enhancements.disable_sprite_limit = parse_config_bool(value);
                 if (opts.enhancements.disable_sprite_limit) {
@@ -449,7 +455,8 @@ void print_usage() {
               << "                [--dump-tilemap tilemap.csv] [--dump-sprites sprites.csv]\n"
               << "                [--load-sram save.sav] [--save-sram save.sav] [--dump-sram sram.bin]\n"
               << "                [--load-state state.sgstate] [--save-state state.sgstate] [--force-state]\n"
-              << "                [--dump-coverage pcs.csv] [--disable-sprite-limit] [--reduce-flicker] [--enable-fm]\n"
+              << "                [--dump-coverage pcs.csv] [--disable-sprite-limit] [--reduce-flicker] [--enable-fm]"
+                 " [--enable-ym2612]\n"
               << "       sgrecomp <rom.sms|rom.sg> --run-host [--frames n] [--input-script input.csv] [--bios "
                  "bios.sms] [--video-standard ntsc|pal] [--audio-sample-rate hz]\n"
               << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp] [--dump-audio audio.wav] "
@@ -661,6 +668,11 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--enable-fm") {
             opts.enhancements.enable_fm = true;
+            continue;
+        }
+        if (arg == "--enable-ym2612") {
+            opts.enhancements.enable_ym2612 = true;
+            opts.enhancements.mode = RuntimeMode::Enhanced;
             continue;
         }
         if (arg == "--steps" && i + 1 < argc) {
@@ -1641,8 +1653,9 @@ void run_smoke(ConsoleModel model,
     Vdp vdp;
     Psg psg;
     Ym2413 ym2413;
+    Ym2612 ym2612;
     Joypad joypad;
-    Bus bus(model, vdp, psg, ym2413, joypad);
+    Bus bus(model, vdp, psg, ym2413, joypad, &ym2612);
     Z80State cpu;
     bus.set_mapper(opts.mapper);
     vdp.set_enhancements(opts.enhancements);
@@ -1653,6 +1666,7 @@ void run_smoke(ConsoleModel model,
     bus.set_memory_logging_enabled(!opts.dump_memory_log.empty());
     vdp.set_access_logging_enabled(!opts.dump_vdp_log.empty());
     ym2413.set_write_logging_enabled(!opts.dump_fm_log.empty());
+    ym2612.set_enabled(opts.enhancements.enable_ym2612);
     if (bios != nullptr) {
         bus.load_bios(*bios);
     }
@@ -1677,6 +1691,7 @@ void run_smoke(ConsoleModel model,
         vdp.load_state(state.vdp);
         psg.load_state(state.psg);
         ym2413.load_state(state.ym2413);
+        ym2612.load_state(state.ym2612);
         joypad.set_player1(state.joypad_player1);
         joypad.set_player2(state.joypad_player2);
     }
@@ -1692,13 +1707,16 @@ void run_smoke(ConsoleModel model,
         vdp.tick(elapsed);
         psg.tick(elapsed);
         ym2413.tick(elapsed);
+        ym2612.tick(elapsed);
         if (!opts.dump_audio.empty()) {
             audio_cycle_accumulator += elapsed;
             while (audio_cycle_accumulator >= cpu_cycles_per_audio_sample) {
                 audio_cycle_accumulator -= cpu_cycles_per_audio_sample;
                 const auto psg_sample = ym2413.psg_enabled() ? psg.sample() : std::array<float, 2>{0.0F, 0.0F};
                 const auto fm_sample = ym2413.sample();
-                const std::array<float, 2> sample{psg_sample[0] + fm_sample[0], psg_sample[1] + fm_sample[1]};
+                const auto ym2612_sample = ym2612.sample();
+                const std::array<float, 2> sample{psg_sample[0] + fm_sample[0] + ym2612_sample[0],
+                                                  psg_sample[1] + fm_sample[1] + ym2612_sample[1]};
                 for (float channel : sample) {
                     const float clipped = std::clamp(channel, -1.0F, 1.0F);
                     audio_samples.push_back(static_cast<s16>(clipped * 32767.0F));
@@ -1713,17 +1731,20 @@ void run_smoke(ConsoleModel model,
             std::count_if(framebuffer.begin(), visible_end, [](u32 pixel) { return (pixel & 0x00FFFFFF) != 0; });
         const auto audio = psg.sample();
         const auto fm_audio = ym2413.sample();
+        const auto ym2612_audio = ym2612.sample();
         std::cout << "visited pcs: " << visited_pc.count() << "\nframebuffer lit pixels: " << lit_pixels
                   << "\npsg sample: " << std::fixed << std::setprecision(4) << audio[0] << "," << audio[1]
                   << "\nfm present: " << (ym2413.present() ? "yes" : "no")
                   << ", fm enabled: " << (ym2413.fm_enabled() ? "yes" : "no") << ", fm sample: " << fm_audio[0] << ","
-                  << fm_audio[1] << "\nenhancements: mode="
+                  << fm_audio[1] << "\nym2612 enabled: " << (ym2612.enabled() ? "yes" : "no")
+                  << ", sample: " << ym2612_audio[0] << "," << ym2612_audio[1] << "\nenhancements: mode="
                   << (opts.enhancements.mode == RuntimeMode::Enhanced ? "enhanced"
                       : opts.enhancements.mode == RuntimeMode::Hybrid ? "hybrid"
                                                                       : "accurate")
                   << ", disable_sprite_limit=" << (opts.enhancements.disable_sprite_limit ? "on" : "off")
                   << ", reduce_flicker=" << (opts.enhancements.reduce_flicker ? "on" : "off")
-                  << ", enable_fm=" << (opts.enhancements.enable_fm ? "on" : "off") << "\n";
+                  << ", enable_fm=" << (opts.enhancements.enable_fm ? "on" : "off")
+                  << ", enable_ym2612=" << (opts.enhancements.enable_ym2612 ? "on" : "off") << "\n";
         if (!opts.dump_frame.empty()) {
             write_frame_ppm(opts.dump_frame, framebuffer, vdp.active_height());
             std::cout << "frame dumped: " << opts.dump_frame.string() << "\n";
@@ -1796,6 +1817,7 @@ void run_smoke(ConsoleModel model,
                 vdp.save_state(),
                 psg.save_state(),
                 ym2413.save_state(),
+                ym2612.save_state(),
                 joypad.player1(),
                 joypad.player2(),
             };
@@ -1992,7 +2014,8 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
                                                                   : "accurate")
               << ", disable_sprite_limit=" << (opts.enhancements.disable_sprite_limit ? "on" : "off")
               << ", reduce_flicker=" << (opts.enhancements.reduce_flicker ? "on" : "off")
-              << ", enable_fm=" << (opts.enhancements.enable_fm ? "on" : "off") << "\n";
+              << ", enable_fm=" << (opts.enhancements.enable_fm ? "on" : "off")
+              << ", enable_ym2612=" << (opts.enhancements.enable_ym2612 ? "on" : "off") << "\n";
     if (bios == nullptr) {
         std::cout << "bios: not loaded\n";
     } else if (bios_handoff_frame) {

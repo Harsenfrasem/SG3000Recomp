@@ -12,6 +12,7 @@ namespace sgrecomp {
 class Vdp;
 class Psg;
 class Ym2413;
+class Ym2612;
 class Joypad;
 
 struct BusIoAccess {
@@ -90,7 +91,7 @@ enum class ConsoleModel {
 
 class Bus {
   public:
-    Bus(ConsoleModel model, Vdp& vdp, Psg& psg, Ym2413& ym2413, Joypad& joypad);
+    Bus(ConsoleModel model, Vdp& vdp, Psg& psg, Ym2413& ym2413, Joypad& joypad, Ym2612* ym2612 = nullptr);
 
     void load_rom(std::span<const u8> rom);
     void load_bios(std::span<const u8> bios);
@@ -155,6 +156,7 @@ class Bus {
     Vdp& vdp_;
     Psg& psg_;
     Ym2413& ym2413_;
+    Ym2612* ym2612_ = nullptr;
     Joypad& joypad_;
     std::array<u8, 0x10000> memory_{};
     std::array<u8, 0x8000> cartridge_ram_{};

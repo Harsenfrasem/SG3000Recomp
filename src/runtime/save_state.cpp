@@ -8,7 +8,7 @@ namespace sgrecomp {
 namespace {
 
 constexpr u32 kMagic = 0x53534753; // SGSS
-constexpr u16 kVersion = 10;
+constexpr u16 kVersion = 11;
 
 class Writer {
   public:
@@ -301,6 +301,17 @@ void write_state(Writer& out, const ConsoleState& state, const SaveStateMetadata
     out.u8v(state.ym2413.audio_control);
     out.array_bytes(state.ym2413.registers);
     out.array_bytes(state.ym2413.phase);
+    out.boolv(state.ym2612.enabled);
+    out.array_bytes(state.ym2612.selected_register);
+    out.array_bytes(state.ym2612.registers);
+    out.array_bytes(state.ym2612.key_on);
+    out.u64v(state.ym2612.clock_accumulator);
+    out.u16v(static_cast<u16>(state.ym2612.output_left));
+    out.u16v(static_cast<u16>(state.ym2612.output_right));
+    out.u32v(static_cast<u32>(state.ym2612.core_state.size()));
+    for (const u8 byte : state.ym2612.core_state) {
+        out.u8v(byte);
+    }
     out.u8v(state.joypad_player1);
     out.u8v(state.joypad_player2);
 }
@@ -391,6 +402,23 @@ SaveStateImage read_image(Reader& in) {
     state.ym2413.audio_control = in.u8v();
     in.array_bytes(state.ym2413.registers);
     in.array_bytes(state.ym2413.phase);
+    if (version >= 11) {
+        state.ym2612.enabled = in.boolv();
+        in.array_bytes(state.ym2612.selected_register);
+        in.array_bytes(state.ym2612.registers);
+        in.array_bytes(state.ym2612.key_on);
+        state.ym2612.clock_accumulator = in.u64v();
+        state.ym2612.output_left = static_cast<s16>(in.u16v());
+        state.ym2612.output_right = static_cast<s16>(in.u16v());
+        const u32 core_size = in.u32v();
+        if (core_size > 1024 * 1024) {
+            throw std::runtime_error("YM2612 save state is too large");
+        }
+        state.ym2612.core_state.resize(core_size);
+        for (u8& byte : state.ym2612.core_state) {
+            byte = in.u8v();
+        }
+    }
     state.joypad_player1 = in.u8v();
     state.joypad_player2 = in.u8v();
     in.finish();

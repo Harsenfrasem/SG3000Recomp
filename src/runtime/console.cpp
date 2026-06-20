@@ -2,20 +2,21 @@
 
 namespace sgrecomp {
 
-Console::Console(ConsoleModel model) : bus_(model, vdp_, psg_, ym2413_, joypad_), model_(model) {
+Console::Console(ConsoleModel model) : bus_(model, vdp_, psg_, ym2413_, joypad_, &ym2612_), model_(model) {
     if (model_ == ConsoleModel::SG3000) {
         vdp_.set_video_mode(VdpVideoMode::TmsGraphics1);
     }
 }
 
 Console::Console(ConsoleModel model, const EnhancementConfig& enhancements)
-    : bus_(model, vdp_, psg_, ym2413_, joypad_), model_(model), enhancements_(enhancements) {
+    : bus_(model, vdp_, psg_, ym2413_, joypad_, &ym2612_), model_(model), enhancements_(enhancements) {
     if (model_ == ConsoleModel::SG3000) {
         vdp_.set_video_mode(VdpVideoMode::TmsGraphics1);
     }
     vdp_.set_enhancements(enhancements_);
     psg_.set_enhancements(enhancements_);
     bus_.set_fm_present(enhancements_.enable_fm);
+    ym2612_.set_enabled(enhancements_.enable_ym2612);
 }
 
 void Console::load_rom(std::span<const u8> rom) {
@@ -35,6 +36,7 @@ void Console::set_enhancements(const EnhancementConfig& enhancements) {
     vdp_.set_enhancements(enhancements_);
     psg_.set_enhancements(enhancements_);
     bus_.set_fm_present(enhancements_.enable_fm);
+    ym2612_.set_enabled(enhancements_.enable_ym2612);
 }
 
 ConsoleState Console::save_state() const {
@@ -44,6 +46,7 @@ ConsoleState Console::save_state() const {
         vdp_.save_state(),
         psg_.save_state(),
         ym2413_.save_state(),
+        ym2612_.save_state(),
         joypad_.player1(),
         joypad_.player2(),
     };
@@ -55,6 +58,8 @@ void Console::load_state(const ConsoleState& state) {
     vdp_.load_state(state.vdp);
     psg_.load_state(state.psg);
     ym2413_.load_state(state.ym2413);
+    ym2612_.load_state(state.ym2612);
+    enhancements_.enable_ym2612 = state.ym2612.enabled;
     joypad_.set_player1(state.joypad_player1);
     joypad_.set_player2(state.joypad_player2);
 }
@@ -76,6 +81,7 @@ void Console::run_cycles(u64 cycles) {
         vdp_.tick(elapsed);
         psg_.tick(elapsed);
         ym2413_.tick(elapsed);
+        ym2612_.tick(elapsed);
         if (vdp_.irq_pending()) {
             const u64 irq_before = cpu_.cycles;
             bus_.set_cycle(irq_before);
@@ -85,6 +91,7 @@ void Console::run_cycles(u64 cycles) {
                 vdp_.tick(irq_elapsed);
                 psg_.tick(irq_elapsed);
                 ym2413_.tick(irq_elapsed);
+                ym2612_.tick(irq_elapsed);
             }
         }
     }
