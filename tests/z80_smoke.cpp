@@ -1026,6 +1026,37 @@ void test_vdp_mode4_background_pixel() {
     assert(vdp.framebuffer()[1] == 0xFF000000);
 }
 
+void test_vdp_mode4_renders_ninth_tile_bit_palette_and_flips() {
+    Vdp vdp;
+    vdp.write_control(0x40);
+    vdp.write_control(0x81); // display enabled
+    vdp.write_control(0x0E);
+    vdp.write_control(0x82); // name table at $3800
+
+    vdp.write_control(0x12);
+    vdp.write_control(0xC0); // palette 1, color 2
+    vdp.write_data(0x0C);    // green
+
+    vdp.write_control(0x3C);
+    vdp.write_control(0x60); // tile $101, row 7 at $203c
+    vdp.write_data(0x00);
+    vdp.write_data(0x01); // color 2 at bit zero
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+
+    vdp.write_control(0x00);
+    vdp.write_control(0x78); // first name-table entry
+    vdp.write_data(0x01);
+    vdp.write_data(0x0F); // tile bit 8, flip X/Y, palette 1
+
+    vdp.tick(228);
+    assert(vdp.framebuffer()[0] == 0xFF00FF00);
+    assert(vdp.framebuffer()[7] == 0xFF000000);
+    const VdpTileEntry entry = vdp.debug_tilemap()[0];
+    assert(entry.tile == 0x101);
+    assert(entry.palette1 && entry.flip_x && entry.flip_y);
+}
+
 void test_vdp_display_disabled_uses_backdrop_color() {
     Vdp vdp;
     vdp.write_control(0x10);
@@ -3503,6 +3534,7 @@ int main() {
     test_pause_triggers_nmi();
     test_two_player_joypad_ports();
     test_vdp_mode4_background_pixel();
+    test_vdp_mode4_renders_ninth_tile_bit_palette_and_flips();
     test_vdp_display_disabled_uses_backdrop_color();
     test_vdp_backdrop_uses_register7_color();
     test_sg3000_vdp_tms_graphics1_background_pixel();
