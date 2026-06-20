@@ -164,6 +164,9 @@ void Bus::load_cartridge_ram(std::span<const u8> ram) {
 }
 
 u8 Bus::read(u16 address) const {
+    if (flat_memory_mode_for_cpu_conformance_) {
+        return memory_[address];
+    }
     if (address >= 0xC000) {
         if (!work_ram_enabled()) {
             return 0xFF;
@@ -174,6 +177,10 @@ u8 Bus::read(u16 address) const {
 }
 
 void Bus::write(u16 address, u8 value) {
+    if (flat_memory_mode_for_cpu_conformance_) {
+        memory_[address] = value;
+        return;
+    }
     if (model_ == ConsoleModel::SMS && cmapper_cartridge_ram_enabled() && address >= 0xA000 && address < 0xC000) {
         const std::size_t offset = address - 0xA000;
         cartridge_ram_[offset] = value;

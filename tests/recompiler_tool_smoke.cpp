@@ -272,7 +272,7 @@ int main() {
     assert(contains(generated, "cpu.l = bus.read(0xc000); cpu.h = bus.read(0xc001);"));
     assert(contains(generated, "cpu.iff1 = false; cpu.iff2 = false; cpu.ei_pending = false;"));
     assert(contains(generated, "cpu.interrupt_mode = 1; cpu.pc = 0x0028;"));
-    assert(contains(generated, "cpu.ei_pending = true; cpu.pc = 0x0029;"));
+    assert(contains(generated, "cpu.iff1 = true; cpu.iff2 = true; cpu.ei_pending = true; cpu.pc = 0x0029;"));
     assert(contains(generated, "cpu.pc = 0x0000; cpu.cycles += 11;"));
     assert(contains(generated, "cpu.set_hl(static_cast<sgrecomp::u16>(cpu.hl() + 1));"));
     assert(contains(generated, "cpu.c = sgrecomp_inc8(cpu, cpu.c);"));

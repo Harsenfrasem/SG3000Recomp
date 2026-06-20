@@ -2847,7 +2847,8 @@ void test_index_high_low_register_operations() {
         0xDD, 0x85,             // add a,ixl -> $ce
         0xFD, 0x21, 0x00, 0xC0, // ld iy,$c000
         0xFD, 0x2E, 0xA5,       // ld iyl,$a5
-        0xFD, 0x75, 0x02,       // ld (iy+2),iyl
+        0x2E, 0x5A,             // ld l,$5a
+        0xFD, 0x75, 0x02,       // ld (iy+2),l (not iyl)
         0x76,                   // halt
     };
 
@@ -2858,7 +2859,7 @@ void test_index_high_low_register_operations() {
     assert(console.cpu().b == 0x13);
     assert(console.cpu().c == 0x33);
     assert(console.cpu().a == 0xCE);
-    assert(console.bus().read(0xC0A7) == 0xA5);
+    assert(console.bus().read(0xC0A7) == 0x5A);
 }
 
 void test_ed_adc_sbc_hl() {
@@ -3398,7 +3399,8 @@ void test_ei_delay_and_nmi_service() {
     console.load_rom(rom);
 
     execute_one(console.cpu(), console.bus());
-    assert(!console.cpu().iff1);
+    assert(console.cpu().iff1);
+    assert(console.cpu().iff2);
     assert(console.cpu().ei_pending);
     assert(!service_maskable_interrupt(console.cpu(), console.bus()));
 
@@ -3822,6 +3824,8 @@ void test_console_save_state_round_trip_restores_runtime_state() {
     console.bus().output(0x3E, 0x08);
     run_until_halt(console);
     assert(console.bus().read(0xC000) == 0x42);
+    console.cpu().q = 0xA5;
+    console.cpu().memptr = 0xBEEF;
 
     SaveStateMetadata metadata;
     metadata.present = true;
@@ -3830,7 +3834,7 @@ void test_console_save_state_round_trip_restores_runtime_state() {
     metadata.bios_hash = "fnv1a64:bios";
     metadata.profile_fingerprint = "fnv1a64:profile";
     const auto bytes = save_console_state(console, metadata);
-    assert(bytes[4] == 11 && bytes[5] == 0);
+    assert(bytes[4] == 12 && bytes[5] == 0);
     console.bus().write(0xC000, 0x99);
     console.cpu().a = 0x11;
     assert(console.bus().read(0xC000) == 0x99);
@@ -3842,6 +3846,8 @@ void test_console_save_state_round_trip_restores_runtime_state() {
 
     const auto restored = deserialize_console_state(bytes);
     assert(restored.cpu.a == 0x42);
+    assert(restored.cpu.q == 0xA5);
+    assert(restored.cpu.memptr == 0xBEEF);
     assert(restored.bus.memory[0xC000] == 0x42);
     assert(restored.bus.memory_control == 0x08);
     assert(restored.vdp.timing.cpu_cycles_per_scanline == 200);
@@ -3873,7 +3879,20 @@ void test_console_save_state_round_trip_restores_runtime_state() {
 
     constexpr std::size_t ym2612_fixed_state_size = 537;
     const std::size_t ym2612_state_size = ym2612_fixed_state_size + console.save_state().ym2612.core_state.size();
-    std::vector<u8> legacy_v10 = bytes;
+    const std::size_t v12_metadata_size =
+        1 + 2 + metadata.rom_hash.size() + 2 + metadata.bios_hash.size() + 2 + metadata.profile_fingerprint.size();
+    constexpr std::size_t legacy_cpu_state_size = 41;
+    std::vector<u8> legacy_v11 = bytes;
+    const std::size_t cpu_extension_start = 6 + v12_metadata_size + legacy_cpu_state_size;
+    legacy_v11.erase(legacy_v11.begin() + static_cast<std::ptrdiff_t>(cpu_extension_start),
+                     legacy_v11.begin() + static_cast<std::ptrdiff_t>(cpu_extension_start + 3));
+    legacy_v11[4] = 11;
+    legacy_v11[5] = 0;
+    const auto legacy_v11_image = deserialize_console_state_image(legacy_v11);
+    assert(legacy_v11_image.state.cpu.q == 0);
+    assert(legacy_v11_image.state.cpu.memptr == 0);
+
+    std::vector<u8> legacy_v10 = legacy_v11;
     legacy_v10.erase(legacy_v10.end() - static_cast<std::ptrdiff_t>(ym2612_state_size + 2), legacy_v10.end() - 2);
     legacy_v10[4] = 10;
     legacy_v10[5] = 0;
@@ -3881,7 +3900,7 @@ void test_console_save_state_round_trip_restores_runtime_state() {
     assert(!legacy_v10_image.state.ym2612.enabled);
 
     std::vector<u8> legacy_v9 = legacy_v10;
-    constexpr std::size_t cpu_state_size = 41;
+    constexpr std::size_t cpu_state_size = legacy_cpu_state_size;
     constexpr std::size_t bus_state_size = 98325;
     constexpr std::size_t vdp_arrays_before_framebuffer = 16432;
     const std::size_t v10_metadata_size =

@@ -11,3 +11,14 @@ SG3000Recomp uses [Nuked-OPN2](https://github.com/nukeykt/Nuked-OPN2), a cycle-a
 - The Windows package links this component as the replaceable `nuked_opn2.dll` and includes its license.
 
 See `third_party/Nuked-OPN2/LICENSE` for the complete license text and `third_party/Nuked-OPN2/IMPORT.md` for provenance hashes.
+
+## SingleStepTests/z80
+
+CPU conformance fixtures are derived from [SingleStepTests/z80](https://github.com/SingleStepTests/z80).
+
+- Copyright (c) 2024 SingleStepTests.
+- Imported revision: `ebe1875d48f374bcfd4b505d8eb8ee751568b5f7`.
+- License: MIT.
+- The generated compact fixture covers 1,574 non-I/O opcode sequences.
+
+See `tests/data/SINGLE_STEP_TESTS_LICENSE.txt` and `tests/data/SINGLE_STEP_TESTS_IMPORT.md`.

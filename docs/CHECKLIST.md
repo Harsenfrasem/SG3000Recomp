@@ -89,7 +89,7 @@ Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
 - [x] Smoke runner com log CSV local de escritas FM.
 - [ ] FM opcional fiel para jogos com suporte conhecido.
 - [ ] Substituir sintetizador FM aproximado por nucleo YM2413/OPLL validado.
-- [x] YM2612 opcional nao historico via Nuked-OPN2: DLL LGPL substituivel, portas F4-F7, mixer, GUI/CLI/perfil e estado v11.
+- [x] YM2612 opcional nao historico via Nuked-OPN2: DLL LGPL substituivel, portas F4-F7, mixer, GUI/CLI/perfil e save state.
 - [ ] Experimento de FM enhancement para PSG-only com perfis manuais.
 - [x] Fallback PSG original permanece padrao mesmo com FM detectavel, ate software selecionar outro modo em `$F2`.
 - [x] Limites de YM2413 aproximado e YM2612 nao historico documentados sem promessa de fidelidade.
@@ -192,7 +192,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [ ] Prefixo `ED`: ciclos exatos contra suite externa conhecida.
 - [x] Prefixos `DD/FD` iniciais: IX/IY, stack, `jp (ix/iy)`, loads absolutos, deslocamento `ld/inc/dec/alu`, `DD/FD CB`, `IXH/IXL/IYH/IYL`.
 - [x] Prefixos `DD/FD`: fallback de prefixo ignorado para opcodes nao afetados e varredura completa sem caminhos nao implementados.
-- [ ] Prefixos `DD/FD` restantes: semantica rara nao documentada e flags/ciclos exatos contra suite externa.
+- [x] Prefixos `DD/FD` nao-I/O: semantica rara, flags e ciclos validados por vetores SingleStepTests externos.
 - [x] Interrupt mode: IM 0/1/2, `ei/di`, `reti/retn`.
 - [x] Interrupts: IRQ maskable inicial, delayed `ei`, servico NMI inicial.
 - [x] Interrupts: acknowledge IRQ/NMI com stack, IFF, saida de HALT, incremento R e ciclos IM1/IM2 validados.
@@ -203,7 +203,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Recompilador direto: `CALL` tomado/nao tomado validado no binario gerado com PC, SP, ciclos e registrador R.
 - [x] Interrupts: NMI ligado ao Pause.
 - [ ] Interrupts: prioridades e timing restantes contra trace externo.
-- [ ] Testar todas as flags contra suite externa conhecida de Z80; vetores sinteticos locais cobrem X/Y das familias principais.
+- [x] Flags por sequencia nao-I/O validadas contra 1.574 vetores externos SingleStepTests, incluindo X/Y, DAA, CP, BIT e blocos.
 - [ ] Validar cycle counts restantes por opcode contra suite externa conhecida.
 
 ## Memoria e Cartucho
@@ -318,7 +318,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Save RAM em arquivo local pelo host Win32.
 - [x] Estado serializavel inicial para save states.
 - [x] Save states com versao inicial e validacao de ROM hash/modelo.
-- [x] Save states v11 com migracao de v1-v10, framebuffer 240, identidade de ambiente e estado Nuked-OPN2.
+- [x] Save states v12 com migracao de v1-v11, MEMPTR/Q, framebuffer 240, identidade e estado Nuked-OPN2.
 - [x] Save state v7 preserva o read buffer do VDP e continua lendo formatos v1-v6.
 - [x] Save state v8 preserva o lock da familia de mapper e continua lendo formatos v1-v7.
 - [x] Debug overlay de PC, FPS, frame, modo runtime e audio.
@@ -352,7 +352,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 
 - [x] Smoke test de programa Z80 minimo.
 - [x] Varredura automatica de todas as entradas base, ED, DD e FD sem caminhos nao implementados.
-- [ ] Testes unitarios de semantica/flags por familia de opcode contra vetores externos conhecidos.
+- [x] Teste de conformidade com 1.574 sequencias nao-I/O de SingleStepTests/z80 em revisao fixada e licenciada.
 - [x] ROM sintetica integrada para mapper, VDP, PSG e input via CPU/HostRuntime.
 - [ ] Comparacao de traces com emulador de referencia.
 - [x] Testes do gerador C++ compilando o arquivo emitido.

@@ -41,6 +41,8 @@ struct Z80State {
     bool ei_pending = false;
     u8 interrupt_mode = 0;
     bool halted = false;
+    u8 q = 0;
+    u16 memptr = 0;
     u64 cycles = 0;
 
     u16 af() const {

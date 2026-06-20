@@ -40,6 +40,10 @@
 - Generated executable validation for taken and untaken conditional `CALL`, including PC, SP, cycles, and refresh register state
 - `halt`
 - CB-prefixed `rlc`, `rrc`, `rl`, `rr`, `sla`, `sra`, `sll`, `srl`, `bit`, `res`, `set`
+- EI habilita IFF imediatamente e usa `ei_pending` somente para bloquear IRQ por uma instrução.
+- MEMPTR/WZ e latch Q preservados no save-state v12 e usados por flags X/Y de BIT, blocos e SCF/CCF.
+- 1.574 sequências não-I/O passam contra SingleStepTests/z80 na revisão fixada
+  `ebe1875d48f374bcfd4b505d8eb8ee751568b5f7`, comparando registradores, flags, RAM e ciclos.
 
 ## Implemented Generated Opcodes
 
@@ -53,8 +57,8 @@
 
 ## Next Opcode Families
 
-- Remaining rare prefix flag semantics validated against an external conformance suite.
-- Remaining DD/FD rare mirrored semantics and cycle conformance.
+- Expand external coverage from one representative vector to all randomized vectors per sequence.
+- Add a deterministic peripheral-port adapter for the 30 externally generated I/O-only sequences.
 - Remaining interrupt priority edge cases and external trace conformance.
 - Flag parity conformance tests against a known Z80 suite.
 - Remaining per-opcode cycle-count conformance against a known external Z80 suite.

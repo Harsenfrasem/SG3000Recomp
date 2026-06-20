@@ -8,7 +8,7 @@ namespace sgrecomp {
 namespace {
 
 constexpr u32 kMagic = 0x53534753; // SGSS
-constexpr u16 kVersion = 11;
+constexpr u16 kVersion = 12;
 
 class Writer {
   public:
@@ -193,9 +193,11 @@ void write_cpu(Writer& out, const Z80State& cpu) {
     out.u8v(cpu.interrupt_mode);
     out.boolv(cpu.halted);
     out.u64v(cpu.cycles);
+    out.u8v(cpu.q);
+    out.u16v(cpu.memptr);
 }
 
-Z80State read_cpu(Reader& in) {
+Z80State read_cpu(Reader& in, u16 version) {
     Z80State cpu;
     cpu.a = in.u8v();
     cpu.f = in.u8v();
@@ -228,6 +230,10 @@ Z80State read_cpu(Reader& in) {
     cpu.interrupt_mode = in.u8v();
     cpu.halted = in.boolv();
     cpu.cycles = in.u64v();
+    if (version >= 12) {
+        cpu.q = in.u8v();
+        cpu.memptr = in.u16v();
+    }
     return cpu;
 }
 
@@ -331,7 +337,7 @@ SaveStateImage read_image(Reader& in) {
     }
 
     ConsoleState state;
-    state.cpu = read_cpu(in);
+    state.cpu = read_cpu(in, version);
     in.array_bytes(state.bus.memory);
     in.array_bytes(state.bus.cartridge_ram);
     state.bus.rom_header_removed = in.boolv();

@@ -118,7 +118,7 @@ Sprite enhancements keep the original overflow and collision status behavior. Ac
 
 Save states are local binary snapshots of mutable runtime state. They do not embed ROM or BIOS bytes, so load the same software first and keep `.sgstate` files under ignored local folders such as `local-saves/`. New save states include the ROM hash and console model; loading refuses mismatches unless `--force-state` is used for debugging.
 
-The current save-state format is version 8. It persists the automatic mapper-family lock in addition to the VDP VRAM read buffer introduced in version 7, and remains able to read versions 1 through 7.
+The current save-state format is version 12. It persists the Z80 MEMPTR/WZ and Q latch, Nuked-OPN2 state, the 240-line framebuffer, environment identity, mapper-family lock, and VDP read buffer while remaining able to read versions 1 through 11.
 
 `--run-host` uses the headless host runtime path. It advances full frames, samples audio at the configured host rate, applies joypad state through the runtime API, and exposes the latest framebuffer. `HostRuntimeConfig` drives the VDP scanline/frame timing used by the host loop; pass `--video-standard ntsc|pal` or set `video_standard = "pal"` in a local profile to switch frame timing without storing ROM paths. Use `--audio-sample-rate hz` or `audio_sample_rate = 48000` in a local profile to change host audio output rate. The Windows backend adapts its queue after underruns while preserving queued audio across pause/resume; see [`docs/AUDIO.md`](docs/AUDIO.md) for mixer and fidelity limits.
 

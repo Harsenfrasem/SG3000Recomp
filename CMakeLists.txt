@@ -11,6 +11,9 @@ include(CMakePackageConfigHelpers)
 add_library(nuked_opn2 SHARED
     third_party/Nuked-OPN2/ym3438.c
 )
+if(WIN32)
+    target_sources(nuked_opn2 PRIVATE third_party/Nuked-OPN2/nuked_opn2.def)
+endif()
 target_include_directories(nuked_opn2 PUBLIC
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third_party/Nuked-OPN2>"
     "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/Nuked-OPN2>"
@@ -19,7 +22,6 @@ set_target_properties(nuked_opn2 PROPERTIES
     C_STANDARD 99
     C_STANDARD_REQUIRED ON
     PREFIX ""
-    WINDOWS_EXPORT_ALL_SYMBOLS ON
 )
 
 option(SGRECOMP_BUILD_TOOLS "Build SG3000Recomp command line tools" ON)
@@ -174,6 +176,25 @@ if(SGRECOMP_BUILD_TESTS)
     endif()
 
     add_test(NAME z80_smoke COMMAND sgrecomp_tests)
+
+    add_executable(z80_external_conformance
+        tests/z80_external_conformance.cpp
+        tests/z80_external_vectors.inc
+    )
+    target_link_libraries(z80_external_conformance PRIVATE sgrecomp_runtime)
+    if(MSVC)
+        target_compile_options(z80_external_conformance PRIVATE /W4 /permissive-)
+    else()
+        target_compile_options(z80_external_conformance PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    if(SGRECOMP_WARNINGS_AS_ERRORS)
+        if(MSVC)
+            target_compile_options(z80_external_conformance PRIVATE /WX)
+        else()
+            target_compile_options(z80_external_conformance PRIVATE -Werror)
+        endif()
+    endif()
+    add_test(NAME z80_external_conformance COMMAND z80_external_conformance)
 
     if(TARGET sgrecomp)
         add_executable(recompiler_tool_smoke

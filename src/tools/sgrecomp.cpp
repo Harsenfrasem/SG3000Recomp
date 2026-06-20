@@ -2497,7 +2497,8 @@ void emit_instruction_body(std::ostream& out, const std::array<u8, 0x10000>& ima
         }
         break;
     case 0xFB:
-        out << "cpu.ei_pending = true; cpu.pc = 0x" << std::setw(4) << (pc + 1) << "; cpu.cycles += 4; return;\n";
+        out << "cpu.iff1 = true; cpu.iff2 = true; cpu.ei_pending = true; cpu.pc = 0x" << std::setw(4) << (pc + 1)
+            << "; cpu.cycles += 4; return;\n";
         break;
     case 0x76:
         out << "cpu.halted = true; cpu.pc = 0x" << std::setw(4) << (pc + 1) << "; cpu.cycles += 4; return;\n";
@@ -2731,6 +2732,7 @@ void generate_cpp(const std::filesystem::path& output,
     out << "}\n\n";
     out << "void sgrecomp_cp8(sgrecomp::Z80State& cpu, sgrecomp::u8 lhs, sgrecomp::u8 rhs) {\n";
     out << "    (void)sgrecomp_sub8(cpu, lhs, rhs);\n";
+    out << "    cpu.f = static_cast<sgrecomp::u8>((cpu.f & ~0x28) | (rhs & 0x28));\n";
     out << "}\n\n";
     out << "sgrecomp::u8 sgrecomp_inc8(sgrecomp::Z80State& cpu, sgrecomp::u8 value) {\n";
     out << "    const auto result = static_cast<sgrecomp::u8>(value + 1);\n";
@@ -2754,9 +2756,9 @@ void generate_cpp(const std::filesystem::path& output,
     out << "    bus.load_rom(kRom);\n";
     out << "}\n\n";
     out << "extern \"C\" void sgrecomp_run_instruction(sgrecomp::Z80State& cpu, sgrecomp::Bus& bus) {\n";
-    out << "    if (cpu.halted) { if (cpu.ei_pending) { cpu.iff1 = true; cpu.iff2 = true; cpu.ei_pending = false; } "
+    out << "    if (cpu.halted) { if (cpu.ei_pending) { cpu.ei_pending = false; } "
         << "cpu.r = static_cast<sgrecomp::u8>((cpu.r & 0x80) | ((cpu.r + 1) & 0x7f)); cpu.cycles += 4; return; }\n";
-    out << "    if (cpu.ei_pending) { cpu.iff1 = true; cpu.iff2 = true; cpu.ei_pending = false; }\n";
+    out << "    if (cpu.ei_pending) { cpu.ei_pending = false; }\n";
     out << "    switch (cpu.pc) {\n";
     for (const auto& block : blocks) {
         out << "    case 0x" << std::hex << std::setw(4) << std::setfill('0') << block.start << ": "

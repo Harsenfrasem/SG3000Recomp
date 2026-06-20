@@ -21,6 +21,22 @@ constexpr u8 flag_pv = 0x04;
 constexpr u8 flag_n = 0x02;
 constexpr u8 flag_c = 0x01;
 
+class QFlagUpdate {
+  public:
+    explicit QFlagUpdate(Z80State& cpu) : cpu_(cpu), previous_flags_(cpu.f) {
+        cpu_.q = 0;
+    }
+    ~QFlagUpdate() {
+        if (cpu_.f != previous_flags_) {
+            cpu_.q = cpu_.f;
+        }
+    }
+
+  private:
+    Z80State& cpu_;
+    u8 previous_flags_;
+};
+
 u8 parity(u8 value) {
     value ^= static_cast<u8>(value >> 4);
     value &= 0x0F;
@@ -49,15 +65,20 @@ u8 sub8(Z80State& cpu, u8 lhs, u8 rhs) {
     return result;
 }
 
+void compare8(Z80State& cpu, u8 lhs, u8 rhs) {
+    (void)sub8(cpu, lhs, rhs);
+    cpu.f = static_cast<u8>((cpu.f & ~(flag_y | flag_x)) | (rhs & (flag_y | flag_x)));
+}
+
 void daa(Z80State& cpu) {
     const u8 old_a = cpu.a;
     u8 correction = 0;
     bool carry = (cpu.f & flag_c) != 0;
 
-    if ((cpu.f & flag_h) != 0 || ((cpu.f & flag_n) == 0 && (cpu.a & 0x0F) > 9)) {
+    if ((cpu.f & flag_h) != 0 || (cpu.a & 0x0F) > 9) {
         correction = static_cast<u8>(correction | 0x06);
     }
-    if (carry || ((cpu.f & flag_n) == 0 && cpu.a > 0x99)) {
+    if (carry || cpu.a > 0x99) {
         correction = static_cast<u8>(correction | 0x60);
         carry = true;
     }
@@ -522,7 +543,9 @@ void execute_cb(Z80State& cpu, Bus& bus, u8 op) {
         const u8 value = read_reg(cpu, bus, reg);
         const bool zero = (value & (1u << bit)) == 0;
         const u8 carry = static_cast<u8>(cpu.f & flag_c);
-        cpu.f = static_cast<u8>(carry | flag_h | (value & (flag_y | flag_x)) | (zero ? (flag_z | flag_pv) : 0) |
+        const u8 undocumented =
+            reg == 6 ? static_cast<u8>((cpu.memptr >> 8) & (flag_y | flag_x)) : value & (flag_y | flag_x);
+        cpu.f = static_cast<u8>(carry | flag_h | undocumented | (zero ? (flag_z | flag_pv) : 0) |
                                 (!zero && bit == 7 ? flag_s : 0));
         cpu.cycles += reg == 6 ? 12 : 8;
         return;
@@ -698,10 +721,13 @@ void execute_ed(Z80State& cpu, Bus& bus, u8 op) {
         return;
     case 0x4D:
         cpu.pc = pop16(cpu, bus);
+        cpu.iff1 = cpu.iff2;
         cpu.cycles += 14;
         return;
     case 0x46:
+    case 0x4E:
     case 0x66:
+    case 0x6E:
         cpu.interrupt_mode = 0;
         cpu.cycles += 8;
         return;
@@ -779,6 +805,8 @@ void execute_ed(Z80State& cpu, Bus& bus, u8 op) {
         block_transfer(cpu, bus, 1);
         if (cpu.bc() != 0) {
             cpu.pc = static_cast<u16>(cpu.pc - 2);
+            cpu.memptr = static_cast<u16>(cpu.pc + 1);
+            cpu.f = static_cast<u8>((cpu.f & ~(flag_y | flag_x)) | ((cpu.memptr >> 8) & (flag_y | flag_x)));
             cpu.cycles += 21;
         } else {
             cpu.cycles += 16;
@@ -788,6 +816,8 @@ void execute_ed(Z80State& cpu, Bus& bus, u8 op) {
         block_transfer(cpu, bus, -1);
         if (cpu.bc() != 0) {
             cpu.pc = static_cast<u16>(cpu.pc - 2);
+            cpu.memptr = static_cast<u16>(cpu.pc + 1);
+            cpu.f = static_cast<u8>((cpu.f & ~(flag_y | flag_x)) | ((cpu.memptr >> 8) & (flag_y | flag_x)));
             cpu.cycles += 21;
         } else {
             cpu.cycles += 16;
@@ -821,6 +851,8 @@ void execute_ed(Z80State& cpu, Bus& bus, u8 op) {
         block_compare(cpu, bus, 1);
         if (cpu.bc() != 0 && (cpu.f & flag_z) == 0) {
             cpu.pc = static_cast<u16>(cpu.pc - 2);
+            cpu.memptr = static_cast<u16>(cpu.pc + 1);
+            cpu.f = static_cast<u8>((cpu.f & ~(flag_y | flag_x)) | ((cpu.memptr >> 8) & (flag_y | flag_x)));
             cpu.cycles += 21;
         } else {
             cpu.cycles += 16;
@@ -830,6 +862,8 @@ void execute_ed(Z80State& cpu, Bus& bus, u8 op) {
         block_compare(cpu, bus, -1);
         if (cpu.bc() != 0 && (cpu.f & flag_z) == 0) {
             cpu.pc = static_cast<u16>(cpu.pc - 2);
+            cpu.memptr = static_cast<u16>(cpu.pc + 1);
+            cpu.f = static_cast<u8>((cpu.f & ~(flag_y | flag_x)) | ((cpu.memptr >> 8) & (flag_y | flag_x)));
             cpu.cycles += 21;
         } else {
             cpu.cycles += 16;
@@ -992,8 +1026,8 @@ void execute_index(Z80State& cpu, Bus& bus, bool iy, u8 op) {
         if ((op & 0xF8) == 0x70) {
             const u8 reg = static_cast<u8>(op & 0x07);
             const auto displacement = static_cast<s8>(fetch8(cpu, bus));
-            const u8 value = reg == 6 ? bus.read(static_cast<u16>(read_index(cpu, iy) + displacement))
-                                      : read_index_reg(cpu, iy, reg);
+            const u8 value =
+                reg == 6 ? bus.read(static_cast<u16>(read_index(cpu, iy) + displacement)) : read_reg(cpu, bus, reg);
             bus.write(static_cast<u16>(read_index(cpu, iy) + displacement), value);
             cpu.cycles += 19;
             return;
@@ -1024,7 +1058,7 @@ void execute_index(Z80State& cpu, Bus& bus, bool iy, u8 op) {
                 cpu.a = or8(cpu, cpu.a, rhs);
                 break;
             case 7:
-                (void)sub8(cpu, cpu.a, rhs);
+                compare8(cpu, cpu.a, rhs);
                 break;
             }
             cpu.cycles += 19;
@@ -1069,7 +1103,7 @@ void execute_index(Z80State& cpu, Bus& bus, bool iy, u8 op) {
                 cpu.a = or8(cpu, cpu.a, rhs);
                 break;
             case 7:
-                (void)sub8(cpu, cpu.a, rhs);
+                compare8(cpu, cpu.a, rhs);
                 break;
             }
             cpu.cycles += 8;
@@ -1100,7 +1134,7 @@ void execute_index(Z80State& cpu, Bus& bus, bool iy, u8 op) {
                 cpu.a = or8(cpu, cpu.a, rhs);
                 break;
             case 7:
-                (void)sub8(cpu, cpu.a, rhs);
+                compare8(cpu, cpu.a, rhs);
                 break;
             }
             cpu.cycles += 8;
@@ -1888,10 +1922,10 @@ void service_non_maskable_interrupt(Z80State& cpu, Bus& bus) {
 }
 
 void execute_one(Z80State& cpu, Bus& bus) {
+    const u8 previous_q = cpu.q;
+    QFlagUpdate q_update(cpu);
     if (cpu.halted) {
         if (cpu.ei_pending) {
-            cpu.iff1 = true;
-            cpu.iff2 = true;
             cpu.ei_pending = false;
         }
         increment_refresh(cpu);
@@ -1900,8 +1934,6 @@ void execute_one(Z80State& cpu, Bus& bus) {
     }
 
     if (cpu.ei_pending) {
-        cpu.iff1 = true;
-        cpu.iff2 = true;
         cpu.ei_pending = false;
     }
 
@@ -2044,13 +2076,15 @@ void execute_one(Z80State& cpu, Bus& bus) {
         break;
     }
     case 0x37:
-        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) | (cpu.a & (flag_y | flag_x)) | flag_c);
+        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) |
+                                (((previous_q ^ cpu.f) | cpu.a) & (flag_y | flag_x)) | flag_c);
         cpu.cycles += 4;
         break;
     case 0x3F: {
         const bool old_carry = (cpu.f & flag_c) != 0;
-        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) | (cpu.a & (flag_y | flag_x)) |
-                                (old_carry ? flag_h : 0) | (old_carry ? 0 : flag_c));
+        cpu.f = static_cast<u8>((cpu.f & (flag_s | flag_z | flag_pv)) |
+                                (((previous_q ^ cpu.f) | cpu.a) & (flag_y | flag_x)) | (old_carry ? flag_h : 0) |
+                                (old_carry ? 0 : flag_c));
         cpu.cycles += 4;
         break;
     }
@@ -2168,12 +2202,14 @@ void execute_one(Z80State& cpu, Bus& bus) {
         cpu.cycles += 6;
         break;
     case 0xFB:
+        cpu.iff1 = true;
+        cpu.iff2 = true;
         cpu.ei_pending = true;
         cpu.cycles += 4;
         break;
     case 0xFE: {
         const u8 rhs = fetch8(cpu, bus);
-        (void)sub8(cpu, cpu.a, rhs);
+        compare8(cpu, cpu.a, rhs);
         cpu.cycles += 7;
         break;
     }
@@ -2293,7 +2329,7 @@ void execute_one(Z80State& cpu, Bus& bus) {
                 cpu.a = or8(cpu, cpu.a, rhs);
                 break;
             case 7:
-                (void)sub8(cpu, cpu.a, rhs);
+                compare8(cpu, cpu.a, rhs);
                 break;
             }
             cpu.cycles += (opcode & 0x07) == 6 ? 7 : 4;

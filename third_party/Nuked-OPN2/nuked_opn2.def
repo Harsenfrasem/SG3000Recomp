@@ -1,0 +1,10 @@
+LIBRARY nuked_opn2
+EXPORTS
+    OPN2_Reset
+    OPN2_SetChipType
+    OPN2_Clock
+    OPN2_Write
+    OPN2_SetTestPin
+    OPN2_ReadTestPin
+    OPN2_ReadIRQPin
+    OPN2_Read

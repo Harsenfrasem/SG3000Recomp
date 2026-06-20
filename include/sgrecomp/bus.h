@@ -143,6 +143,15 @@ class Bus {
     }
     BusState save_state() const;
     void load_state(const BusState& state);
+    void set_flat_memory_mode_for_cpu_conformance(bool enabled) {
+        flat_memory_mode_for_cpu_conformance_ = enabled;
+        if (enabled) {
+            memory_.fill(0);
+        }
+    }
+    void set_flat_memory_byte_for_cpu_conformance(u16 address, u8 value) {
+        memory_[address] = value;
+    }
 
     const std::array<u8, 0x10000>& debug_memory() const {
         return memory_;
@@ -178,6 +187,7 @@ class Bus {
     bool io_logging_enabled_ = false;
     std::vector<BusIoAccess> logged_io_;
     bool memory_logging_enabled_ = false;
+    bool flat_memory_mode_for_cpu_conformance_ = false;
     std::vector<BusMemoryAccess> logged_memory_;
 
     void refresh_cartridge_map();
