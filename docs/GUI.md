@@ -11,6 +11,9 @@ O viewport acompanha automaticamente os modos SMS de 192, 224 e 240 linhas.
 A barra de menus oferece pausa e reset, liga ou desliga o overlay e permite testar
 `reduce_flicker` e `disable_sprite_limit` durante o jogo. As marcas ao lado de cada
 opção mostram o estado ativo, inclusive quando ele veio da linha de comando ou de um perfil.
+O menu **Arquivo** permite escolher outro jogo ou reabrir um dos dez jogos recentes. A GUI
+salva SRAM e configurações antes de trocar de jogo e remove automaticamente da lista os
+arquivos que deixaram de existir.
 O menu **Melhorias** também alterna explicitamente entre o modo fiel e o enhanced.
 Antes da primeira ativação enhanced da sessão, a GUI explica que essas opções podem
 alterar a aparência original e pede confirmação. Voltar ao modo fiel desliga as duas melhorias visuais.
@@ -39,12 +42,13 @@ No fluxo gráfico, a SRAM é carregada automaticamente ao abrir a ROM e salva ao
 ```
 
 O modo de execução, overlay, melhorias de vídeo, mute e volume ficam em `settings.ini`, diretamente
-na pasta `SG3000Recomp`. O arquivo contém apenas opções; caminhos de ROM e BIOS não são salvos.
+na pasta `SG3000Recomp`. `recent-games.txt` guarda localmente até dez caminhos de ROM para alimentar
+o menu de recentes; caminhos de BIOS não são salvos. Esses arquivos permanecem fora do repositório.
 
 O quick-load valida modelo, ROM, BIOS e configuração de perfil antes de restaurar estados
 novos. Estados antigos continuam legíveis com a identidade disponível em sua versão.
-Esses arquivos não guardam nem expõem caminhos locais.
+Os save states não guardam nem expõem caminhos locais.
 
 Usuários avançados ainda podem iniciar o mesmo executável pelo terminal com ROM, BIOS, mapper, perfil, saves e enhancements explícitos.
 
-Esta é a GUI mínima para testes de jogabilidade. Biblioteca local, screenshots e gerenciamento visual dos saves continuam como evolução posterior.
+Esta é a GUI mínima para testes de jogabilidade. Screenshots e gerenciamento visual dos saves continuam como evolução posterior.

@@ -38,7 +38,7 @@ cmake --build --preset zig-debug
 ctest --preset zig-debug
 ```
 
-For the simplest Windows test, double-click `build\zig-debug\SG3000Recomp.exe`, choose a local ROM, and optionally choose a BIOS. No terminal command is required. The graphical flow automatically persists cartridge SRAM and provides hash-validated quick-save/load on `F5`/`F9` under `%LOCALAPPDATA%\SG3000Recomp`. `sgrecomp_host.exe` remains the equivalent technical/CLI name. See `docs/GUI.md` for controls and current limits.
+For the simplest Windows test, double-click `build\zig-debug\SG3000Recomp.exe`, choose a local ROM, and optionally choose a BIOS. No terminal command is required. The graphical flow automatically persists cartridge SRAM, provides hash-validated quick-save/load on `F5`/`F9`, and keeps a local ten-game recent list under `%LOCALAPPDATA%\SG3000Recomp`. `sgrecomp_host.exe` remains the equivalent technical/CLI name. See `docs/GUI.md` for controls and current limits.
 
 If your Visual Studio C++ tools are registered with CMake, this preset is also available:
 

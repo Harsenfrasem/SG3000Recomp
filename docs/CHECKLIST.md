@@ -326,7 +326,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Persistir configuracoes em arquivo local ignoravel, sem caminhos sensiveis no repositorio.
 - [x] Persistir SRAM e quick state anonimos por hash fora do repositorio.
 - [x] Controles visuais para pausa, reset, overlay e enhancements de vídeo opcionais.
-- [ ] Lista de jogos recentes usando somente dados locais do usuario.
+- [x] Lista de ate dez jogos recentes usando somente caminhos locais do usuario, com poda de arquivos ausentes.
 - [x] Dialogo de compatibilidade explicando quando uma melhoria altera fidelidade.
 
 ## Enhancements Opcionais

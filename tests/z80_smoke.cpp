@@ -3,15 +3,48 @@
 #include "sgrecomp/game_profile.h"
 #include "sgrecomp/host_runtime.h"
 #include "sgrecomp/input_script.h"
+#include "sgrecomp/recent_games.h"
 #include "sgrecomp/save_state.h"
 
 #include <array>
 #include <cassert>
+#include <filesystem>
+#include <fstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 using namespace sgrecomp;
+
+void test_recent_games_are_local_deduplicated_and_pruned() {
+    const std::filesystem::path root = std::filesystem::temp_directory_path() / "sgrecomp_recent_games_test";
+    std::filesystem::remove_all(root);
+    std::filesystem::create_directories(root);
+    const std::filesystem::path first = root / "first game.sms";
+    const std::filesystem::path second = root / "second&game.sg";
+    std::ofstream(first, std::ios::binary).put('\0');
+    std::ofstream(second, std::ios::binary).put('\0');
+
+    const std::array initial{first, second, first, root / "missing.sms"};
+    auto recent = touch_recent_game(initial, second, 3);
+    assert(recent.size() == 2);
+    assert(recent[0] == second);
+    assert(recent[1] == first);
+
+    const std::filesystem::path list = root / "recent-games.txt";
+    save_recent_games(list, recent);
+    recent = load_recent_games(list);
+    assert(recent.size() == 2);
+    assert(recent[0] == second);
+    assert(recent[1] == first);
+
+    std::filesystem::remove(second);
+    recent = load_recent_games(list);
+    assert(recent.size() == 1);
+    assert(recent[0] == first);
+    assert(touch_recent_game(recent, first, 0).empty());
+    std::filesystem::remove_all(root);
+}
 
 void run_until_halt(Console& console, u64 max_cycles = 4096) {
     console.run_cycles(max_cycles);
@@ -3700,6 +3733,7 @@ void test_game_profile_hash_and_parse() {
 }
 
 int main() {
+    test_recent_games_are_local_deduplicated_and_pruned();
     test_cartridge_header_analysis();
     test_cartridge_header_generation_and_checksum_rebuild();
     test_cartridge_header_rejects_truncated_declared_size();

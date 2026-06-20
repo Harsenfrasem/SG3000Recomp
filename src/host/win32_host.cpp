@@ -5,6 +5,7 @@
 #include "sgrecomp/cartridge.h"
 #include "sgrecomp/game_profile.h"
 #include "sgrecomp/host_runtime.h"
+#include "sgrecomp/recent_games.h"
 #include "sgrecomp/save_state.h"
 
 #include <windows.h>
@@ -287,6 +288,8 @@ struct AppState {
     std::string rom_hash;
     std::string profile_name;
     std::filesystem::path quick_state_path;
+    std::vector<std::filesystem::path> recent_games;
+    std::optional<std::filesystem::path> pending_gui_rom;
     SaveStateMetadata state_metadata;
     std::string status_message;
     BITMAPINFO bitmap_info{};
@@ -312,6 +315,7 @@ struct GraphicalSettings {
 
 enum MenuCommand : UINT {
     MenuFileExit = 1000,
+    MenuFileOpenRom,
     MenuEmulationPause,
     MenuEmulationReset,
     MenuModeAccurate,
@@ -320,6 +324,8 @@ enum MenuCommand : UINT {
     MenuEnhancementDisableSpriteLimit,
     MenuViewOverlay,
     MenuHelpControls,
+    MenuRecentFirst = 1100,
+    MenuRecentLast = MenuRecentFirst + 9,
 };
 
 std::vector<u8> read_file(const std::filesystem::path& path) {
@@ -460,6 +466,30 @@ void print_usage() {
         << "                    [--disable-sprite-limit] [--reduce-flicker] [--enable-fm]\n";
 }
 
+bool launch_graphical_host(const std::optional<std::filesystem::path>& rom) {
+    std::array<wchar_t, 32768> executable{};
+    const DWORD length = GetModuleFileNameW(nullptr, executable.data(), static_cast<DWORD>(executable.size()));
+    if (length == 0 || length >= executable.size()) {
+        return false;
+    }
+    std::wstring command = L"\"" + std::wstring(executable.data(), length) + L"\"";
+    if (rom && !rom->empty()) {
+        command += L" --gui-rom \"" + rom->wstring() + L"\"";
+    }
+    std::vector<wchar_t> mutable_command(command.begin(), command.end());
+    mutable_command.push_back(L'\0');
+    STARTUPINFOW startup{};
+    startup.cb = sizeof(startup);
+    PROCESS_INFORMATION process{};
+    const BOOL launched = CreateProcessW(
+        executable.data(), mutable_command.data(), nullptr, nullptr, FALSE, 0, nullptr, nullptr, &startup, &process);
+    if (launched) {
+        CloseHandle(process.hThread);
+        CloseHandle(process.hProcess);
+    }
+    return launched != FALSE;
+}
+
 Options parse_args(int argc, char** argv) {
     Options opts;
     opts.gui_launch = argc == 1;
@@ -471,6 +501,11 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--bios" && i + 1 < argc) {
             opts.bios = argv[++i];
+            continue;
+        }
+        if (arg == "--gui-rom" && i + 1 < argc) {
+            opts.gui_launch = true;
+            opts.rom = argv[++i];
             continue;
         }
         if (arg == "--mapper" && i + 1 < argc) {
@@ -596,11 +631,13 @@ bool complete_graphical_launch_options(Options& opts) {
     static constexpr wchar_t bios_filter[] = L"BIOS Sega (*.sms;*.bin;*.rom)\0*.sms;*.bin;*.rom\0"
                                              L"Todos os arquivos (*.*)\0*.*\0\0";
 
-    const auto rom = choose_local_file(L"Selecione a ROM para jogar", rom_filter);
-    if (!rom) {
-        return false;
+    if (opts.rom.empty()) {
+        const auto rom = choose_local_file(L"Selecione a ROM para jogar", rom_filter);
+        if (!rom) {
+            return false;
+        }
+        opts.rom = *rom;
     }
-    opts.rom = *rom;
 
     const int bios_choice =
         MessageBoxW(nullptr,
@@ -656,6 +693,11 @@ void reset_emulation(AppState& app) {
     if (app.audio) {
         app.audio->flush();
     }
+}
+
+void request_gui_relaunch(HWND hwnd, AppState& app, std::filesystem::path rom) {
+    app.pending_gui_rom = std::move(rom);
+    DestroyWindow(hwnd);
 }
 
 bool confirm_enhanced_mode(HWND hwnd, AppState& app) {
@@ -948,9 +990,18 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
         if (app == nullptr) {
             break;
         }
+        if (const UINT command = LOWORD(wparam);
+            command >= MenuRecentFirst && command <= MenuRecentLast &&
+            static_cast<std::size_t>(command - MenuRecentFirst) < app->recent_games.size()) {
+            request_gui_relaunch(hwnd, *app, app->recent_games[command - MenuRecentFirst]);
+            return 0;
+        }
         switch (LOWORD(wparam)) {
         case MenuFileExit:
             DestroyWindow(hwnd);
+            return 0;
+        case MenuFileOpenRom:
+            request_gui_relaunch(hwnd, *app, {});
             return 0;
         case MenuEmulationPause:
             set_emulation_paused(*app, !app->emulation_paused);
@@ -1015,14 +1066,34 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
     return DefWindowProc(hwnd, message, wparam, lparam);
 }
 
-HMENU create_application_menu() {
+std::wstring recent_game_menu_label(std::size_t index, const std::filesystem::path& game) {
+    std::wstring filename = game.filename().wstring();
+    for (std::size_t position = 0; (position = filename.find(L'&', position)) != std::wstring::npos; position += 2) {
+        filename.insert(position, 1, L'&');
+    }
+    return L"&" + std::to_wstring(index + 1) + L" " + filename;
+}
+
+HMENU create_application_menu(const AppState& app) {
     const HMENU menu = CreateMenu();
     const HMENU file = CreatePopupMenu();
+    const HMENU recent = CreatePopupMenu();
     const HMENU emulation = CreatePopupMenu();
     const HMENU enhancements = CreatePopupMenu();
     const HMENU view = CreatePopupMenu();
     const HMENU help = CreatePopupMenu();
 
+    AppendMenuW(file, MF_STRING, MenuFileOpenRom, L"Abrir outro jogo...");
+    if (app.recent_games.empty()) {
+        AppendMenuW(recent, MF_STRING | MF_GRAYED, 0, L"(nenhum jogo recente)");
+    } else {
+        for (std::size_t index = 0; index < app.recent_games.size() && index < 10; ++index) {
+            const std::wstring label = recent_game_menu_label(index, app.recent_games[index]);
+            AppendMenuW(recent, MF_STRING, MenuRecentFirst + index, label.c_str());
+        }
+    }
+    AppendMenuW(file, MF_POPUP, reinterpret_cast<UINT_PTR>(recent), L"Jogos recentes");
+    AppendMenuW(file, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(file, MF_STRING, MenuFileExit, L"Sair");
     AppendMenuW(emulation, MF_STRING, MenuEmulationPause, L"Pausar\tSpace");
     AppendMenuW(emulation, MF_STRING, MenuEmulationReset, L"Resetar\tR");
@@ -1053,7 +1124,7 @@ HWND create_main_window(HINSTANCE instance, AppState& app, int scale) {
     wc.hbrBackground = reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH));
     RegisterClass(&wc);
 
-    const HMENU menu = create_application_menu();
+    const HMENU menu = create_application_menu(app);
     RECT rect{0, 0, Vdp::width * scale, app.host->console().vdp().active_height() * scale};
     AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, TRUE);
 
@@ -1156,6 +1227,12 @@ int run(int argc, char** argv) {
         }
     }
     auto rom = normalize_rom_payload(read_file(opts.rom));
+    std::vector<std::filesystem::path> recent_games;
+    if (opts.gui_launch) {
+        const std::filesystem::path recent_games_path = graphical_user_data_root() / L"recent-games.txt";
+        recent_games = touch_recent_game(load_recent_games(recent_games_path), std::filesystem::absolute(opts.rom));
+        save_recent_games(recent_games_path, recent_games);
+    }
     const std::string rom_hash = rom_hash_fnv1a64(rom);
     std::filesystem::path graphical_quick_state_path;
     if (opts.gui_launch) {
@@ -1233,6 +1310,7 @@ int run(int argc, char** argv) {
     app.rom_hash = rom_hash;
     app.profile_name = profile_name;
     app.quick_state_path = graphical_quick_state_path;
+    app.recent_games = std::move(recent_games);
     if (bios) {
         app.host->load_bios(*bios);
     }
@@ -1295,6 +1373,10 @@ int run(int argc, char** argv) {
         const auto bytes = save_console_state(app.host->console(), expected_state_metadata);
         write_binary_file(opts.save_state, std::span<const u8>(bytes.data(), bytes.size()));
         std::cout << "state saved: " << opts.save_state.string() << "\n";
+    }
+    if (app.pending_gui_rom && !launch_graphical_host(app.pending_gui_rom)) {
+        MessageBoxW(
+            nullptr, L"Nao foi possivel abrir uma nova instancia da interface.", L"SG3000Recomp", MB_OK | MB_ICONERROR);
     }
     return 0;
 }
