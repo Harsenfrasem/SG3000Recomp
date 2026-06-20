@@ -1400,15 +1400,19 @@ void test_vdp_left_column_blank_masks_sprites() {
     vdp.write_control(0x00);
     vdp.write_control(0x7F);
     vdp.write_data(0xFF);
+    vdp.write_data(0xFF);
     vdp.write_data(0xD0);
     vdp.write_control(0x80);
     vdp.write_control(0x7F);
+    vdp.write_data(0x04);
+    vdp.write_data(0x00);
     vdp.write_data(0x04);
     vdp.write_data(0x00);
 
     vdp.tick(228);
     assert(vdp.framebuffer()[4] == 0xFFFF0000);
     assert(vdp.framebuffer()[8] == 0xFF000000);
+    assert((vdp.read_status() & 0x20) != 0); // masking occurs after hardware collision evaluation
 }
 
 void test_vdp_right_column_vertical_scroll_lock() {

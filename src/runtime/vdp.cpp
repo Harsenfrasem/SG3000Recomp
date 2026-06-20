@@ -379,9 +379,6 @@ void Vdp::render_sprites(int line) {
                 if (x < 0 || x >= width) {
                     continue;
                 }
-                if (left_column_blank_enabled() && x < 8) {
-                    continue;
-                }
                 if (sprite_pixels[static_cast<std::size_t>(x)]) {
                     if (visible_sprites <= 8) {
                         status_ |= 0x20;
@@ -389,6 +386,9 @@ void Vdp::render_sprites(int line) {
                     continue;
                 }
                 sprite_pixels[static_cast<std::size_t>(x)] = true;
+                if (left_column_blank_enabled() && x < 8) {
+                    continue;
+                }
                 if (scanline_bg_priority_[static_cast<std::size_t>(x)]) {
                     continue;
                 }
