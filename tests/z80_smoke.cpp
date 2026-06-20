@@ -1,6 +1,7 @@
 #include "sgrecomp/console.h"
 #include "sgrecomp/cartridge.h"
 #include "sgrecomp/game_profile.h"
+#include "sgrecomp/game_library.h"
 #include "sgrecomp/host_runtime.h"
 #include "sgrecomp/input_script.h"
 #include "sgrecomp/media_io.h"
@@ -17,6 +18,38 @@
 #include <vector>
 
 using namespace sgrecomp;
+
+void test_game_library_tracks_hash_metadata_and_aliases() {
+    const auto root = std::filesystem::temp_directory_path() / "sgrecomp_game_library_test";
+    std::filesystem::remove_all(root);
+    std::filesystem::create_directories(root);
+    const auto first_path = root / "first game.sms";
+    const auto second_path = root / "second.sg";
+    std::ofstream(first_path, std::ios::binary).put('\0');
+    std::ofstream(second_path, std::ios::binary).put('\0');
+
+    GameLibraryEntry first{first_path, "fnv1a64:0001", "", "master-system", "sms-export", "12345"};
+    GameLibraryEntry second{second_path, "fnv1a64:0002", "Segundo", "sg-3000", "unknown", ""};
+    auto entries = touch_game_library({}, first);
+    entries = touch_game_library(entries, second);
+    assert(entries.size() == 2 && entries.front().hash == second.hash);
+    assert(set_game_library_alias(entries, first.hash, "Meu jogo\nlocal"));
+    entries = touch_game_library(entries, first);
+    assert(entries.front().alias == "Meu jogo local");
+
+    const auto library_path = root / "library.txt";
+    save_game_library(library_path, entries);
+    entries = load_game_library(library_path);
+    assert(entries.size() == 2);
+    assert(entries.front().hash == first.hash);
+    assert(entries.front().alias == "Meu jogo local");
+    assert(entries.front().platform == "master-system");
+    assert(entries.front().region == "sms-export");
+    assert(entries.front().product_code == "12345");
+    std::filesystem::remove(second_path);
+    assert(load_game_library(library_path).size() == 1);
+    std::filesystem::remove_all(root);
+}
 
 void test_media_writers_create_standard_bmp_and_wav() {
     const std::filesystem::path root = std::filesystem::temp_directory_path() / "sgrecomp_media_io_test";
@@ -3902,6 +3935,7 @@ void test_game_profile_hash_and_parse() {
 }
 
 int main() {
+    test_game_library_tracks_hash_metadata_and_aliases();
     test_media_writers_create_standard_bmp_and_wav();
     test_recent_games_are_local_deduplicated_and_pruned();
     test_cartridge_header_analysis();

@@ -16,6 +16,11 @@ O menu **Arquivo** permite trocar de jogo na mesma janela, reabrir um dos dez jo
 selecionar outra BIOS ou remover a BIOS ativa. A GUI salva a SRAM antes de substituir a sessão
 e remove automaticamente da lista os arquivos que deixaram de existir. Selecionar ou remover
 a BIOS com um jogo aberto recarrega esse jogo imediatamente no modo escolhido.
+
+**Arquivo > Biblioteca local** reúne até cinquenta jogos já abertos, identificados pelo hash
+e pelos metadados do header (plataforma, região e código de produto quando disponíveis).
+Escolher uma entrada abre o jogo na mesma janela. Para o jogo atual, é possível definir ou
+remover um apelido; ele passa a ser o nome mostrado no menu sem renomear nem copiar a ROM.
 O menu **Melhorias** também alterna explicitamente entre o modo fiel e o enhanced.
 Antes da primeira ativação enhanced da sessão, a GUI explica que essas opções podem
 alterar a aparência original e pede confirmação. Voltar ao modo fiel desliga as duas melhorias visuais.
@@ -68,8 +73,9 @@ No fluxo gráfico, a SRAM é carregada automaticamente ao abrir a ROM e salva ao
 
 O modo de execução, escala da janela, controles, overlay, melhorias de vídeo/áudio, mute e volume ficam em `settings.ini`, diretamente
 na pasta `SG3000Recomp`. `recent-games.txt` guarda localmente até dez caminhos de ROM para alimentar
-o menu de recentes; `profiles.txt` guarda configurações por hash. Caminhos de BIOS não são
-salvos. Esses arquivos permanecem fora do repositório.
+o menu de recentes; `game-library.txt` mantém a biblioteca e os apelidos; `profiles.txt`
+guarda configurações por hash. Caminhos de BIOS não são salvos. Esses arquivos permanecem
+fora do repositório.
 
 O quick-load valida modelo, ROM, BIOS e configuração de perfil antes de restaurar estados
 novos. Estados antigos continuam legíveis com a identidade disponível em sua versão.

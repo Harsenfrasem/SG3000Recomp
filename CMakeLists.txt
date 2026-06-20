@@ -64,6 +64,7 @@ add_library(sgrecomp_runtime STATIC
     src/runtime/cartridge.cpp
     src/runtime/console.cpp
     src/runtime/game_profile.cpp
+    src/runtime/game_library.cpp
     src/runtime/host_runtime.cpp
     src/runtime/input_script.cpp
     src/runtime/joypad.cpp

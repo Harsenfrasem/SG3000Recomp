@@ -103,7 +103,7 @@ Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
 - [x] Boot com BIOS selecionada executa BIOS antes do jogo e preserva handoff pelo controle de memoria.
 - [x] Soft reset reinicia somente a CPU/sessao ativa sem reabrir ROM nem forcar novo boot da BIOS.
 - [x] GUI usa seletores nativos de ROM e BIOS sem copiar ou versionar arquivos.
-- [ ] Biblioteca local de jogos por hash/header, com apelidos configurados pelo usuario.
+- [x] Biblioteca local por hash/header com metadados, abertura na mesma janela e apelidos configurados pelo usuario.
 - [x] Tela de configuracao simples para modo fiel/enhanced e toggles de enhancements.
 - [x] GUI: SRAM automatica e quick-save/load por hash em `%LOCALAPPDATA%`, com validacao de estado.
 - [x] GUI: escala inteira de janela entre 1x e 6x, configuravel e persistente.

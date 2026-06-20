@@ -4,6 +4,7 @@
 #include "sgrecomp/enhancements.h"
 #include "sgrecomp/cartridge.h"
 #include "sgrecomp/game_profile.h"
+#include "sgrecomp/game_library.h"
 #include "sgrecomp/host_runtime.h"
 #include "sgrecomp/media_io.h"
 #include "sgrecomp/recent_games.h"
@@ -310,12 +311,14 @@ struct AppState {
     std::filesystem::path current_rom_path;
     std::filesystem::path current_sram_path;
     std::vector<std::filesystem::path> recent_games;
+    std::vector<GameLibraryEntry> game_library;
     Options session_options;
     InputBindings bindings;
     std::optional<ControlAction> pending_binding;
     HMENU controls_menu = nullptr;
     HMENU scale_menu = nullptr;
     HMENU recent_menu = nullptr;
+    HMENU library_menu = nullptr;
     HWND status_window = nullptr;
     HWND status_text = nullptr;
     SaveStateMetadata state_metadata;
@@ -384,6 +387,10 @@ enum MenuCommand : UINT {
     MenuProfileVideoPal,
     MenuProfileSave,
     MenuProfileRemove,
+    MenuLibraryFirst = 1500,
+    MenuLibraryLast = MenuLibraryFirst + 49,
+    MenuLibrarySetAlias,
+    MenuLibraryClearAlias,
 };
 
 constexpr std::array<CartridgeMapper, 6> graphical_profile_mappers{
@@ -875,6 +882,49 @@ void resize_game_window(HWND hwnd, AppState& app, int scale) {
 
 std::wstring recent_game_menu_label(std::size_t index, const std::filesystem::path& game);
 
+std::wstring escape_menu_label(std::wstring label) {
+    for (std::size_t position = 0; (position = label.find(L'&', position)) != std::wstring::npos; position += 2) {
+        label.insert(position, 1, L'&');
+    }
+    return label;
+}
+
+std::wstring utf8_to_wide(const std::string& text) {
+    if (text.empty()) {
+        return {};
+    }
+    const int length =
+        MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text.data(), static_cast<int>(text.size()), nullptr, 0);
+    if (length <= 0) {
+        return std::wstring(text.begin(), text.end());
+    }
+    std::wstring converted(static_cast<std::size_t>(length), L'\0');
+    MultiByteToWideChar(
+        CP_UTF8, MB_ERR_INVALID_CHARS, text.data(), static_cast<int>(text.size()), converted.data(), length);
+    return converted;
+}
+
+std::string wide_to_utf8(const std::wstring& text) {
+    if (text.empty()) {
+        return {};
+    }
+    const int length = WideCharToMultiByte(
+        CP_UTF8, WC_ERR_INVALID_CHARS, text.data(), static_cast<int>(text.size()), nullptr, 0, nullptr, nullptr);
+    if (length <= 0) {
+        return std::string(text.begin(), text.end());
+    }
+    std::string converted(static_cast<std::size_t>(length), '\0');
+    WideCharToMultiByte(CP_UTF8,
+                        WC_ERR_INVALID_CHARS,
+                        text.data(),
+                        static_cast<int>(text.size()),
+                        converted.data(),
+                        length,
+                        nullptr,
+                        nullptr);
+    return converted;
+}
+
 void refresh_recent_menu(AppState& app) {
     if (app.recent_menu == nullptr) {
         return;
@@ -889,6 +939,30 @@ void refresh_recent_menu(AppState& app) {
         const std::wstring label = recent_game_menu_label(index, app.recent_games[index]);
         AppendMenuW(app.recent_menu, MF_STRING, MenuRecentFirst + index, label.c_str());
     }
+}
+
+void refresh_library_menu(AppState& app) {
+    if (app.library_menu == nullptr) {
+        return;
+    }
+    while (DeleteMenu(app.library_menu, 0, MF_BYPOSITION)) {
+    }
+    if (app.game_library.empty()) {
+        AppendMenuW(app.library_menu, MF_STRING | MF_GRAYED, 0, L"(biblioteca vazia)");
+    } else {
+        for (std::size_t index = 0; index < app.game_library.size() && index < 50; ++index) {
+            const auto& entry = app.game_library[index];
+            std::wstring label = entry.alias.empty() ? entry.path.filename().wstring() : utf8_to_wide(entry.alias);
+            label = escape_menu_label(std::move(label));
+            if (!entry.platform.empty()) {
+                label += L"\t" + utf8_to_wide(entry.platform);
+            }
+            AppendMenuW(app.library_menu, MF_STRING, MenuLibraryFirst + index, label.c_str());
+        }
+    }
+    AppendMenuW(app.library_menu, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(app.library_menu, MF_STRING, MenuLibrarySetAlias, L"Definir apelido para o jogo atual...");
+    AppendMenuW(app.library_menu, MF_STRING, MenuLibraryClearAlias, L"Remover apelido do jogo atual");
 }
 
 void save_active_sram(AppState& app) {
@@ -952,6 +1026,7 @@ void configure_session_audio(AppState& app, const Options& options) {
 void load_game_session(HWND hwnd, AppState& app, const std::filesystem::path& rom_path) {
     auto rom = normalize_rom_payload(read_file(rom_path));
     const std::string rom_hash = rom_hash_fnv1a64(rom);
+    const CartridgeHeaderInfo header = analyze_cartridge_header(rom);
     Options options = app.session_options;
     options.rom = rom_path;
     options.enhancements = app.host->console().enhancements();
@@ -1007,6 +1082,15 @@ void load_game_session(HWND hwnd, AppState& app, const std::filesystem::path& ro
     app.recent_games = touch_recent_game(app.recent_games, app.current_rom_path);
     save_recent_games(graphical_user_data_root() / L"recent-games.txt", app.recent_games);
     refresh_recent_menu(app);
+    GameLibraryEntry library_entry;
+    library_entry.path = app.current_rom_path;
+    library_entry.hash = rom_hash;
+    library_entry.platform = cartridge_platform_name(cartridge_header_platform(header));
+    library_entry.region = cartridge_region_name(header.region);
+    library_entry.product_code = header.product_code;
+    app.game_library = touch_game_library(app.game_library, std::move(library_entry));
+    save_game_library(graphical_user_data_root() / L"game-library.txt", app.game_library);
+    refresh_library_menu(app);
     resize_game_window(hwnd, app, app.window_scale);
     const std::string title = "SG3000Recomp - " + rom_path.filename().string();
     SetWindowTextA(hwnd, title.c_str());
@@ -1024,7 +1108,8 @@ void select_session_bios(HWND hwnd, AppState& app) {
     (void)read_file(*bios);
     app.session_options.bios = *bios;
     if (app.has_rom) {
-        load_game_session(hwnd, app, app.current_rom_path);
+        const std::filesystem::path game = app.current_rom_path;
+        load_game_session(hwnd, app, game);
     } else {
         app.status_message = "BIOS selecionada; abra uma ROM para iniciar";
         const std::string title = "SG3000Recomp - Sem jogo - BIOS: " + bios->filename().string();
@@ -1035,7 +1120,8 @@ void select_session_bios(HWND hwnd, AppState& app) {
 void clear_session_bios(HWND hwnd, AppState& app) {
     app.session_options.bios.clear();
     if (app.has_rom) {
-        load_game_session(hwnd, app, app.current_rom_path);
+        const std::filesystem::path game = app.current_rom_path;
+        load_game_session(hwnd, app, game);
     } else {
         app.status_message = "BIOS removida; a proxima ROM iniciara diretamente";
         SetWindowTextA(hwnd, "SG3000Recomp - Nenhum jogo carregado");
@@ -1160,7 +1246,8 @@ void store_game_profile(HWND hwnd,
                    profiles.end());
     profiles.push_back(profile);
     save_game_profiles(app.session_options.profile, profiles);
-    load_game_session(hwnd, app, app.current_rom_path);
+    const std::filesystem::path game = app.current_rom_path;
+    load_game_session(hwnd, app, game);
     app.status_message = "perfil local salvo e aplicado";
 }
 
@@ -1174,8 +1261,188 @@ void remove_game_profile(HWND hwnd, AppState& app) {
     }
     profiles.erase(end, profiles.end());
     save_game_profiles(app.session_options.profile, profiles);
-    load_game_session(hwnd, app, app.current_rom_path);
+    const std::filesystem::path game = app.current_rom_path;
+    load_game_session(hwnd, app, game);
     app.status_message = "perfil local removido";
+}
+
+struct AliasPromptState {
+    HWND edit = nullptr;
+    bool done = false;
+    bool accepted = false;
+    std::wstring value;
+};
+
+LRESULT CALLBACK alias_prompt_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
+    auto* state = reinterpret_cast<AliasPromptState*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+    if (message == WM_NCCREATE) {
+        const auto* create = reinterpret_cast<const CREATESTRUCT*>(lparam);
+        SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(create->lpCreateParams));
+        return TRUE;
+    }
+    switch (message) {
+    case WM_COMMAND:
+        if (state != nullptr && (LOWORD(wparam) == IDOK || LOWORD(wparam) == IDCANCEL)) {
+            if (LOWORD(wparam) == IDOK) {
+                std::array<wchar_t, 256> value{};
+                GetWindowTextW(state->edit, value.data(), static_cast<int>(value.size()));
+                state->value = value.data();
+                state->accepted = true;
+            }
+            state->done = true;
+            DestroyWindow(hwnd);
+        }
+        return 0;
+    case WM_CLOSE:
+        if (state != nullptr) {
+            state->done = true;
+        }
+        DestroyWindow(hwnd);
+        return 0;
+    case WM_DESTROY:
+        if (state != nullptr) {
+            state->done = true;
+        }
+        return 0;
+    default:
+        return DefWindowProcW(hwnd, message, wparam, lparam);
+    }
+}
+
+std::optional<std::string> prompt_game_alias(HWND owner, const std::string& current_alias) {
+    constexpr const wchar_t* class_name = L"SG3000RecompAliasPrompt";
+    WNDCLASSW window_class{};
+    window_class.lpfnWndProc = alias_prompt_proc;
+    window_class.hInstance = GetModuleHandle(nullptr);
+    window_class.lpszClassName = class_name;
+    window_class.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    window_class.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
+    if (RegisterClassW(&window_class) == 0 && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
+        throw std::runtime_error("cannot register alias window");
+    }
+
+    RECT owner_rect{};
+    GetWindowRect(owner, &owner_rect);
+    AliasPromptState state;
+    HWND window = CreateWindowExW(WS_EX_DLGMODALFRAME,
+                                  class_name,
+                                  L"SG3000Recomp - Apelido do jogo",
+                                  WS_CAPTION | WS_SYSMENU,
+                                  owner_rect.left + 80,
+                                  owner_rect.top + 80,
+                                  440,
+                                  155,
+                                  owner,
+                                  nullptr,
+                                  GetModuleHandle(nullptr),
+                                  &state);
+    if (window == nullptr) {
+        throw std::runtime_error("cannot create alias window");
+    }
+    CreateWindowExW(0,
+                    L"STATIC",
+                    L"Apelido exibido na biblioteca local:",
+                    WS_CHILD | WS_VISIBLE,
+                    14,
+                    14,
+                    390,
+                    20,
+                    window,
+                    nullptr,
+                    GetModuleHandle(nullptr),
+                    nullptr);
+    state.edit = CreateWindowExW(WS_EX_CLIENTEDGE,
+                                 L"EDIT",
+                                 utf8_to_wide(current_alias).c_str(),
+                                 WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL,
+                                 14,
+                                 38,
+                                 396,
+                                 25,
+                                 window,
+                                 nullptr,
+                                 GetModuleHandle(nullptr),
+                                 nullptr);
+    if (state.edit == nullptr) {
+        DestroyWindow(window);
+        throw std::runtime_error("cannot create alias input");
+    }
+    SendMessageW(state.edit, EM_SETLIMITTEXT, 120, 0);
+    CreateWindowExW(0,
+                    L"BUTTON",
+                    L"Salvar",
+                    WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON,
+                    238,
+                    76,
+                    82,
+                    28,
+                    window,
+                    reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDOK)),
+                    GetModuleHandle(nullptr),
+                    nullptr);
+    CreateWindowExW(0,
+                    L"BUTTON",
+                    L"Cancelar",
+                    WS_CHILD | WS_VISIBLE | WS_TABSTOP,
+                    328,
+                    76,
+                    82,
+                    28,
+                    window,
+                    reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDCANCEL)),
+                    GetModuleHandle(nullptr),
+                    nullptr);
+    EnableWindow(owner, FALSE);
+    ShowWindow(window, SW_SHOW);
+    SetFocus(state.edit);
+    SendMessageW(state.edit, EM_SETSEL, 0, -1);
+    MSG message{};
+    while (!state.done) {
+        const BOOL result = GetMessageW(&message, nullptr, 0, 0);
+        if (result <= 0) {
+            if (result == 0) {
+                PostQuitMessage(static_cast<int>(message.wParam));
+            }
+            break;
+        }
+        if (!IsDialogMessageW(window, &message)) {
+            TranslateMessage(&message);
+            DispatchMessageW(&message);
+        }
+    }
+    if (IsWindow(window)) {
+        DestroyWindow(window);
+    }
+    if (IsWindow(owner)) {
+        EnableWindow(owner, TRUE);
+        SetForegroundWindow(owner);
+    }
+    return state.accepted ? std::optional<std::string>{wide_to_utf8(state.value)} : std::nullopt;
+}
+
+void edit_current_game_alias(HWND hwnd, AppState& app) {
+    const auto entry = std::find_if(app.game_library.begin(),
+                                    app.game_library.end(),
+                                    [&](const GameLibraryEntry& game) { return game.hash == app.rom_hash; });
+    const std::string current = entry == app.game_library.end() ? std::string{} : entry->alias;
+    const auto alias = prompt_game_alias(hwnd, current);
+    if (!alias) {
+        return;
+    }
+    if (!set_game_library_alias(app.game_library, app.rom_hash, *alias)) {
+        throw std::runtime_error("current game is missing from the local library");
+    }
+    save_game_library(graphical_user_data_root() / L"game-library.txt", app.game_library);
+    refresh_library_menu(app);
+    app.status_message = alias->empty() ? "apelido removido" : "apelido salvo na biblioteca local";
+}
+
+void clear_current_game_alias(AppState& app) {
+    if (set_game_library_alias(app.game_library, app.rom_hash, {})) {
+        save_game_library(graphical_user_data_root() / L"game-library.txt", app.game_library);
+        refresh_library_menu(app);
+        app.status_message = "apelido removido";
+    }
 }
 
 void request_control_binding(HWND hwnd, AppState& app, ControlAction action) {
@@ -1273,6 +1540,16 @@ void update_menu_checks(HWND hwnd, const AppState& app) {
     EnableMenuItem(menu, MenuProfileSave, MF_BYCOMMAND | (app.has_rom ? MF_ENABLED : MF_GRAYED));
     EnableMenuItem(
         menu, MenuProfileRemove, MF_BYCOMMAND | (app.has_rom && !app.profile_name.empty() ? MF_ENABLED : MF_GRAYED));
+    EnableMenuItem(menu, MenuLibrarySetAlias, MF_BYCOMMAND | (app.has_rom ? MF_ENABLED : MF_GRAYED));
+    const auto library_entry = std::find_if(app.game_library.begin(), app.game_library.end(), [&](const auto& entry) {
+        return entry.hash == app.rom_hash;
+    });
+    EnableMenuItem(menu,
+                   MenuLibraryClearAlias,
+                   MF_BYCOMMAND |
+                       (app.has_rom && library_entry != app.game_library.end() && !library_entry->alias.empty()
+                            ? MF_ENABLED
+                            : MF_GRAYED));
     const auto& config = app.host->console().enhancements();
     check(MenuEmulationPause, app.emulation_paused);
     CheckMenuRadioItem(menu,
@@ -1734,10 +2011,23 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
             break;
         }
         if (const UINT command = LOWORD(wparam);
+            command >= MenuLibraryFirst && command <= MenuLibraryLast &&
+            static_cast<std::size_t>(command - MenuLibraryFirst) < app->game_library.size()) {
+            try {
+                const std::filesystem::path game = app->game_library[command - MenuLibraryFirst].path;
+                load_game_session(hwnd, *app, game);
+            } catch (const std::exception& error) {
+                MessageBoxA(hwnd, error.what(), "SG3000Recomp - Erro na biblioteca", MB_OK | MB_ICONERROR);
+            }
+            update_menu_checks(hwnd, *app);
+            return 0;
+        }
+        if (const UINT command = LOWORD(wparam);
             command >= MenuRecentFirst && command <= MenuRecentLast &&
             static_cast<std::size_t>(command - MenuRecentFirst) < app->recent_games.size()) {
             try {
-                load_game_session(hwnd, *app, app->recent_games[command - MenuRecentFirst]);
+                const std::filesystem::path game = app->recent_games[command - MenuRecentFirst];
+                load_game_session(hwnd, *app, game);
             } catch (const std::exception& error) {
                 MessageBoxA(hwnd, error.what(), "SG3000Recomp - Erro ao abrir ROM", MB_OK | MB_ICONERROR);
             }
@@ -1815,6 +2105,19 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
             }
             update_menu_checks(hwnd, *app);
             InvalidateRect(hwnd, nullptr, FALSE);
+            return 0;
+        case MenuLibrarySetAlias:
+        case MenuLibraryClearAlias:
+            try {
+                if (LOWORD(wparam) == MenuLibrarySetAlias) {
+                    edit_current_game_alias(hwnd, *app);
+                } else {
+                    clear_current_game_alias(*app);
+                }
+            } catch (const std::exception& error) {
+                MessageBoxA(hwnd, error.what(), "SG3000Recomp - Erro na biblioteca", MB_OK | MB_ICONERROR);
+            }
+            update_menu_checks(hwnd, *app);
             return 0;
         case MenuFileSaveState:
         case MenuFileLoadState:
@@ -1950,6 +2253,7 @@ HMENU create_application_menu(AppState& app) {
     const HMENU menu = CreateMenu();
     const HMENU file = CreatePopupMenu();
     const HMENU recent = CreatePopupMenu();
+    const HMENU library = CreatePopupMenu();
     const HMENU audio_dump = CreatePopupMenu();
     const HMENU profile = CreatePopupMenu();
     const HMENU emulation = CreatePopupMenu();
@@ -1961,6 +2265,7 @@ HMENU create_application_menu(AppState& app) {
     app.scale_menu = scale;
     app.controls_menu = controls;
     app.recent_menu = recent;
+    app.library_menu = library;
 
     AppendMenuW(file, MF_STRING, MenuFileOpenRom, L"Abrir ROM...");
     AppendMenuW(file, MF_STRING, MenuFileSelectBios, L"Selecionar BIOS...");
@@ -1989,6 +2294,8 @@ HMENU create_application_menu(AppState& app) {
     AppendMenuW(profile, MF_STRING, MenuProfileRemove, L"Remover perfil deste jogo");
     AppendMenuW(file, MF_POPUP, reinterpret_cast<UINT_PTR>(profile), L"Perfil do jogo");
     AppendMenuW(file, MF_SEPARATOR, 0, nullptr);
+    refresh_library_menu(app);
+    AppendMenuW(file, MF_POPUP, reinterpret_cast<UINT_PTR>(library), L"Biblioteca local");
     if (app.recent_games.empty()) {
         AppendMenuW(recent, MF_STRING | MF_GRAYED, 0, L"(nenhum jogo recente)");
     } else {
@@ -2174,6 +2481,8 @@ int run_empty_frontend(Options options,
     app.bindings = graphical_settings.bindings;
     app.recent_games = load_recent_games(graphical_user_data_root() / L"recent-games.txt");
     save_recent_games(graphical_user_data_root() / L"recent-games.txt", app.recent_games);
+    app.game_library = load_game_library(graphical_user_data_root() / L"game-library.txt");
+    save_game_library(graphical_user_data_root() / L"game-library.txt", app.game_library);
     app.bitmap_info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
     app.bitmap_info.bmiHeader.biWidth = Vdp::width;
     app.bitmap_info.bmiHeader.biHeight = -Vdp::height;

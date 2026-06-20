@@ -34,6 +34,10 @@ VDP, mapper, áudio, backends e uso do executor recompilado/fallback, sem pausar
 a ROM atual. O perfil pode ser alterado ou removido sem reiniciar o aplicativo e fica somente
 em `%LOCALAPPDATA%\SG3000Recomp\profiles.txt`.
 
+**Arquivo > Biblioteca local** lista jogos já abertos por hash/header e permite configurar
+um apelido para o jogo atual. A biblioteca apenas referencia os arquivos originais e remove
+automaticamente entradas cujo arquivo deixou de existir.
+
 Em **Arquivo**, também é possível salvar/carregar estados `.sgstate`, capturar a tela em
 BMP e gravar a saída de áudio em WAV. Cancelar o destino de uma gravação mantém o áudio na
 memória para salvar depois; a opção de descartar o remove sem criar arquivos.
