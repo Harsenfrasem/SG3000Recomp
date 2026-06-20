@@ -59,6 +59,7 @@ struct Options {
     u32 audio_sample_rate = 44100;
     std::size_t quit_after_frames = 0;
     bool gui_launch = false;
+    bool show_status_window = false;
 };
 
 class Win32Audio {
@@ -315,6 +316,8 @@ struct AppState {
     HMENU controls_menu = nullptr;
     HMENU scale_menu = nullptr;
     HMENU recent_menu = nullptr;
+    HWND status_window = nullptr;
+    HWND status_text = nullptr;
     SaveStateMetadata state_metadata;
     std::string status_message;
     BITMAPINFO bitmap_info{};
@@ -366,6 +369,7 @@ enum MenuCommand : UINT {
     MenuEnhancementDisableSpriteLimit,
     MenuEnhancementYm2612,
     MenuViewOverlay,
+    MenuViewStatus,
     MenuHelpControls,
     MenuRecentFirst = 1100,
     MenuRecentLast = MenuRecentFirst + 9,
@@ -552,6 +556,7 @@ void print_usage() {
         << "                    [--profile profiles.txt]\n"
         << "                    [--print-hash]\n"
         << "                    [--quit-after-frames n]\n"
+        << "                    [--show-status]\n"
         << "                    [--disable-sprite-limit] [--reduce-flicker] [--enable-fm] [--enable-ym2612]\n";
 }
 
@@ -566,6 +571,10 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--gui") {
             opts.gui_launch = true;
+            continue;
+        }
+        if (arg == "--show-status") {
+            opts.show_status_window = true;
             continue;
         }
         if (arg == "--bios" && i + 1 < argc) {
@@ -1188,6 +1197,7 @@ void update_menu_checks(HWND hwnd, const AppState& app) {
     check(MenuEnhancementDisableSpriteLimit, config.disable_sprite_limit);
     check(MenuEnhancementYm2612, config.enable_ym2612);
     check(MenuViewOverlay, app.overlay_enabled);
+    check(MenuViewStatus, app.status_window != nullptr && IsWindowVisible(app.status_window));
     CheckMenuRadioItem(app.scale_menu,
                        MenuScaleFirst,
                        MenuScaleLast,
@@ -1382,6 +1392,150 @@ std::string overlay_text(const AppState& app) {
     out << "\nF1 overlay  F5 salvar  F9 carregar"
         << "\nSpace pause  R reset  M mute  +/- volume";
     return out.str();
+}
+
+std::string detailed_status_text(const AppState& app) {
+    std::ostringstream out;
+    out << "SG3000Recomp - status em tempo real\r\n"
+        << "Modelo: "
+        << ((app.has_rom ? app.state_metadata.model : app.session_options.model) == ConsoleModel::SG3000
+                ? "SG-3000"
+                : "Master System")
+        << "\r\nVideo: " << (app.host->config().scanlines_per_frame == 313 ? "PAL" : "NTSC")
+        << " | Backend de janela: Win32"
+        << " | Backend de audio: " << (app.audio ? "waveOut" : "desativado") << "\r\n";
+    if (!app.has_rom) {
+        out << "\r\nNenhum jogo carregado. Configure a sessao e use Arquivo > Abrir ROM...\r\n";
+    } else {
+        std::string diagnostics = overlay_text(app);
+        for (std::size_t position = 0; (position = diagnostics.find('\n', position)) != std::string::npos;
+             position += 2) {
+            diagnostics.insert(position, 1, '\r');
+        }
+        out << "ROM: " << app.current_rom_path.filename().string() << "\r\n"
+            << "BIOS: " << (app.session_options.bios.empty() ? "nao selecionada" : "selecionada") << "\r\n\r\n"
+            << diagnostics << "\r\n";
+    }
+
+    const auto& enhancements = app.host->console().enhancements();
+    out << "\r\nAvisos de compatibilidade:\r\n";
+    bool warned = false;
+    if (enhancements.mode != RuntimeMode::Accurate) {
+        out << "- Modo enhanced ativo; a saida pode diferir do hardware original.\r\n";
+        warned = true;
+    }
+    if (enhancements.enable_ym2612) {
+        out << "- YM2612/Nuked-OPN2 e uma extensao experimental, nao hardware SMS/SG-3000.\r\n";
+        warned = true;
+    }
+    if (app.last_frame.fallback_instructions != 0) {
+        out << "- O executor usou fallback interpretado neste frame.\r\n";
+        warned = true;
+    }
+    if (!warned) {
+        out << "- Nenhum aviso ativo.\r\n";
+    }
+    if (app.audio_recording) {
+        out << "\r\nGravacao WAV em andamento: " << app.recorded_audio.size() / 2 << " frames de audio.\r\n";
+    }
+    return out.str();
+}
+
+void refresh_status_window(AppState& app) {
+    if (app.status_text == nullptr || !IsWindow(app.status_text)) {
+        return;
+    }
+    const std::string text = detailed_status_text(app);
+    SetWindowTextA(app.status_text, text.c_str());
+}
+
+LRESULT CALLBACK status_window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
+    auto* app = reinterpret_cast<AppState*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+    if (message == WM_NCCREATE) {
+        const auto* create = reinterpret_cast<const CREATESTRUCT*>(lparam);
+        SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(create->lpCreateParams));
+        return TRUE;
+    }
+    switch (message) {
+    case WM_TIMER:
+        if (app != nullptr) {
+            refresh_status_window(*app);
+        }
+        return 0;
+    case WM_SIZE:
+        if (app != nullptr && app->status_text != nullptr) {
+            MoveWindow(app->status_text, 0, 0, LOWORD(lparam), HIWORD(lparam), TRUE);
+        }
+        return 0;
+    case WM_DESTROY:
+        KillTimer(hwnd, 1);
+        if (app != nullptr) {
+            app->status_window = nullptr;
+            app->status_text = nullptr;
+            if (const HWND owner = GetWindow(hwnd, GW_OWNER); owner != nullptr && IsWindow(owner)) {
+                update_menu_checks(owner, *app);
+                DrawMenuBar(owner);
+            }
+        }
+        return 0;
+    default:
+        return DefWindowProc(hwnd, message, wparam, lparam);
+    }
+}
+
+void show_status_window(HWND owner, AppState& app) {
+    if (app.status_window != nullptr && IsWindow(app.status_window)) {
+        ShowWindow(app.status_window, SW_SHOWNORMAL);
+        SetForegroundWindow(app.status_window);
+        return;
+    }
+
+    constexpr const wchar_t* class_name = L"SG3000RecompStatusWindow";
+    WNDCLASSW window_class{};
+    window_class.lpfnWndProc = status_window_proc;
+    window_class.hInstance = GetModuleHandle(nullptr);
+    window_class.lpszClassName = class_name;
+    window_class.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    window_class.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
+    if (RegisterClassW(&window_class) == 0 && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
+        throw std::runtime_error("cannot register status window");
+    }
+
+    app.status_window = CreateWindowExW(WS_EX_TOOLWINDOW,
+                                        class_name,
+                                        L"SG3000Recomp - Status detalhado",
+                                        WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+                                        CW_USEDEFAULT,
+                                        CW_USEDEFAULT,
+                                        760,
+                                        560,
+                                        owner,
+                                        nullptr,
+                                        GetModuleHandle(nullptr),
+                                        &app);
+    if (app.status_window == nullptr) {
+        throw std::runtime_error("cannot create status window");
+    }
+    app.status_text =
+        CreateWindowExW(WS_EX_CLIENTEDGE,
+                        L"EDIT",
+                        L"",
+                        WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY,
+                        0,
+                        0,
+                        740,
+                        520,
+                        app.status_window,
+                        nullptr,
+                        GetModuleHandle(nullptr),
+                        nullptr);
+    if (app.status_text == nullptr) {
+        DestroyWindow(app.status_window);
+        throw std::runtime_error("cannot create status text view");
+    }
+    SendMessage(app.status_text, WM_SETFONT, reinterpret_cast<WPARAM>(GetStockObject(ANSI_FIXED_FONT)), TRUE);
+    SetTimer(app.status_window, 1, 250, nullptr);
+    refresh_status_window(app);
 }
 
 std::wstring controls_help_text(const AppState& app) {
@@ -1608,6 +1762,13 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
         case MenuViewOverlay:
             app->overlay_enabled = !app->overlay_enabled;
             break;
+        case MenuViewStatus:
+            try {
+                show_status_window(hwnd, *app);
+            } catch (const std::exception& error) {
+                MessageBoxA(hwnd, error.what(), "SG3000Recomp - Erro de status", MB_OK | MB_ICONERROR);
+            }
+            break;
         case MenuControlReset:
             app->bindings = {};
             app->input = {};
@@ -1632,6 +1793,9 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
     case WM_DESTROY:
         if (app != nullptr) {
             app->running = false;
+            if (app->status_window != nullptr && IsWindow(app->status_window)) {
+                DestroyWindow(app->status_window);
+            }
         }
         PostQuitMessage(0);
         return 0;
@@ -1697,6 +1861,7 @@ HMENU create_application_menu(AppState& app) {
     AppendMenuW(enhancements, MF_STRING, MenuEnhancementDisableSpriteLimit, L"Desativar limite de sprites");
     AppendMenuW(enhancements, MF_STRING, MenuEnhancementYm2612, L"YM2612 experimental (portas F4-F7)");
     AppendMenuW(view, MF_STRING, MenuViewOverlay, L"Overlay de diagnostico\tF1");
+    AppendMenuW(view, MF_STRING, MenuViewStatus, L"Status detalhado...");
     for (UINT factor = 1; factor <= 6; ++factor) {
         const std::wstring label = std::to_wstring(factor) + L"x";
         AppendMenuW(scale, MF_STRING, MenuScaleFirst + factor - 1, label.c_str());
@@ -1874,6 +2039,9 @@ int run_empty_frontend(Options options,
 
     HWND hwnd = create_main_window(GetModuleHandle(nullptr), app, options.scale);
     SetWindowTextA(hwnd, "SG3000Recomp - Nenhum jogo carregado");
+    if (options.show_status_window) {
+        show_status_window(hwnd, app);
+    }
     if (!options.rom.empty()) {
         load_game_session(hwnd, app, options.rom);
         update_menu_checks(hwnd, app);

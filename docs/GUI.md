@@ -30,6 +30,12 @@ alterar a resolução interna do console. Em **Controles**, cada ação do jogad
 remapeada: escolha a ação e pressione a nova tecla. Se a tecla já estiver em uso, os dois
 vínculos são trocados para evitar conflitos. Há também uma opção para restaurar o padrão.
 
+**Exibição > Status detalhado...** abre uma janela auxiliar não modal que permanece
+atualizada durante o jogo. Ela mostra modelo e padrão de vídeo, backends Win32/waveOut,
+registradores da CPU, estado do VDP e mapper, FPS, áudio, execução interpretada/recompilada,
+fallback por frame e avisos quando o modo enhanced ou o YM2612 experimental estão ativos.
+A janela pode permanecer aberta enquanto ROM, BIOS e configurações são trocadas.
+
 Nenhuma ROM ou BIOS é copiada para o projeto. Cancelar um seletor mantém a janela e a sessão atual sem alterações.
 
 ## Controles

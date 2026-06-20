@@ -214,7 +214,7 @@ if(SGRECOMP_BUILD_TESTS)
 
     if(TARGET sgrecomp_host)
         add_test(NAME win32_host_help COMMAND sgrecomp_host --help)
-        add_test(NAME win32_host_idle COMMAND sgrecomp_host --gui --mute --quit-after-frames 1)
+        add_test(NAME win32_host_idle COMMAND sgrecomp_host --gui --mute --show-status --quit-after-frames 1)
     endif()
 endif()
 

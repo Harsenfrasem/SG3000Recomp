@@ -110,7 +110,7 @@ Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
 - [x] GUI: remapeamento persistente de direcional, botoes e Pause/NMI, com troca de conflitos.
 - [x] GUI: gerenciamento visual de save states, screenshots BMP e gravacoes WAV, com seletores nativos.
 - [ ] Perfis por jogo editaveis pela GUI.
-- [ ] Tela de logs/status com FPS, backend ativo, modelo, fallback/recompiler e avisos de compatibilidade.
+- [x] Tela nao modal de status com FPS, backends, modelo, CPU/VDP, mapper, fallback/recompiler e avisos de compatibilidade.
 - [x] Empacotamento Windows em ZIP portátil com checksum e guia de uso.
 
 ### 7. Engenharia reversa e enhanced ports por jogo
