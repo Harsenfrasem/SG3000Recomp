@@ -108,7 +108,7 @@ Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
 - [x] GUI: SRAM automatica e quick-save/load por hash em `%LOCALAPPDATA%`, com validacao de estado.
 - [x] GUI: escala inteira de janela entre 1x e 6x, configuravel e persistente.
 - [x] GUI: remapeamento persistente de direcional, botoes e Pause/NMI, com troca de conflitos.
-- [ ] GUI: gerenciamento visual de saves, screenshots e audio dumps.
+- [x] GUI: gerenciamento visual de save states, screenshots BMP e gravacoes WAV, com seletores nativos.
 - [ ] Perfis por jogo editaveis pela GUI.
 - [ ] Tela de logs/status com FPS, backend ativo, modelo, fallback/recompiler e avisos de compatibilidade.
 - [x] Empacotamento Windows em ZIP portátil com checksum e guia de uso.

@@ -3,6 +3,7 @@
 #include "sgrecomp/game_profile.h"
 #include "sgrecomp/host_runtime.h"
 #include "sgrecomp/input_script.h"
+#include "sgrecomp/media_io.h"
 #include "sgrecomp/recent_games.h"
 #include "sgrecomp/save_state.h"
 
@@ -16,6 +17,36 @@
 #include <vector>
 
 using namespace sgrecomp;
+
+void test_media_writers_create_standard_bmp_and_wav() {
+    const std::filesystem::path root = std::filesystem::temp_directory_path() / "sgrecomp_media_io_test";
+    std::filesystem::remove_all(root);
+    const std::array<u32, 4> pixels{0x00FF0000, 0x0000FF00, 0x000000FF, 0x00FFFFFF};
+    const std::array<s16, 4> audio{-32768, 32767, 1234, -1234};
+    const auto bmp = root / "frame.bmp";
+    const auto wav = root / "audio.wav";
+    write_bmp_image(bmp, pixels, 2, 2);
+    write_pcm16_stereo_wav(wav, audio, 44100);
+
+    std::array<u8, 54> bmp_header{};
+    std::ifstream bmp_file(bmp, std::ios::binary);
+    bmp_file.read(reinterpret_cast<char*>(bmp_header.data()), static_cast<std::streamsize>(bmp_header.size()));
+    assert(bmp_file.gcount() == static_cast<std::streamsize>(bmp_header.size()));
+    assert(bmp_header[0] == 'B' && bmp_header[1] == 'M');
+    assert(bmp_header[18] == 2 && bmp_header[22] == 2 && bmp_header[28] == 24);
+    bmp_file.close();
+
+    std::array<u8, 44> wav_header{};
+    std::ifstream wav_file(wav, std::ios::binary);
+    wav_file.read(reinterpret_cast<char*>(wav_header.data()), static_cast<std::streamsize>(wav_header.size()));
+    assert(wav_file.gcount() == static_cast<std::streamsize>(wav_header.size()));
+    assert(std::string(reinterpret_cast<const char*>(wav_header.data()), 4) == "RIFF");
+    assert(std::string(reinterpret_cast<const char*>(wav_header.data() + 8), 4) == "WAVE");
+    assert(wav_header[22] == 2 && wav_header[24] == 0x44 && wav_header[25] == 0xAC);
+    assert(std::filesystem::file_size(wav) == 44 + audio.size() * sizeof(s16));
+    wav_file.close();
+    std::filesystem::remove_all(root);
+}
 
 void test_recent_games_are_local_deduplicated_and_pruned() {
     const std::filesystem::path root = std::filesystem::temp_directory_path() / "sgrecomp_recent_games_test";
@@ -3857,6 +3888,7 @@ void test_game_profile_hash_and_parse() {
 }
 
 int main() {
+    test_media_writers_create_standard_bmp_and_wav();
     test_recent_games_are_local_deduplicated_and_pruned();
     test_cartridge_header_analysis();
     test_cartridge_header_generation_and_checksum_rebuild();

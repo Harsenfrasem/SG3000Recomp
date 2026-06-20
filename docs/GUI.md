@@ -61,6 +61,19 @@ O quick-load valida modelo, ROM, BIOS e configuração de perfil antes de restau
 novos. Estados antigos continuam legíveis com a identidade disponível em sua versão.
 Os save states não guardam nem expõem caminhos locais.
 
+## Arquivos criados pela GUI
+
+Com um jogo aberto, o menu **Arquivo** permite salvar e carregar estados `.sgstate` com
+seletor nativo, além do quick-save em `F5`/`F9`. O carregamento valida a identidade da ROM,
+modelo, BIOS e perfil antes de alterar a sessão.
+
+**Salvar screenshot...** exporta exatamente a área ativa do jogo em BMP de 24 bits. Em
+**Gravação de áudio**, é possível iniciar uma captura, parar e salvar em WAV PCM estéreo de
+16 bits, salvar novamente a última captura mantida na memória ou descartá-la. Cancelar o
+seletor de destino preserva a gravação para uma tentativa posterior. A captura para
+automaticamente após duas horas para limitar o uso de memória; trocar ROM ou BIOS também
+interrompe a captura sem descartar o áudio já gravado.
+
 Usuários avançados ainda podem iniciar o mesmo executável pelo terminal com ROM, BIOS, mapper, perfil, saves e enhancements explícitos.
 
-Esta é a GUI mínima para testes de jogabilidade. Screenshots e gerenciamento visual dos saves continuam como evolução posterior.
+Esta GUI já cobre o fluxo necessário para testes de jogabilidade e coleta de evidências sem reiniciar o emulador.

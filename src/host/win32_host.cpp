@@ -5,6 +5,7 @@
 #include "sgrecomp/cartridge.h"
 #include "sgrecomp/game_profile.h"
 #include "sgrecomp/host_runtime.h"
+#include "sgrecomp/media_io.h"
 #include "sgrecomp/recent_games.h"
 #include "sgrecomp/save_state.h"
 
@@ -326,6 +327,9 @@ struct AppState {
     double fps = 0.0;
     u64 rendered_frames = 0;
     std::size_t quit_after_frames = 0;
+    std::vector<s16> recorded_audio;
+    u32 recorded_audio_sample_rate = 44100;
+    bool audio_recording = false;
     std::chrono::steady_clock::time_point fps_window_start = std::chrono::steady_clock::now();
     u64 fps_window_frames = 0;
 };
@@ -347,6 +351,13 @@ enum MenuCommand : UINT {
     MenuFileOpenRom,
     MenuFileSelectBios,
     MenuFileClearBios,
+    MenuFileSaveState,
+    MenuFileLoadState,
+    MenuFileScreenshot,
+    MenuAudioStartRecording,
+    MenuAudioStopAndSave,
+    MenuAudioSaveLast,
+    MenuAudioClear,
     MenuEmulationPause,
     MenuEmulationReset,
     MenuModeAccurate,
@@ -700,6 +711,46 @@ std::optional<std::filesystem::path> choose_bios_file() {
     return choose_local_file(L"Selecione a BIOS", filter);
 }
 
+std::optional<std::filesystem::path> choose_state_file() {
+    static constexpr wchar_t filter[] = L"Estados SG3000Recomp (*.sgstate)\0*.sgstate\0"
+                                        L"Todos os arquivos (*.*)\0*.*\0\0";
+    return choose_local_file(L"Carregar estado", filter);
+}
+
+std::optional<std::filesystem::path> choose_output_file(const wchar_t* title,
+                                                        const wchar_t* filter,
+                                                        const wchar_t* extension,
+                                                        const std::filesystem::path& suggested_name) {
+    std::array<wchar_t, 32768> path{};
+    const std::wstring suggested = suggested_name.wstring();
+    std::copy_n(suggested.c_str(), std::min(suggested.size(), path.size() - 1), path.data());
+    OPENFILENAMEW dialog{};
+    dialog.lStructSize = sizeof(dialog);
+    dialog.lpstrFile = path.data();
+    dialog.nMaxFile = static_cast<DWORD>(path.size());
+    dialog.lpstrTitle = title;
+    dialog.lpstrFilter = filter;
+    dialog.lpstrDefExt = extension;
+    dialog.nFilterIndex = 1;
+    dialog.Flags = OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR | OFN_OVERWRITEPROMPT;
+    if (GetSaveFileNameW(&dialog)) {
+        return std::filesystem::path(path.data());
+    }
+    if (CommDlgExtendedError() != 0) {
+        throw std::runtime_error("the Windows save file selector failed");
+    }
+    return std::nullopt;
+}
+
+std::filesystem::path suggested_media_name(const AppState& app, const wchar_t* extension) {
+    std::filesystem::path name = app.current_rom_path.stem();
+    if (name.empty()) {
+        name = L"SG3000Recomp";
+    }
+    name += extension;
+    return name;
+}
+
 const char* control_action_name(ControlAction action) {
     switch (action) {
     case ControlAction::Up:
@@ -905,6 +956,8 @@ void load_game_session(HWND hwnd, AppState& app, const std::filesystem::path& ro
     }
 
     save_active_sram(app);
+    const bool recording_interrupted = app.audio_recording;
+    app.audio_recording = false;
     app.host = std::move(host);
     configure_session_audio(app, options);
     app.has_rom = true;
@@ -934,6 +987,9 @@ void load_game_session(HWND hwnd, AppState& app, const std::filesystem::path& ro
     const std::string title = "SG3000Recomp - " + rom_path.filename().string();
     SetWindowTextA(hwnd, title.c_str());
     app.status_message = options.bios.empty() ? "jogo iniciado sem BIOS" : "BIOS iniciada antes do jogo";
+    if (recording_interrupted) {
+        app.status_message += "; gravacao anterior mantida na memoria";
+    }
 }
 
 void select_session_bios(HWND hwnd, AppState& app) {
@@ -959,6 +1015,78 @@ void clear_session_bios(HWND hwnd, AppState& app) {
     } else {
         app.status_message = "BIOS removida; a proxima ROM iniciara diretamente";
         SetWindowTextA(hwnd, "SG3000Recomp - Nenhum jogo carregado");
+    }
+}
+
+void save_state_as(AppState& app) {
+    static constexpr wchar_t filter[] = L"Estados SG3000Recomp (*.sgstate)\0*.sgstate\0\0";
+    const auto path = choose_output_file(L"Salvar estado", filter, L"sgstate", suggested_media_name(app, L".sgstate"));
+    if (!path) {
+        return;
+    }
+    const auto bytes = save_console_state(app.host->console(), app.state_metadata);
+    write_binary_file(*path, std::span<const u8>(bytes.data(), bytes.size()));
+    app.status_message = "estado salvo em " + path->filename().string();
+}
+
+void load_state_from_file(AppState& app) {
+    const auto path = choose_state_file();
+    if (!path) {
+        return;
+    }
+    const auto bytes = read_file(*path);
+    validate_save_state_metadata(read_save_state_metadata(bytes), app.state_metadata);
+    load_console_state(app.host->console(), bytes);
+    app.host->clear_audio();
+    if (app.audio) {
+        app.audio->flush();
+    }
+    app.input = {};
+    app.last_frame = {};
+    app.status_message = "estado carregado de " + path->filename().string();
+}
+
+void save_screenshot(AppState& app) {
+    static constexpr wchar_t filter[] = L"Imagem bitmap (*.bmp)\0*.bmp\0\0";
+    const auto path = choose_output_file(L"Salvar screenshot", filter, L"bmp", suggested_media_name(app, L".bmp"));
+    if (!path) {
+        return;
+    }
+    write_bmp_image(*path,
+                    std::span<const u32>(app.host->framebuffer().data(), app.host->framebuffer().size()),
+                    Vdp::width,
+                    app.host->console().vdp().active_height());
+    app.status_message = "screenshot salvo em " + path->filename().string();
+}
+
+bool save_recorded_audio(AppState& app) {
+    if (app.recorded_audio.empty()) {
+        app.status_message = "nenhum audio gravado";
+        return false;
+    }
+    static constexpr wchar_t filter[] = L"Audio WAV (*.wav)\0*.wav\0\0";
+    const auto path =
+        choose_output_file(L"Salvar gravacao de audio", filter, L"wav", suggested_media_name(app, L"-audio.wav"));
+    if (!path) {
+        app.status_message = "gravacao mantida na memoria";
+        return false;
+    }
+    write_pcm16_stereo_wav(*path, app.recorded_audio, app.recorded_audio_sample_rate);
+    app.status_message = "audio salvo em " + path->filename().string();
+    return true;
+}
+
+void start_audio_recording(AppState& app) {
+    app.recorded_audio.clear();
+    app.recorded_audio_sample_rate = app.host->config().audio_sample_rate;
+    app.audio_recording = true;
+    app.status_message = "gravacao de audio iniciada";
+}
+
+void stop_audio_recording(AppState& app) {
+    app.audio_recording = false;
+    if (save_recorded_audio(app)) {
+        app.recorded_audio.clear();
     }
 }
 
@@ -1035,6 +1163,18 @@ void update_menu_checks(HWND hwnd, const AppState& app) {
     };
     EnableMenuItem(menu, MenuEmulationPause, MF_BYCOMMAND | (app.has_rom ? MF_ENABLED : MF_GRAYED));
     EnableMenuItem(menu, MenuEmulationReset, MF_BYCOMMAND | (app.has_rom ? MF_ENABLED : MF_GRAYED));
+    EnableMenuItem(menu, MenuFileSaveState, MF_BYCOMMAND | (app.has_rom ? MF_ENABLED : MF_GRAYED));
+    EnableMenuItem(menu, MenuFileLoadState, MF_BYCOMMAND | (app.has_rom ? MF_ENABLED : MF_GRAYED));
+    EnableMenuItem(menu, MenuFileScreenshot, MF_BYCOMMAND | (app.has_rom ? MF_ENABLED : MF_GRAYED));
+    EnableMenuItem(
+        menu, MenuAudioStartRecording, MF_BYCOMMAND | (app.has_rom && !app.audio_recording ? MF_ENABLED : MF_GRAYED));
+    EnableMenuItem(menu, MenuAudioStopAndSave, MF_BYCOMMAND | (app.audio_recording ? MF_ENABLED : MF_GRAYED));
+    EnableMenuItem(menu,
+                   MenuAudioSaveLast,
+                   MF_BYCOMMAND | (!app.audio_recording && !app.recorded_audio.empty() ? MF_ENABLED : MF_GRAYED));
+    EnableMenuItem(menu,
+                   MenuAudioClear,
+                   MF_BYCOMMAND | (!app.audio_recording && !app.recorded_audio.empty() ? MF_ENABLED : MF_GRAYED));
     EnableMenuItem(
         menu, MenuFileClearBios, MF_BYCOMMAND | (!app.session_options.bios.empty() ? MF_ENABLED : MF_GRAYED));
     const auto& config = app.host->console().enhancements();
@@ -1389,6 +1529,48 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
             }
             update_menu_checks(hwnd, *app);
             return 0;
+        case MenuFileSaveState:
+        case MenuFileLoadState:
+        case MenuFileScreenshot:
+        case MenuAudioStartRecording:
+        case MenuAudioStopAndSave:
+        case MenuAudioSaveLast:
+        case MenuAudioClear:
+            try {
+                switch (LOWORD(wparam)) {
+                case MenuFileSaveState:
+                    save_state_as(*app);
+                    break;
+                case MenuFileLoadState:
+                    load_state_from_file(*app);
+                    break;
+                case MenuFileScreenshot:
+                    save_screenshot(*app);
+                    break;
+                case MenuAudioStartRecording:
+                    start_audio_recording(*app);
+                    break;
+                case MenuAudioStopAndSave:
+                    stop_audio_recording(*app);
+                    break;
+                case MenuAudioSaveLast:
+                    if (save_recorded_audio(*app)) {
+                        app->recorded_audio.clear();
+                    }
+                    break;
+                case MenuAudioClear:
+                    app->recorded_audio.clear();
+                    app->status_message = "gravacao descartada";
+                    break;
+                default:
+                    break;
+                }
+            } catch (const std::exception& error) {
+                MessageBoxA(hwnd, error.what(), "SG3000Recomp - Erro de arquivo", MB_OK | MB_ICONERROR);
+            }
+            update_menu_checks(hwnd, *app);
+            InvalidateRect(hwnd, nullptr, FALSE);
+            return 0;
         case MenuEmulationPause:
             set_emulation_paused(*app, !app->emulation_paused);
             break;
@@ -1471,6 +1653,7 @@ HMENU create_application_menu(AppState& app) {
     const HMENU menu = CreateMenu();
     const HMENU file = CreatePopupMenu();
     const HMENU recent = CreatePopupMenu();
+    const HMENU audio_dump = CreatePopupMenu();
     const HMENU emulation = CreatePopupMenu();
     const HMENU enhancements = CreatePopupMenu();
     const HMENU view = CreatePopupMenu();
@@ -1484,6 +1667,15 @@ HMENU create_application_menu(AppState& app) {
     AppendMenuW(file, MF_STRING, MenuFileOpenRom, L"Abrir ROM...");
     AppendMenuW(file, MF_STRING, MenuFileSelectBios, L"Selecionar BIOS...");
     AppendMenuW(file, MF_STRING, MenuFileClearBios, L"Remover BIOS selecionada");
+    AppendMenuW(file, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(file, MF_STRING, MenuFileSaveState, L"Salvar estado como...");
+    AppendMenuW(file, MF_STRING, MenuFileLoadState, L"Carregar estado...");
+    AppendMenuW(file, MF_STRING, MenuFileScreenshot, L"Salvar screenshot...");
+    AppendMenuW(audio_dump, MF_STRING, MenuAudioStartRecording, L"Iniciar gravacao");
+    AppendMenuW(audio_dump, MF_STRING, MenuAudioStopAndSave, L"Parar e salvar...");
+    AppendMenuW(audio_dump, MF_STRING, MenuAudioSaveLast, L"Salvar ultima gravacao...");
+    AppendMenuW(audio_dump, MF_STRING, MenuAudioClear, L"Descartar ultima gravacao");
+    AppendMenuW(file, MF_POPUP, reinterpret_cast<UINT_PTR>(audio_dump), L"Gravacao de audio");
     AppendMenuW(file, MF_SEPARATOR, 0, nullptr);
     if (app.recent_games.empty()) {
         AppendMenuW(recent, MF_STRING | MF_GRAYED, 0, L"(nenhum jogo recente)");
@@ -1616,6 +1808,19 @@ void run_message_loop(HWND hwnd, AppState& app) {
             }
             if (app.audio) {
                 app.audio->submit(app.host->audio());
+            }
+            if (app.audio_recording) {
+                const auto samples = app.host->audio();
+                const std::size_t maximum_samples =
+                    static_cast<std::size_t>(app.recorded_audio_sample_rate) * 2 * 60 * 120;
+                const std::size_t available = maximum_samples - std::min(maximum_samples, app.recorded_audio.size());
+                const std::size_t count = std::min(available, samples.size());
+                app.recorded_audio.insert(app.recorded_audio.end(), samples.begin(), samples.begin() + count);
+                if (count != samples.size() || app.recorded_audio.size() == maximum_samples) {
+                    app.audio_recording = false;
+                    app.status_message = "limite de duas horas atingido; gravacao mantida na memoria";
+                    update_menu_checks(hwnd, app);
+                }
             }
             app.host->clear_audio();
 

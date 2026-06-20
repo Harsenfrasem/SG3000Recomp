@@ -67,6 +67,7 @@ add_library(sgrecomp_runtime STATIC
     src/runtime/host_runtime.cpp
     src/runtime/input_script.cpp
     src/runtime/joypad.cpp
+    src/runtime/media_io.cpp
     src/runtime/psg.cpp
     src/runtime/recent_games.cpp
     src/runtime/save_state.cpp

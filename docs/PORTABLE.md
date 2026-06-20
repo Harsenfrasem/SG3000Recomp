@@ -27,6 +27,10 @@ Os menus permitem voltar ao modo fiel ou ativar melhorias visuais com um aviso d
 compatibilidade. SRAM, quick-save e preferências ficam somente em
 `%LOCALAPPDATA%\SG3000Recomp`; nenhum caminho de ROM ou BIOS é gravado no pacote.
 
+Em **Arquivo**, também é possível salvar/carregar estados `.sgstate`, capturar a tela em
+BMP e gravar a saída de áudio em WAV. Cancelar o destino de uma gravação mantém o áudio na
+memória para salvar depois; a opção de descartar o remove sem criar arquivos.
+
 ## Conteúdo
 
 - `SG3000Recomp.exe`: aplicativo e runtime.
