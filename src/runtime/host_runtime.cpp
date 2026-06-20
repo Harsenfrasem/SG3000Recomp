@@ -69,7 +69,7 @@ void HostRuntime::clear_audio() {
     audio_.clear();
 }
 
-const std::array<u32, Vdp::width * Vdp::height>& HostRuntime::framebuffer() const {
+const Vdp::Framebuffer& HostRuntime::framebuffer() const {
     return console_.vdp().framebuffer();
 }
 

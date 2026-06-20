@@ -59,6 +59,7 @@ struct VdpDebugSnapshot {
     int scanline_cycles = 0;
     int cpu_cycles_per_scanline = 228;
     int scanlines_per_frame = 262;
+    int active_height = 192;
     int line_counter = 0;
     u8 status = 0;
     bool display_enabled = false;
@@ -76,6 +77,8 @@ class Vdp {
   public:
     static constexpr int width = 256;
     static constexpr int height = 192;
+    static constexpr int max_height = 240;
+    using Framebuffer = std::array<u32, width * max_height>;
 
     u8 read_data();
     u8 read_status();
@@ -98,6 +101,7 @@ class Vdp {
     VdpVideoMode video_mode() const {
         return video_mode_;
     }
+    int active_height() const;
     void set_cycle(u64 cycle) {
         current_cycle_ = cycle;
     }
@@ -112,7 +116,7 @@ class Vdp {
         return enhancements_;
     }
 
-    const std::array<u32, width * height>& framebuffer() const {
+    const Framebuffer& framebuffer() const {
         return framebuffer_;
     }
     const std::array<u8, 16 * 1024>& debug_vram() const {
@@ -134,7 +138,7 @@ class Vdp {
     std::array<u8, 16 * 1024> vram_{};
     std::array<u8, 32> cram_{};
     std::array<u8, 16> registers_{};
-    std::array<u32, width * height> framebuffer_{};
+    Framebuffer framebuffer_{};
     std::array<bool, width> scanline_bg_priority_{};
     u16 address_ = 0;
     u8 latch_ = 0;
@@ -182,7 +186,7 @@ struct VdpState {
     std::array<u8, 16 * 1024> vram{};
     std::array<u8, 32> cram{};
     std::array<u8, 16> registers{};
-    std::array<u32, Vdp::width * Vdp::height> framebuffer{};
+    Vdp::Framebuffer framebuffer{};
     std::array<bool, Vdp::width> scanline_bg_priority{};
     u16 address = 0;
     u8 latch = 0;

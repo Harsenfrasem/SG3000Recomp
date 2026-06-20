@@ -581,7 +581,7 @@ void disassemble(const std::array<u8, 0x10000>& image, std::size_t limit) {
     }
 }
 
-void write_frame_ppm(const std::filesystem::path& path, const std::array<u32, Vdp::width * Vdp::height>& framebuffer) {
+void write_frame_ppm(const std::filesystem::path& path, const Vdp::Framebuffer& framebuffer, int active_height) {
     if (path.has_parent_path()) {
         std::filesystem::create_directories(path.parent_path());
     }
@@ -591,8 +591,10 @@ void write_frame_ppm(const std::filesystem::path& path, const std::array<u32, Vd
         throw std::runtime_error("cannot open frame output file");
     }
 
-    out << "P6\n" << Vdp::width << " " << Vdp::height << "\n255\n";
-    for (const u32 pixel : framebuffer) {
+    out << "P6\n" << Vdp::width << " " << active_height << "\n255\n";
+    const std::size_t pixels = static_cast<std::size_t>(Vdp::width * active_height);
+    for (std::size_t index = 0; index < pixels; ++index) {
+        const u32 pixel = framebuffer[index];
         const char rgb[3] = {
             static_cast<char>((pixel >> 16) & 0xFF),
             static_cast<char>((pixel >> 8) & 0xFF),
@@ -620,7 +622,7 @@ void write_u32_le(std::ostream& out, u32 value) {
     out.write(bytes, sizeof(bytes));
 }
 
-void write_frame_bmp(const std::filesystem::path& path, const std::array<u32, Vdp::width * Vdp::height>& framebuffer) {
+void write_frame_bmp(const std::filesystem::path& path, const Vdp::Framebuffer& framebuffer, int active_height) {
     if (path.has_parent_path()) {
         std::filesystem::create_directories(path.parent_path());
     }
@@ -631,13 +633,13 @@ void write_frame_bmp(const std::filesystem::path& path, const std::array<u32, Vd
     }
 
     constexpr u32 width = Vdp::width;
-    constexpr u32 height = Vdp::height;
+    const u32 height = static_cast<u32>(active_height);
     constexpr u32 file_header_size = 14;
     constexpr u32 dib_header_size = 40;
     constexpr u32 data_offset = file_header_size + dib_header_size;
     constexpr u32 row_stride = ((width * 3 + 3) / 4) * 4;
-    constexpr u32 image_size = row_stride * height;
-    constexpr u32 file_size = data_offset + image_size;
+    const u32 image_size = row_stride * height;
+    const u32 file_size = data_offset + image_size;
 
     out.put('B');
     out.put('M');
@@ -1580,8 +1582,9 @@ void run_smoke(ConsoleModel model,
     };
     const auto print_runtime_summary = [&]() {
         const auto& framebuffer = vdp.framebuffer();
+        const auto visible_end = framebuffer.begin() + Vdp::width * vdp.active_height();
         const auto lit_pixels =
-            std::count_if(framebuffer.begin(), framebuffer.end(), [](u32 pixel) { return (pixel & 0x00FFFFFF) != 0; });
+            std::count_if(framebuffer.begin(), visible_end, [](u32 pixel) { return (pixel & 0x00FFFFFF) != 0; });
         const auto audio = psg.sample();
         const auto fm_audio = ym2413.sample();
         std::cout << "visited pcs: " << visited_pc.count() << "\nframebuffer lit pixels: " << lit_pixels
@@ -1596,11 +1599,11 @@ void run_smoke(ConsoleModel model,
                   << ", reduce_flicker=" << (opts.enhancements.reduce_flicker ? "on" : "off")
                   << ", enable_fm=" << (opts.enhancements.enable_fm ? "on" : "off") << "\n";
         if (!opts.dump_frame.empty()) {
-            write_frame_ppm(opts.dump_frame, framebuffer);
+            write_frame_ppm(opts.dump_frame, framebuffer, vdp.active_height());
             std::cout << "frame dumped: " << opts.dump_frame.string() << "\n";
         }
         if (!opts.dump_frame_bmp.empty()) {
-            write_frame_bmp(opts.dump_frame_bmp, framebuffer);
+            write_frame_bmp(opts.dump_frame_bmp, framebuffer, vdp.active_height());
             std::cout << "bmp frame dumped: " << opts.dump_frame_bmp.string() << "\n";
         }
         if (!opts.dump_audio.empty()) {
@@ -1793,7 +1796,10 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
             constexpr u64 offset_basis = 14695981039346656037ULL;
             constexpr u64 prime = 1099511628211ULL;
             u64 framebuffer_hash = offset_basis;
-            for (const u32 pixel : host.framebuffer()) {
+            const std::size_t framebuffer_pixels =
+                static_cast<std::size_t>(Vdp::width * host.console().vdp().active_height());
+            for (std::size_t pixel_index = 0; pixel_index < framebuffer_pixels; ++pixel_index) {
+                const u32 pixel = host.framebuffer()[pixel_index];
                 for (int shift = 0; shift < 32; shift += 8) {
                     framebuffer_hash ^= static_cast<u8>((pixel >> shift) & 0xFF);
                     framebuffer_hash *= prime;
@@ -1831,8 +1837,9 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
     }
 
     const auto& framebuffer = host.framebuffer();
+    const auto visible_end = framebuffer.begin() + Vdp::width * host.console().vdp().active_height();
     const auto lit_pixels =
-        std::count_if(framebuffer.begin(), framebuffer.end(), [](u32 pixel) { return (pixel & 0x00FFFFFF) != 0; });
+        std::count_if(framebuffer.begin(), visible_end, [](u32 pixel) { return (pixel & 0x00FFFFFF) != 0; });
     const auto sample = host.console().psg().sample();
     const auto fm_sample = host.console().ym2413().sample();
 
@@ -1870,11 +1877,11 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
     }
 
     if (!opts.dump_frame.empty()) {
-        write_frame_ppm(opts.dump_frame, framebuffer);
+        write_frame_ppm(opts.dump_frame, framebuffer, host.console().vdp().active_height());
         std::cout << "frame dumped: " << opts.dump_frame.string() << "\n";
     }
     if (!opts.dump_frame_bmp.empty()) {
-        write_frame_bmp(opts.dump_frame_bmp, framebuffer);
+        write_frame_bmp(opts.dump_frame_bmp, framebuffer, host.console().vdp().active_height());
         std::cout << "bmp frame dumped: " << opts.dump_frame_bmp.string() << "\n";
     }
     if (!opts.dump_audio.empty()) {

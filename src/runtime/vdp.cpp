@@ -131,8 +131,16 @@ void Vdp::set_timing(const VdpTimingConfig& timing) {
     }
 }
 
+int Vdp::active_height() const {
+    if (is_tms_mode() || (registers_[0] & 0x02) == 0) {
+        return height;
+    }
+    return (registers_[1] & 0x10) != 0 ? 240 : 224;
+}
+
 void Vdp::advance_scanline() {
-    if (scanline_ < height) {
+    const int visible_height = active_height();
+    if (scanline_ < visible_height) {
         render_scanline(scanline_);
         if (first_line_) {
             line_counter_ = registers_[10];
@@ -147,7 +155,7 @@ void Vdp::advance_scanline() {
 
     ++scanline_;
 
-    if (scanline_ == height) {
+    if (scanline_ == visible_height) {
         status_ |= 0x80;
         line_counter_ = registers_[10];
     }
@@ -204,7 +212,8 @@ void Vdp::render_mode4_scanline(int line) {
         const int scrolled_x = (x - horizontal_scroll) & 0xFF;
         const int tile_x = scrolled_x / 8;
         const int vertical_scroll = (lock_right_vertical_scroll && x >= 24 * 8) ? 0 : registers_[9];
-        const int y = (line + vertical_scroll) % (28 * 8);
+        const int vertical_period = active_height() == height ? 28 * 8 : 32 * 8;
+        const int y = (line + vertical_scroll) % vertical_period;
         const int tile_y = (y / 8) & 0x1F;
         const int row = y & 0x07;
         const int bit = 7 - (scrolled_x & 0x07);
@@ -332,12 +341,13 @@ void Vdp::render_sprites(int line) {
 
     for (int sprite = 0; sprite < 64; ++sprite) {
         const u8 raw_y = vram_[(sprite_base + sprite) & 0x3FFF];
-        if (raw_y == 0xD0) {
+        if (active_height() == height && raw_y == 0xD0) {
             break;
         }
 
         int sprite_y = static_cast<int>(raw_y) + 1;
-        if (sprite_y >= 0xE0) {
+        const int wrap_threshold = active_height() == 240 ? 240 : 224;
+        if (sprite_y >= wrap_threshold) {
             sprite_y -= 0x100;
         }
         if (line < sprite_y || line >= sprite_y + sprite_height) {
@@ -549,6 +559,7 @@ VdpDebugSnapshot Vdp::debug_snapshot() const {
         scanline_cycles_,
         timing_.cpu_cycles_per_scanline,
         timing_.scanlines_per_frame,
+        active_height(),
         line_counter_,
         status_,
         (registers_[1] & 0x40) != 0,
@@ -594,10 +605,11 @@ std::vector<VdpSpriteEntry> Vdp::debug_sprites() const {
 
     for (u8 sprite = 0; sprite < 64; ++sprite) {
         const u8 raw_y = vram_[(sprite_base + sprite) & 0x3FFF];
-        const bool terminator = raw_y == 0xD0;
+        const bool terminator = active_height() == height && raw_y == 0xD0;
         const u16 attribute = static_cast<u16>((sprite_base + 0x80 + sprite * 2) & 0x3FFF);
         int sprite_y = static_cast<int>(raw_y) + 1;
-        if (sprite_y >= 0xE0) {
+        const int wrap_threshold = active_height() == 240 ? 240 : 224;
+        if (sprite_y >= wrap_threshold) {
             sprite_y -= 0x100;
         }
         entries.push_back({

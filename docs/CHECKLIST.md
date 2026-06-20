@@ -242,7 +242,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] TMS9918/SG-3000 overflow reporta o indice do quinto sprite nos bits baixos do status.
 - [x] TMS9918/SG-3000: modos padrao Graphics I, Graphics II, Text e Multicolor selecionados por M1/M2/M3.
 - [x] SMS Mode 4 de 192 linhas: tiles 9-bit, paletas, flips, prioridade, scroll e mascaras.
-- [ ] SMS Mode 4 estendido de 224/240 linhas e viewport correspondente no host.
+- [x] SMS Mode 4 estendido de 224/240 linhas, VBlank, sprites, dumps e viewport no host.
 - [x] Mode 4: hscroll/vscroll basicos, lock de topo, lock de direita por coluna de tela e coluna esquerda em branco.
 - [x] Mode 4: sentido de R8 validado com wrap; origem usa `x - R8` e desloca o background para a direita.
 - [x] Mode 4: scroll vertical em tela 192 linhas envolve na name table 32x28, a cada 224 pixels.
@@ -307,7 +307,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Save RAM em arquivo local pelo host Win32.
 - [x] Estado serializavel inicial para save states.
 - [x] Save states com versao inicial e validacao de ROM hash/modelo.
-- [x] Save states v9 com migracao de v1-v8 e validacao de ROM, modelo, BIOS e perfil.
+- [x] Save states v10 com migracao de v1-v9, framebuffer 240 e validacao de ambiente.
 - [x] Save state v7 preserva o read buffer do VDP e continua lendo formatos v1-v6.
 - [x] Save state v8 preserva o lock da familia de mapper e continua lendo formatos v1-v7.
 - [x] Debug overlay de PC, FPS, frame, modo runtime e audio.

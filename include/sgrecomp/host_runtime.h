@@ -102,7 +102,7 @@ class HostRuntime {
     const HostRuntimeConfig& config() const {
         return config_;
     }
-    const std::array<u32, Vdp::width * Vdp::height>& framebuffer() const;
+    const Vdp::Framebuffer& framebuffer() const;
     const std::vector<s16>& audio() const {
         return audio_;
     }

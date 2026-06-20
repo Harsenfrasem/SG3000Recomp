@@ -843,10 +843,11 @@ std::string overlay_text(const AppState& app) {
     }
     out << "\n";
     const auto vdp = app.host->console().vdp().debug_snapshot();
-    out << "vdp line " << vdp.scanline << "/" << vdp.scanlines_per_frame << " +" << vdp.scanline_cycles << "/"
-        << vdp.cpu_cycles_per_scanline << " status $" << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
-        << static_cast<int>(vdp.status) << std::dec << " display " << (vdp.display_enabled ? "on" : "off") << " irq "
-        << (vdp.frame_irq_pending ? "vblank" : "-") << "/" << (vdp.line_irq_pending ? "line" : "-") << "\n";
+    out << "vdp line " << vdp.scanline << "/" << vdp.scanlines_per_frame << " visible " << vdp.active_height << " +"
+        << vdp.scanline_cycles << "/" << vdp.cpu_cycles_per_scanline << " status $" << std::hex << std::uppercase
+        << std::setw(2) << std::setfill('0') << static_cast<int>(vdp.status) << std::dec << " display "
+        << (vdp.display_enabled ? "on" : "off") << " irq " << (vdp.frame_irq_pending ? "vblank" : "-") << "/"
+        << (vdp.line_irq_pending ? "line" : "-") << "\n";
 
     if (app.audio) {
         app.audio->cleanup_completed_buffers();
@@ -893,13 +894,15 @@ void render_frame(HWND hwnd, AppState& app) {
 
     const int client_width = client.right - client.left;
     const int client_height = client.bottom - client.top;
-    const int scale = std::max(1, std::min(client_width / Vdp::width, client_height / Vdp::height));
+    const int active_height = app.host->console().vdp().active_height();
+    const int scale = std::max(1, std::min(client_width / Vdp::width, client_height / active_height));
     const int output_width = Vdp::width * scale;
-    const int output_height = Vdp::height * scale;
+    const int output_height = active_height * scale;
     const int output_x = (client_width - output_width) / 2;
     const int output_y = (client_height - output_height) / 2;
 
     FillRect(dc, &client, reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));
+    app.bitmap_info.bmiHeader.biHeight = -active_height;
     StretchDIBits(dc,
                   output_x,
                   output_y,
@@ -908,7 +911,7 @@ void render_frame(HWND hwnd, AppState& app) {
                   0,
                   0,
                   Vdp::width,
-                  Vdp::height,
+                  active_height,
                   app.host->framebuffer().data(),
                   &app.bitmap_info,
                   DIB_RGB_COLORS,
@@ -1048,7 +1051,7 @@ HWND create_main_window(HINSTANCE instance, AppState& app, int scale) {
     RegisterClass(&wc);
 
     const HMENU menu = create_application_menu();
-    RECT rect{0, 0, Vdp::width * scale, Vdp::height * scale};
+    RECT rect{0, 0, Vdp::width * scale, app.host->console().vdp().active_height() * scale};
     AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, TRUE);
 
     HWND hwnd = CreateWindowEx(0,
@@ -1251,7 +1254,7 @@ int run(int argc, char** argv) {
 
     app.bitmap_info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
     app.bitmap_info.bmiHeader.biWidth = Vdp::width;
-    app.bitmap_info.bmiHeader.biHeight = -Vdp::height;
+    app.bitmap_info.bmiHeader.biHeight = -app.host->console().vdp().active_height();
     app.bitmap_info.bmiHeader.biPlanes = 1;
     app.bitmap_info.bmiHeader.biBitCount = 32;
     app.bitmap_info.bmiHeader.biCompression = BI_RGB;

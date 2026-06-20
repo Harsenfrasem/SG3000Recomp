@@ -2314,6 +2314,34 @@ void test_vdp_custom_timing_controls_scanline_wrap() {
     assert(snapshot.scanline == 0);
 }
 
+void test_vdp_extended_mode_heights_and_vblank() {
+    const auto configure_height = [](Vdp& vdp, bool mode_240) {
+        vdp.write_control(0x02);
+        vdp.write_control(0x80); // M2 selects extended Mode 4
+        vdp.write_control(static_cast<u8>(mode_240 ? 0x10 : 0x00));
+        vdp.write_control(0x81); // M1 selects 240 instead of 224 lines
+        vdp.write_control(0x10);
+        vdp.write_control(0xC0);
+        vdp.write_data(0x03); // backdrop red, visible even with display disabled
+    };
+
+    Vdp mode_224;
+    configure_height(mode_224, false);
+    assert(mode_224.active_height() == 224);
+    mode_224.tick(228 * 224);
+    assert(mode_224.debug_snapshot().scanline == 224);
+    assert((mode_224.debug_snapshot().status & 0x80) != 0);
+    assert(mode_224.framebuffer()[223 * Vdp::width] == 0xFFFF0000);
+
+    Vdp mode_240;
+    configure_height(mode_240, true);
+    assert(mode_240.active_height() == 240);
+    mode_240.tick(228 * 240);
+    assert(mode_240.debug_snapshot().scanline == 240);
+    assert((mode_240.debug_snapshot().status & 0x80) != 0);
+    assert(mode_240.framebuffer()[239 * Vdp::width] == 0xFFFF0000);
+}
+
 void test_host_runtime_config_sets_vdp_timing() {
     HostRuntimeConfig config;
     config.cpu_cycles_per_scanline = 200;
@@ -3429,7 +3457,26 @@ void test_console_save_state_round_trip_restores_runtime_state() {
     wrong_profile.profile_fingerprint = "fnv1a64:other-profile";
     assert(rejects_metadata(wrong_profile));
 
-    std::vector<u8> legacy_v8 = bytes;
+    std::vector<u8> legacy_v9 = bytes;
+    constexpr std::size_t cpu_state_size = 41;
+    constexpr std::size_t bus_state_size = 98325;
+    constexpr std::size_t vdp_arrays_before_framebuffer = 16432;
+    const std::size_t v10_metadata_size =
+        1 + 2 + metadata.rom_hash.size() + 2 + metadata.bios_hash.size() + 2 + metadata.profile_fingerprint.size();
+    const std::size_t framebuffer_start =
+        6 + v10_metadata_size + cpu_state_size + bus_state_size + vdp_arrays_before_framebuffer;
+    const std::size_t legacy_framebuffer_end = framebuffer_start + Vdp::width * Vdp::height * sizeof(u32);
+    const std::size_t extended_framebuffer_size = Vdp::width * (Vdp::max_height - Vdp::height) * sizeof(u32);
+    legacy_v9.erase(legacy_v9.begin() + static_cast<std::ptrdiff_t>(legacy_framebuffer_end),
+                    legacy_v9.begin() +
+                        static_cast<std::ptrdiff_t>(legacy_framebuffer_end + extended_framebuffer_size));
+    legacy_v9[4] = 9;
+    legacy_v9[5] = 0;
+    const auto legacy_v9_image = deserialize_console_state_image(legacy_v9);
+    assert(legacy_v9_image.metadata.environment_identity_present);
+    assert(legacy_v9_image.state.cpu.a == 0x42);
+
+    std::vector<u8> legacy_v8 = legacy_v9;
     const std::size_t extended_metadata_offset = 9 + metadata.rom_hash.size();
     const std::size_t extended_metadata_size = 2 + metadata.bios_hash.size() + 2 + metadata.profile_fingerprint.size();
     legacy_v8.erase(legacy_v8.begin() + static_cast<std::ptrdiff_t>(extended_metadata_offset),
@@ -3572,6 +3619,7 @@ int main() {
     test_vdp_access_logging_records_register_vram_and_cram_writes();
     test_vdp_debug_snapshot_reports_timing_and_status();
     test_vdp_custom_timing_controls_scanline_wrap();
+    test_vdp_extended_mode_heights_and_vblank();
     test_host_runtime_config_sets_vdp_timing();
     test_console_enhancement_config_propagates_to_runtime_devices();
     test_psg_tone_generates_sample();

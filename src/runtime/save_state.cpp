@@ -8,7 +8,7 @@ namespace sgrecomp {
 namespace {
 
 constexpr u32 kMagic = 0x53534753; // SGSS
-constexpr u16 kVersion = 9;
+constexpr u16 kVersion = 10;
 
 class Writer {
   public:
@@ -349,7 +349,13 @@ SaveStateImage read_image(Reader& in) {
     in.array_bytes(state.vdp.vram);
     in.array_bytes(state.vdp.cram);
     in.array_bytes(state.vdp.registers);
-    in.array_bytes(state.vdp.framebuffer);
+    if (version >= 10) {
+        in.array_bytes(state.vdp.framebuffer);
+    } else {
+        for (std::size_t i = 0; i < static_cast<std::size_t>(Vdp::width * Vdp::height); ++i) {
+            state.vdp.framebuffer[i] = in.u32v();
+        }
+    }
     in.array_bytes(state.vdp.scanline_bg_priority);
     state.vdp.address = in.u16v();
     state.vdp.latch = in.u8v();

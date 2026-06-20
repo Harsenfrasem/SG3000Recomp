@@ -21,7 +21,9 @@ In the active 192-line Mode 4 path, vertical scroll wraps over the 32x28 name-ta
 
 The 192-line Mode 4 tile path consumes the complete 16-bit name-table entry: nine-bit
 tile index, horizontal and vertical flip, palette select, and nonzero-pixel priority.
-Extended 224/240-line Mode 4 output remains a separate viewport/timing milestone.
+M2 selects the 224-line Mode 4 path and M1+M2 selects 240 lines. These modes use a
+256-line vertical tilemap period, move VBlank to the selected active height, disable the
+192-line `$d0` sprite terminator, and expose the active viewport to hosts and frame dumps.
 
 VRAM reads use the VDP read buffer. A code-0 control command prefetches the addressed byte and advances the 14-bit address; each data-port read returns the buffered byte, prefetches the next byte, and advances with `$3fff` wrap. Save-state version 7 stores this buffer while older state versions load it as zero.
 
@@ -37,10 +39,10 @@ read `$ff`. Reserved bits 1–0 are retained for state/debugging without invente
 Automatic mapper selection starts from the size-based default and locks after the first recognized hardware-register family. Canonical Sega writes at `$fffc-$ffff` therefore prevent later incidental ROM-space writes from reclassifying the cartridge as Codemasters, Korean, or 8 KiB Korean hardware. Save-state version 8 persists this lock; older states derive it conservatively from their recorded mapper/register state.
 
 Save-state version 9 adds hashes for the active BIOS and matched profile configuration.
-New states therefore reject a load when ROM, model, BIOS presence/content, or effective
-profile settings differ. No local path is serialized. States from versions 1 through 8
-remain readable; because those formats did not record BIOS/profile identity, validation
-falls back to the model and ROM hash information available in the older file.
+Version 10 expands framebuffer storage to 240 lines. New states therefore reject a load
+when ROM, model, BIOS presence/content, or effective profile settings differ, and preserve
+extended Mode 4 output. No local path is serialized. States from versions 1 through 9
+remain readable; versions before 9 fall back to the model and ROM hash information they contain.
 
 ## Pipeline
 
