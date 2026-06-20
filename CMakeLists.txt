@@ -60,6 +60,7 @@ if(SGRECOMP_CLANG_FORMAT_EXECUTABLE)
 endif()
 
 add_library(sgrecomp_runtime STATIC
+    src/runtime/audio_latency.cpp
     src/runtime/bus.cpp
     src/runtime/cartridge.cpp
     src/runtime/console.cpp

@@ -27,6 +27,11 @@ Os menus permitem voltar ao modo fiel ou ativar melhorias visuais com um aviso d
 compatibilidade. SRAM, quick-save e preferências ficam somente em
 `%LOCALAPPDATA%\SG3000Recomp`; nenhum caminho de ROM ou BIOS é gravado no pacote.
 
+A fila waveOut ajusta automaticamente sua meta após underruns e volta gradualmente à
+latência configurada quando estabiliza. Pausar preserva a fila; reset e load-state descartam
+som pertencente ao estado anterior. O YM2413 continua aproximado e não representa fidelidade
+OPLL histórica; o YM2612 é uma extensão opcional não histórica.
+
 **Exibição > Status detalhado...** mantém uma janela auxiliar atualizada com FPS, CPU,
 VDP, mapper, áudio, backends e uso do executor recompilado/fallback, sem pausar o jogo.
 

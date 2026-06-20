@@ -1,3 +1,4 @@
+#include "sgrecomp/audio_latency.h"
 #include "sgrecomp/console.h"
 #include "sgrecomp/cartridge.h"
 #include "sgrecomp/game_profile.h"
@@ -18,6 +19,30 @@
 #include <vector>
 
 using namespace sgrecomp;
+
+void test_audio_latency_controller_adapts_and_recovers() {
+    AudioLatencyController controller;
+    controller.configure(48000, 60, 100);
+    assert(controller.requested_latency_ms() == 60);
+    assert(controller.effective_latency_ms() == 60);
+    assert(controller.target_sample_frames() == 2880);
+    assert(!controller.observe_submission(0, 800));
+    assert(controller.primed());
+    assert(controller.observe_submission(0, 800));
+    assert(controller.effective_latency_ms() == 70);
+    assert(controller.target_sample_frames() == 3360);
+    for (int index = 0; index < 300; ++index) {
+        assert(!controller.observe_submission(4000, 800));
+    }
+    assert(controller.effective_latency_ms() == 65);
+    for (int index = 0; index < 300; ++index) {
+        assert(!controller.observe_submission(4000, 800));
+    }
+    assert(controller.effective_latency_ms() == 60);
+    controller.reset_stream();
+    assert(!controller.primed());
+    assert(controller.effective_latency_ms() == 60);
+}
 
 void test_game_library_tracks_hash_metadata_and_aliases() {
     const auto root = std::filesystem::temp_directory_path() / "sgrecomp_game_library_test";
@@ -3663,6 +3688,34 @@ void test_host_runtime_stereo_mixer_respects_sample_rate() {
     assert(frames_44100 == frames_22050 * 2 || frames_44100 == frames_22050 * 2 + 1);
 }
 
+void test_optional_fm_keeps_psg_as_default_fallback() {
+    const std::vector<u8> rom = {
+        0x3E,
+        0x81,
+        0xD3,
+        0x7F, // PSG tone period low
+        0x3E,
+        0x00,
+        0xD3,
+        0x7F, // PSG tone period high
+        0x3E,
+        0x90,
+        0xD3,
+        0x7F, // PSG maximum volume
+        0x18,
+        0xFE,
+    };
+    EnhancementConfig enhancements;
+    enhancements.enable_fm = true;
+    HostRuntime host(ConsoleModel::SMS, enhancements);
+    host.load_rom(rom);
+    assert(host.console().ym2413().present());
+    assert(host.console().ym2413().psg_enabled());
+    assert(!host.console().ym2413().fm_enabled());
+    (void)host.run_frame();
+    assert(std::any_of(host.audio().begin(), host.audio().end(), [](s16 sample) { return sample != 0; }));
+}
+
 void test_host_runtime_execution_modes_and_fallback_metrics() {
     const std::vector<u8> rom = {
         0x00, // nop: classified as recompiled by the synthetic executor
@@ -3935,6 +3988,7 @@ void test_game_profile_hash_and_parse() {
 }
 
 int main() {
+    test_audio_latency_controller_adapts_and_recovers();
     test_game_library_tracks_hash_metadata_and_aliases();
     test_media_writers_create_standard_bmp_and_wav();
     test_recent_games_are_local_deduplicated_and_pruned();
@@ -4055,6 +4109,7 @@ int main() {
     test_host_runtime_frame_audio_and_input();
     test_synthetic_rom_integrates_mapper_vdp_psg_and_input();
     test_host_runtime_stereo_mixer_respects_sample_rate();
+    test_optional_fm_keeps_psg_as_default_fallback();
     test_host_runtime_execution_modes_and_fallback_metrics();
     test_host_runtime_soft_reset_preserves_loaded_session();
     test_host_input_script_tracks_frame_state();

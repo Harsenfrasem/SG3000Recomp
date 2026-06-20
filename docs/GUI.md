@@ -48,6 +48,11 @@ registradores da CPU, estado do VDP e mapper, FPS, áudio, execução interpreta
 fallback por frame e avisos quando o modo enhanced ou o YM2612 experimental estão ativos.
 A janela pode permanecer aberta enquanto ROM, BIOS e configurações são trocadas.
 
+No status de áudio, `target` é a latência solicitada e `adaptive` é o alvo atual da fila.
+Underruns elevam o alvo adaptativo; após estabilidade ele retorna gradualmente ao valor
+pedido. Pausar preserva a fila de áudio, enquanto reset e carregamento de estado descartam
+som obsoleto. Os limites dos chips opcionais estão detalhados em `docs/AUDIO.md`.
+
 Nenhuma ROM ou BIOS é copiada para o projeto. Cancelar um seletor mantém a janela e a sessão atual sem alterações.
 
 ## Controles

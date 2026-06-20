@@ -2,6 +2,7 @@
 #define WIN32_LEAN_AND_MEAN
 
 #include "sgrecomp/enhancements.h"
+#include "sgrecomp/audio_latency.h"
 #include "sgrecomp/cartridge.h"
 #include "sgrecomp/game_profile.h"
 #include "sgrecomp/game_library.h"
@@ -83,9 +84,7 @@ class Win32Audio {
 
     bool open(u32 sample_rate, int target_latency_ms) {
         sample_rate_ = sample_rate;
-        target_latency_ms_ = std::max(10, target_latency_ms);
-        target_latency_frames_ =
-            static_cast<std::size_t>((static_cast<u64>(sample_rate_) * static_cast<u64>(target_latency_ms_)) / 1000);
+        latency_.configure(sample_rate, target_latency_ms, std::min(300, std::max(10, target_latency_ms) + 100));
         WAVEFORMATEX format{};
         format.wFormatTag = WAVE_FORMAT_PCM;
         format.nChannels = 2;
@@ -108,16 +107,14 @@ class Win32Audio {
 
         cleanup_completed_buffers();
         const std::size_t sample_frames = interleaved_stereo.size() / 2;
-        if (primed_ && stats_.queued_sample_frames < sample_frames) {
+        if (latency_.observe_submission(stats_.queued_sample_frames, sample_frames)) {
             ++stats_.underruns;
         }
-        if (!primed_) {
-            while (stats_.queued_sample_frames < target_latency_frames_) {
-                if (!queue_samples(silence_for(interleaved_stereo.size()))) {
-                    break;
-                }
+        while (stats_.queued_sample_frames < latency_.target_sample_frames() &&
+               stats_.queued_buffers + 1 < buffers_.size()) {
+            if (!queue_samples(silence_for(interleaved_stereo.size()))) {
+                break;
             }
-            primed_ = true;
         }
         if (!queue_samples(interleaved_stereo)) {
             ++stats_.dropped_buffers;
@@ -133,7 +130,11 @@ class Win32Audio {
     }
 
     int target_latency_ms() const {
-        return target_latency_ms_;
+        return latency_.requested_latency_ms();
+    }
+
+    int effective_latency_ms() const {
+        return latency_.effective_latency_ms();
     }
 
     int queued_latency_ms() const {
@@ -186,7 +187,7 @@ class Win32Audio {
         }
         stats_.queued_buffers = 0;
         stats_.queued_sample_frames = 0;
-        primed_ = false;
+        latency_.reset_stream();
     }
 
     void cleanup_completed_buffers() {
@@ -233,14 +234,12 @@ class Win32Audio {
     };
 
     HWAVEOUT device_ = nullptr;
-    std::array<AudioBuffer, 8> buffers_{};
+    std::array<AudioBuffer, 24> buffers_{};
     Stats stats_{};
     u32 sample_rate_ = 44100;
-    int target_latency_ms_ = 80;
-    std::size_t target_latency_frames_ = 3528;
+    AudioLatencyController latency_;
     int volume_percent_ = 100;
     bool muted_ = false;
-    bool primed_ = false;
     std::vector<s16> silence_;
 
     std::span<const s16> silence_for(std::size_t samples) {
@@ -1757,7 +1756,8 @@ std::string overlay_text(const AppState& app) {
         const auto stats = app.audio->stats();
         out << "audio " << (app.audio->muted() ? "muted" : "on") << "  vol " << app.audio->volume_percent() << "%"
             << "  queued " << stats.queued_buffers << "/" << app.audio->queued_latency_ms() << "ms"
-            << " target " << app.audio->target_latency_ms() << "ms"
+            << " target " << app.audio->target_latency_ms() << "ms adaptive " << app.audio->effective_latency_ms()
+            << "ms"
             << "  underruns " << stats.underruns << "  drops " << stats.dropped_buffers << "  "
             << app.audio->sample_rate() << " Hz";
     } else {

@@ -66,10 +66,10 @@ Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
 - [x] Audio em tempo real inicial no host de janela via Win32 waveOut.
 - [x] Audio em tempo real com pre-buffer inicial e contadores de underrun/drop.
 - [x] Audio em tempo real com controle de latencia configuravel no host Win32.
-- [ ] Audio em tempo real refinado com ajuste dinamico de latencia.
+- [x] Audio em tempo real com alvo adaptativo: sobe em underrun e retorna gradualmente apos estabilidade.
 - [ ] Backend SDL2 opcional ou camada equivalente configuravel.
 - [x] Sincronizacao inicial de frame, buffer de audio e input por frame.
-- [ ] Sincronizacao refinada para backend de janela/audio real.
+- [x] Sincronizacao refinada do host Win32 com fila adaptativa, reserva de buffer atual e telemetria.
 - [x] Save RAM em arquivo, save states iniciais e debug overlay.
 - [x] Overlay debug simples com FPS, frame, PC, modo runtime e status de audio.
 - [x] Overlay debug mostra mapper ativo e bancos principais.
@@ -91,8 +91,8 @@ Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
 - [ ] Substituir sintetizador FM aproximado por nucleo YM2413/OPLL validado.
 - [x] YM2612 opcional nao historico via Nuked-OPN2: DLL LGPL substituivel, portas F4-F7, mixer, GUI/CLI/perfil e estado v11.
 - [ ] Experimento de FM enhancement para PSG-only com perfis manuais.
-- [ ] Fallback obrigatorio para PSG original.
-- [ ] Documentar limites: FM sintetico nao deve ser tratado como fidelidade historica.
+- [x] Fallback PSG original permanece padrao mesmo com FM detectavel, ate software selecionar outro modo em `$F2`.
+- [x] Limites de YM2413 aproximado e YM2612 nao historico documentados sem promessa de fidelidade.
 
 ### 6. GUI amigavel para usuario final
 
@@ -308,7 +308,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Loop host de janela com audio em tempo real inicial.
 - [x] Pre-buffer inicial e telemetria de underrun no host de janela.
 - [x] Controle de latencia configuravel, pausa e volume no host de janela.
-- [ ] Controle de pausa preservando estado de audio sem flush agressivo.
+- [x] Pausa usa `waveOutPause/Restart`, preservando fila e chips sem flush; reset/state load limpam audio obsoleto.
 - [ ] Backend SDL2 opcional.
 - [x] Backend Win32 inicial para desenvolvimento no Windows.
 - [x] HostRuntime headless com framebuffer, input por frame e buffer de audio.
