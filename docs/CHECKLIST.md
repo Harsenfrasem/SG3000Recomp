@@ -228,7 +228,8 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] CMapper com janela SRAM de 8 KiB em `0xA000-0xBFFF`, dirty/load/save e state restore.
 - [ ] CMapper EEPROM e edge cases adicionais quando identificados por perfil/hardware.
 - [ ] KMapper/K8K completos usados por ROMs especificas.
-- [ ] SG-3000 cartridge layouts.
+- [x] SG-3000/TMS com RAM interna de 1 KiB espelhada em `0xC000-0xFFFF`.
+- [ ] SG-3000 cartridge RAM e layouts especiais quando identificados por perfil/hardware.
 - [x] Porta de controle de memoria `0x3E`: bits centrais de BIOS, cartucho e RAM de trabalho modelados, testados e expostos no overlay.
 - [x] Modelar porta `0x3E`: expansao, cartucho, card, work RAM, BIOS, I/O e bits reservados.
 - [ ] Modelar portas `0xDE-0xDF` e diferencas regionais/perifericos quando houver ROM local que dependa disso.

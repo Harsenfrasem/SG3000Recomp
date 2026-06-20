@@ -192,7 +192,7 @@ class Bus {
     bool slot2_cartridge_ram_enabled() const;
     bool cmapper_cartridge_ram_enabled() const;
     static bool has_copier_header(std::span<const u8> rom);
-    static u16 mirrored_ram_address(u16 address);
+    u16 mirrored_ram_address(u16 address) const;
     static bool is_vdp_data_port(u8 port);
     static bool is_vdp_control_port(u8 port);
     static bool is_v_counter_port(u8 port);

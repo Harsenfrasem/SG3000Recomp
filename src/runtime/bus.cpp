@@ -246,7 +246,14 @@ void Bus::write(u16 address, u8 value) {
         }
         const u16 ram = mirrored_ram_address(address);
         memory_[ram] = value;
-        memory_[static_cast<u16>(ram + 0x2000)] = value;
+        if (model_ == ConsoleModel::SG3000) {
+            const u16 offset = static_cast<u16>(ram - 0xC000);
+            for (u32 mirror = 0xC000; mirror <= 0xFC00; mirror += 0x0400) {
+                memory_[mirror + offset] = value;
+            }
+        } else {
+            memory_[static_cast<u16>(ram + 0x2000)] = value;
+        }
         log_memory(BusMemoryAccessKind::Ram, address, ram, value);
         return;
     }
@@ -517,8 +524,9 @@ bool Bus::has_copier_header(std::span<const u8> rom) {
     return rom.size() > 512 && (rom.size() % 0x4000) == 512;
 }
 
-u16 Bus::mirrored_ram_address(u16 address) {
-    return static_cast<u16>(0xC000 + ((address - 0xC000) & 0x1FFF));
+u16 Bus::mirrored_ram_address(u16 address) const {
+    const u16 mask = model_ == ConsoleModel::SG3000 ? 0x03FF : 0x1FFF;
+    return static_cast<u16>(0xC000 + ((address - 0xC000) & mask));
 }
 
 bool Bus::is_vdp_data_port(u8 port) {

@@ -2744,6 +2744,30 @@ void test_ram_mirroring() {
     assert(console.bus().read(0xF000) == 0x5A);
 }
 
+void test_sg3000_uses_one_kibibyte_ram_mirrored_through_upper_memory() {
+    const std::vector<u8> rom(0x8000, 0x00);
+    Console console(ConsoleModel::SG3000);
+    console.load_rom(rom);
+
+    console.bus().write(0xC123, 0x5A);
+    assert(console.bus().read(0xC123) == 0x5A);
+    assert(console.bus().read(0xC523) == 0x5A);
+    assert(console.bus().read(0xD123) == 0x5A);
+    assert(console.bus().read(0xF923) == 0x5A);
+    assert(console.bus().debug_memory()[0xC523] == 0x5A);
+    assert(console.bus().debug_memory()[0xF923] == 0x5A);
+
+    console.bus().write(0xFE00, 0xA5);
+    assert(console.bus().read(0xC200) == 0xA5);
+    assert(console.bus().read(0xE600) == 0xA5);
+
+    Console sms(ConsoleModel::SMS);
+    sms.load_rom(rom);
+    sms.bus().write(0xC123, 0x11);
+    assert(sms.bus().read(0xE123) == 0x11);
+    assert(sms.bus().read(0xC523) == 0x00); // SMS keeps its distinct 8 KiB offset
+}
+
 void test_bios_overlay_boots_before_rom() {
     const std::vector<u8> bios = {
         0x3E,
@@ -3709,6 +3733,7 @@ int main() {
     test_daa_after_add_and_subtract();
     test_mapper_keeps_ram();
     test_ram_mirroring();
+    test_sg3000_uses_one_kibibyte_ram_mirrored_through_upper_memory();
     test_work_ram_starts_cleared();
     test_bios_overlay_boots_before_rom();
     test_bios_can_disable_itself_with_memory_control_port();
