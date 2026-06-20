@@ -1,19 +1,21 @@
 # GUI Inicial para Testes
 
-No Windows, abra `build\zig-debug\SG3000Recomp.exe` com duplo clique. `sgrecomp_host.exe` oferece o mesmo host com o nome técnico usado por scripts e testes.
+No Windows, abra `build\zig-debug\SG3000Recomp.exe` com duplo clique. `sgrecomp_host.exe` oferece o mesmo host com o nome técnico usado por scripts e testes. A janela abre ociosa, com tela preta, sem executar CPU e sem mostrar seletores automaticamente.
 
-1. Escolha uma ROM local (`.sms`, `.sg`, `.bin` ou `.rom`).
-2. Escolha se deseja carregar uma BIOS local. **Sim** abre o seletor de BIOS; **Não** inicia diretamente pelo cartucho.
-3. A janela do jogo abre com vídeo, teclado, áudio e overlay de diagnóstico.
+1. Ajuste tamanho da tela, controles e melhorias se desejar.
+2. Opcionalmente use **Arquivo > Selecionar BIOS...**. A BIOS fica selecionada apenas para a sessão.
+3. Use **Arquivo > Abrir ROM...** e escolha uma imagem local (`.sms`, `.sg`, `.bin` ou `.rom`).
+4. Sem BIOS, o cartucho inicia diretamente. Com BIOS, ela roda primeiro e entrega o controle ao jogo.
 
 O viewport acompanha automaticamente os modos SMS de 192, 224 e 240 linhas.
 
 A barra de menus oferece pausa e reset, liga ou desliga o overlay e permite testar
 `reduce_flicker` e `disable_sprite_limit` durante o jogo. As marcas ao lado de cada
 opção mostram o estado ativo, inclusive quando ele veio da linha de comando ou de um perfil.
-O menu **Arquivo** permite escolher outro jogo ou reabrir um dos dez jogos recentes. A GUI
-salva SRAM e configurações antes de trocar de jogo e remove automaticamente da lista os
-arquivos que deixaram de existir.
+O menu **Arquivo** permite trocar de jogo na mesma janela, reabrir um dos dez jogos recentes,
+selecionar outra BIOS ou remover a BIOS ativa. A GUI salva a SRAM antes de substituir a sessão
+e remove automaticamente da lista os arquivos que deixaram de existir. Selecionar ou remover
+a BIOS com um jogo aberto recarrega esse jogo imediatamente no modo escolhido.
 O menu **Melhorias** também alterna explicitamente entre o modo fiel e o enhanced.
 Antes da primeira ativação enhanced da sessão, a GUI explica que essas opções podem
 alterar a aparência original e pede confirmação. Voltar ao modo fiel desliga as duas melhorias visuais.
@@ -23,7 +25,7 @@ alterar a resolução interna do console. Em **Controles**, cada ação do jogad
 remapeada: escolha a ação e pressione a nova tecla. Se a tecla já estiver em uso, os dois
 vínculos são trocados para evitar conflitos. Há também uma opção para restaurar o padrão.
 
-Nenhuma ROM ou BIOS é copiada para o projeto. Cancelar qualquer seletor encerra o fluxo sem alterar arquivos.
+Nenhuma ROM ou BIOS é copiada para o projeto. Cancelar um seletor mantém a janela e a sessão atual sem alterações.
 
 ## Controles
 
@@ -31,7 +33,7 @@ Nenhuma ROM ou BIOS é copiada para o projeto. Cancelar qualquer seletor encerra
 - `Z` / `X`: botões 1 e 2 por padrão.
 - `Enter`: Pause/NMI do Master System por padrão.
 - `Space`: pausa a emulação.
-- `R`: reset.
+- `R`: soft reset da CPU, sem reabrir a ROM e sem forçar novo boot da BIOS.
 - `M`: mute.
 - `+` / `-`: volume.
 - `F1`: mostra ou oculta o overlay.

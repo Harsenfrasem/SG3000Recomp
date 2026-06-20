@@ -305,12 +305,15 @@ struct AppState {
     std::string rom_hash;
     std::string profile_name;
     std::filesystem::path quick_state_path;
+    std::filesystem::path current_rom_path;
+    std::filesystem::path current_sram_path;
     std::vector<std::filesystem::path> recent_games;
-    std::optional<std::filesystem::path> pending_gui_rom;
+    Options session_options;
     InputBindings bindings;
     std::optional<ControlAction> pending_binding;
     HMENU controls_menu = nullptr;
     HMENU scale_menu = nullptr;
+    HMENU recent_menu = nullptr;
     SaveStateMetadata state_metadata;
     std::string status_message;
     BITMAPINFO bitmap_info{};
@@ -318,6 +321,7 @@ struct AppState {
     bool emulation_paused = false;
     bool overlay_enabled = true;
     bool compatibility_warning_acknowledged = false;
+    bool has_rom = false;
     int window_scale = 3;
     double fps = 0.0;
     u64 rendered_frames = 0;
@@ -340,6 +344,8 @@ struct GraphicalSettings {
 enum MenuCommand : UINT {
     MenuFileExit = 1000,
     MenuFileOpenRom,
+    MenuFileSelectBios,
+    MenuFileClearBios,
     MenuEmulationPause,
     MenuEmulationReset,
     MenuModeAccurate,
@@ -519,7 +525,8 @@ std::string hash_file_stem(std::string hash) {
 
 void print_usage() {
     std::cout
-        << "usage: sgrecomp_host                         (open graphical ROM/BIOS selectors)\n"
+        << "usage: sgrecomp_host                         (open an idle graphical frontend)\n"
+        << "       sgrecomp_host --gui                   (open an idle graphical frontend)\n"
         << "       sgrecomp_host <rom.sms|rom.sg> [--bios bios.sms] [--model sms|sg3000] [--mapper "
            "auto|plain|smapper|cmapper|kmapper|k8k]\n"
         << "                    [--video-standard ntsc|pal]\n"
@@ -532,30 +539,6 @@ void print_usage() {
         << "                    [--disable-sprite-limit] [--reduce-flicker] [--enable-fm]\n";
 }
 
-bool launch_graphical_host(const std::optional<std::filesystem::path>& rom) {
-    std::array<wchar_t, 32768> executable{};
-    const DWORD length = GetModuleFileNameW(nullptr, executable.data(), static_cast<DWORD>(executable.size()));
-    if (length == 0 || length >= executable.size()) {
-        return false;
-    }
-    std::wstring command = L"\"" + std::wstring(executable.data(), length) + L"\"";
-    if (rom && !rom->empty()) {
-        command += L" --gui-rom \"" + rom->wstring() + L"\"";
-    }
-    std::vector<wchar_t> mutable_command(command.begin(), command.end());
-    mutable_command.push_back(L'\0');
-    STARTUPINFOW startup{};
-    startup.cb = sizeof(startup);
-    PROCESS_INFORMATION process{};
-    const BOOL launched = CreateProcessW(
-        executable.data(), mutable_command.data(), nullptr, nullptr, FALSE, 0, nullptr, nullptr, &startup, &process);
-    if (launched) {
-        CloseHandle(process.hThread);
-        CloseHandle(process.hProcess);
-    }
-    return launched != FALSE;
-}
-
 Options parse_args(int argc, char** argv) {
     Options opts;
     opts.gui_launch = argc == 1;
@@ -564,6 +547,10 @@ Options parse_args(int argc, char** argv) {
         if (arg == "-h" || arg == "--help") {
             print_usage();
             std::exit(0);
+        }
+        if (arg == "--gui") {
+            opts.gui_launch = true;
+            continue;
         }
         if (arg == "--bios" && i + 1 < argc) {
             opts.bios = argv[++i];
@@ -691,36 +678,16 @@ std::optional<std::filesystem::path> choose_local_file(const wchar_t* title, con
     return std::nullopt;
 }
 
-bool complete_graphical_launch_options(Options& opts) {
-    static constexpr wchar_t rom_filter[] = L"ROMs Sega (*.sms;*.sg;*.bin;*.rom)\0*.sms;*.sg;*.bin;*.rom\0"
-                                            L"Todos os arquivos (*.*)\0*.*\0\0";
-    static constexpr wchar_t bios_filter[] = L"BIOS Sega (*.sms;*.bin;*.rom)\0*.sms;*.bin;*.rom\0"
-                                             L"Todos os arquivos (*.*)\0*.*\0\0";
+std::optional<std::filesystem::path> choose_rom_file() {
+    static constexpr wchar_t filter[] = L"ROMs Sega (*.sms;*.sg;*.bin;*.rom)\0*.sms;*.sg;*.bin;*.rom\0"
+                                        L"Todos os arquivos (*.*)\0*.*\0\0";
+    return choose_local_file(L"Selecione a ROM para jogar", filter);
+}
 
-    if (opts.rom.empty()) {
-        const auto rom = choose_local_file(L"Selecione a ROM para jogar", rom_filter);
-        if (!rom) {
-            return false;
-        }
-        opts.rom = *rom;
-    }
-
-    const int bios_choice =
-        MessageBoxW(nullptr,
-                    L"Deseja selecionar uma BIOS?\n\nSim: escolher BIOS local\nNão: iniciar diretamente pelo cartucho",
-                    L"SG3000Recomp - BIOS opcional",
-                    MB_ICONQUESTION | MB_YESNOCANCEL);
-    if (bios_choice == IDCANCEL) {
-        return false;
-    }
-    if (bios_choice == IDYES) {
-        const auto bios = choose_local_file(L"Selecione a BIOS", bios_filter);
-        if (!bios) {
-            return false;
-        }
-        opts.bios = *bios;
-    }
-    return true;
+std::optional<std::filesystem::path> choose_bios_file() {
+    static constexpr wchar_t filter[] = L"BIOS Sega (*.sms;*.bin;*.rom)\0*.sms;*.bin;*.rom\0"
+                                        L"Todos os arquivos (*.*)\0*.*\0\0";
+    return choose_local_file(L"Selecione a BIOS", filter);
 }
 
 const char* control_action_name(ControlAction action) {
@@ -787,6 +754,10 @@ void set_emulation_paused(AppState& app, bool paused) {
 }
 
 void reset_emulation(AppState& app) {
+    if (!app.has_rom) {
+        app.status_message = "nenhum jogo carregado";
+        return;
+    }
     app.host->reset();
     app.last_frame = {};
     app.rendered_frames = 0;
@@ -796,11 +767,6 @@ void reset_emulation(AppState& app) {
     if (app.audio) {
         app.audio->flush();
     }
-}
-
-void request_gui_relaunch(HWND hwnd, AppState& app, std::filesystem::path rom) {
-    app.pending_gui_rom = std::move(rom);
-    DestroyWindow(hwnd);
 }
 
 void resize_game_window(HWND hwnd, AppState& app, int scale) {
@@ -820,6 +786,170 @@ void resize_game_window(HWND hwnd, AppState& app, int scale) {
                  desired.bottom - desired.top,
                  SWP_NOACTIVATE | SWP_NOZORDER);
     app.status_message = "tela ajustada para " + std::to_string(app.window_scale) + "x";
+}
+
+std::wstring recent_game_menu_label(std::size_t index, const std::filesystem::path& game);
+
+void refresh_recent_menu(AppState& app) {
+    if (app.recent_menu == nullptr) {
+        return;
+    }
+    while (DeleteMenu(app.recent_menu, 0, MF_BYPOSITION)) {
+    }
+    if (app.recent_games.empty()) {
+        AppendMenuW(app.recent_menu, MF_STRING | MF_GRAYED, 0, L"(nenhum jogo recente)");
+        return;
+    }
+    for (std::size_t index = 0; index < app.recent_games.size() && index < 10; ++index) {
+        const std::wstring label = recent_game_menu_label(index, app.recent_games[index]);
+        AppendMenuW(app.recent_menu, MF_STRING, MenuRecentFirst + index, label.c_str());
+    }
+}
+
+void save_active_sram(AppState& app) {
+    if (!app.has_rom || app.current_sram_path.empty()) {
+        return;
+    }
+    const auto& sram = app.host->console().bus().debug_cartridge_ram();
+    write_binary_file(app.current_sram_path, std::span<const u8>(sram.data(), sram.size()));
+}
+
+void apply_profile_to_options(Options& options,
+                              const std::string& rom_hash,
+                              std::string& profile_name,
+                              std::string& profile_fingerprint) {
+    if (options.profile.empty()) {
+        return;
+    }
+    const auto profiles = GameProfileDatabase::load(options.profile);
+    const GameProfile* profile = profiles.find_by_hash(rom_hash);
+    if (profile == nullptr) {
+        return;
+    }
+    profile_name = profile->name.empty() ? profile->hash : profile->name;
+    profile_fingerprint = game_profile_fingerprint(*profile);
+    if (profile->has_model) {
+        options.model = profile->model;
+    }
+    if (profile->has_mapper) {
+        options.mapper = profile->mapper;
+    }
+    if (profile->has_enhancements) {
+        options.enhancements = profile->enhancements;
+    }
+    if (profile->has_audio_latency_ms) {
+        options.audio_latency_ms = profile->audio_latency_ms;
+    }
+    if (profile->has_audio_sample_rate) {
+        options.audio_sample_rate = profile->audio_sample_rate;
+    }
+    if (profile->has_video_standard) {
+        options.video_standard = profile->video_standard;
+    }
+}
+
+void configure_session_audio(AppState& app, const Options& options) {
+    const int previous_volume = app.audio ? app.audio->volume_percent() : 100;
+    const bool previous_muted = app.audio ? app.audio->muted() : false;
+    app.audio.reset();
+    if (!options.audio) {
+        return;
+    }
+    auto audio = std::make_unique<Win32Audio>();
+    if (!audio->open(options.audio_sample_rate, options.audio_latency_ms)) {
+        return;
+    }
+    audio->set_volume_percent(previous_volume);
+    audio->set_muted(previous_muted);
+    app.audio = std::move(audio);
+}
+
+void load_game_session(HWND hwnd, AppState& app, const std::filesystem::path& rom_path) {
+    auto rom = normalize_rom_payload(read_file(rom_path));
+    const std::string rom_hash = rom_hash_fnv1a64(rom);
+    Options options = app.session_options;
+    options.rom = rom_path;
+    options.enhancements = app.host->console().enhancements();
+    std::string profile_name;
+    std::string profile_fingerprint;
+    apply_profile_to_options(options, rom_hash, profile_name, profile_fingerprint);
+    const std::optional<std::vector<u8>> bios = options.bios.empty()
+                                                    ? std::optional<std::vector<u8>>{}
+                                                    : std::optional<std::vector<u8>>{read_file(options.bios)};
+
+    HostRuntimeConfig runtime_config = host_runtime_config_for_video_standard(options.video_standard);
+    runtime_config.audio_sample_rate = options.audio_sample_rate;
+    auto host = std::make_unique<HostRuntime>(options.model, options.enhancements, runtime_config);
+    host->console().bus().set_mapper(options.mapper);
+    if (bios) {
+        host->load_bios(*bios);
+    }
+    host->load_rom(rom);
+
+    const std::filesystem::path saves = graphical_user_data_root() / L"saves";
+    std::filesystem::create_directories(saves);
+    const std::string stem = hash_file_stem(rom_hash);
+    const std::filesystem::path sram_path = saves / (stem + ".sav");
+    if (std::filesystem::exists(sram_path)) {
+        host->console().bus().load_cartridge_ram(read_file(sram_path));
+    }
+
+    save_active_sram(app);
+    app.host = std::move(host);
+    configure_session_audio(app, options);
+    app.has_rom = true;
+    app.current_rom_path = std::filesystem::absolute(rom_path);
+    app.current_sram_path = sram_path;
+    app.quick_state_path = saves / (stem + ".sgstate");
+    app.rom_hash = rom_hash;
+    app.profile_name = profile_name;
+    app.state_metadata = {};
+    app.state_metadata.present = true;
+    app.state_metadata.model = options.model;
+    app.state_metadata.rom_hash = rom_hash;
+    app.state_metadata.environment_identity_present = true;
+    app.state_metadata.bios_hash = bios ? rom_hash_fnv1a64(*bios) : std::string{};
+    app.state_metadata.profile_fingerprint = profile_fingerprint;
+    app.input = {};
+    app.last_frame = {};
+    app.rendered_frames = 0;
+    app.fps_window_frames = 0;
+    app.fps = 0.0;
+    app.emulation_paused = false;
+    app.bitmap_info.bmiHeader.biHeight = -app.host->console().vdp().active_height();
+    app.recent_games = touch_recent_game(app.recent_games, app.current_rom_path);
+    save_recent_games(graphical_user_data_root() / L"recent-games.txt", app.recent_games);
+    refresh_recent_menu(app);
+    resize_game_window(hwnd, app, app.window_scale);
+    const std::string title = "SG3000Recomp - " + rom_path.filename().string();
+    SetWindowTextA(hwnd, title.c_str());
+    app.status_message = options.bios.empty() ? "jogo iniciado sem BIOS" : "BIOS iniciada antes do jogo";
+}
+
+void select_session_bios(HWND hwnd, AppState& app) {
+    const auto bios = choose_bios_file();
+    if (!bios) {
+        return;
+    }
+    (void)read_file(*bios);
+    app.session_options.bios = *bios;
+    if (app.has_rom) {
+        load_game_session(hwnd, app, app.current_rom_path);
+    } else {
+        app.status_message = "BIOS selecionada; abra uma ROM para iniciar";
+        const std::string title = "SG3000Recomp - Sem jogo - BIOS: " + bios->filename().string();
+        SetWindowTextA(hwnd, title.c_str());
+    }
+}
+
+void clear_session_bios(HWND hwnd, AppState& app) {
+    app.session_options.bios.clear();
+    if (app.has_rom) {
+        load_game_session(hwnd, app, app.current_rom_path);
+    } else {
+        app.status_message = "BIOS removida; a proxima ROM iniciara diretamente";
+        SetWindowTextA(hwnd, "SG3000Recomp - Nenhum jogo carregado");
+    }
 }
 
 void request_control_binding(HWND hwnd, AppState& app, ControlAction action) {
@@ -888,6 +1018,10 @@ void update_menu_checks(HWND hwnd, const AppState& app) {
     const auto check = [menu](UINT command, bool checked) {
         CheckMenuItem(menu, command, MF_BYCOMMAND | (checked ? MF_CHECKED : MF_UNCHECKED));
     };
+    EnableMenuItem(menu, MenuEmulationPause, MF_BYCOMMAND | (app.has_rom ? MF_ENABLED : MF_GRAYED));
+    EnableMenuItem(menu, MenuEmulationReset, MF_BYCOMMAND | (app.has_rom ? MF_ENABLED : MF_GRAYED));
+    EnableMenuItem(
+        menu, MenuFileClearBios, MF_BYCOMMAND | (!app.session_options.bios.empty() ? MF_ENABLED : MF_GRAYED));
     const auto& config = app.host->console().enhancements();
     check(MenuEmulationPause, app.emulation_paused);
     CheckMenuRadioItem(menu,
@@ -1132,6 +1266,11 @@ void render_frame(HWND hwnd, AppState& app) {
 
     const int client_width = client.right - client.left;
     const int client_height = client.bottom - client.top;
+    FillRect(dc, &client, reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));
+    if (!app.has_rom) {
+        EndPaint(hwnd, &paint);
+        return;
+    }
     const int active_height = app.host->console().vdp().active_height();
     const int scale = std::max(1, std::min(client_width / Vdp::width, client_height / active_height));
     const int output_width = Vdp::width * scale;
@@ -1139,7 +1278,6 @@ void render_frame(HWND hwnd, AppState& app) {
     const int output_x = (client_width - output_width) / 2;
     const int output_y = (client_height - output_height) / 2;
 
-    FillRect(dc, &client, reinterpret_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));
     app.bitmap_info.bmiHeader.biHeight = -active_height;
     StretchDIBits(dc,
                   output_x,
@@ -1186,7 +1324,12 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
         if (const UINT command = LOWORD(wparam);
             command >= MenuRecentFirst && command <= MenuRecentLast &&
             static_cast<std::size_t>(command - MenuRecentFirst) < app->recent_games.size()) {
-            request_gui_relaunch(hwnd, *app, app->recent_games[command - MenuRecentFirst]);
+            try {
+                load_game_session(hwnd, *app, app->recent_games[command - MenuRecentFirst]);
+            } catch (const std::exception& error) {
+                MessageBoxA(hwnd, error.what(), "SG3000Recomp - Erro ao abrir ROM", MB_OK | MB_ICONERROR);
+            }
+            update_menu_checks(hwnd, *app);
             return 0;
         }
         if (const UINT command = LOWORD(wparam); command >= MenuScaleFirst && command <= MenuScaleLast) {
@@ -1204,7 +1347,30 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
             DestroyWindow(hwnd);
             return 0;
         case MenuFileOpenRom:
-            request_gui_relaunch(hwnd, *app, {});
+            if (const auto rom = choose_rom_file()) {
+                try {
+                    load_game_session(hwnd, *app, *rom);
+                } catch (const std::exception& error) {
+                    MessageBoxA(hwnd, error.what(), "SG3000Recomp - Erro ao abrir ROM", MB_OK | MB_ICONERROR);
+                }
+            }
+            update_menu_checks(hwnd, *app);
+            return 0;
+        case MenuFileSelectBios:
+            try {
+                select_session_bios(hwnd, *app);
+            } catch (const std::exception& error) {
+                MessageBoxA(hwnd, error.what(), "SG3000Recomp - Erro ao abrir BIOS", MB_OK | MB_ICONERROR);
+            }
+            update_menu_checks(hwnd, *app);
+            return 0;
+        case MenuFileClearBios:
+            try {
+                clear_session_bios(hwnd, *app);
+            } catch (const std::exception& error) {
+                MessageBoxA(hwnd, error.what(), "SG3000Recomp - Erro ao remover BIOS", MB_OK | MB_ICONERROR);
+            }
+            update_menu_checks(hwnd, *app);
             return 0;
         case MenuEmulationPause:
             set_emulation_paused(*app, !app->emulation_paused);
@@ -1290,8 +1456,12 @@ HMENU create_application_menu(AppState& app) {
     const HMENU help = CreatePopupMenu();
     app.scale_menu = scale;
     app.controls_menu = controls;
+    app.recent_menu = recent;
 
-    AppendMenuW(file, MF_STRING, MenuFileOpenRom, L"Abrir outro jogo...");
+    AppendMenuW(file, MF_STRING, MenuFileOpenRom, L"Abrir ROM...");
+    AppendMenuW(file, MF_STRING, MenuFileSelectBios, L"Selecionar BIOS...");
+    AppendMenuW(file, MF_STRING, MenuFileClearBios, L"Remover BIOS selecionada");
+    AppendMenuW(file, MF_SEPARATOR, 0, nullptr);
     if (app.recent_games.empty()) {
         AppendMenuW(recent, MF_STRING | MF_GRAYED, 0, L"(nenhum jogo recente)");
     } else {
@@ -1304,7 +1474,7 @@ HMENU create_application_menu(AppState& app) {
     AppendMenuW(file, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(file, MF_STRING, MenuFileExit, L"Sair");
     AppendMenuW(emulation, MF_STRING, MenuEmulationPause, L"Pausar\tSpace");
-    AppendMenuW(emulation, MF_STRING, MenuEmulationReset, L"Resetar\tR");
+    AppendMenuW(emulation, MF_STRING, MenuEmulationReset, L"Soft reset\tR");
     AppendMenuW(enhancements, MF_STRING, MenuModeAccurate, L"Modo fiel (accurate)");
     AppendMenuW(enhancements, MF_STRING, MenuModeEnhanced, L"Modo enhanced");
     AppendMenuW(enhancements, MF_SEPARATOR, 0, nullptr);
@@ -1374,8 +1544,6 @@ HWND create_main_window(HINSTANCE instance, AppState& app, int scale) {
 
 void run_message_loop(HWND hwnd, AppState& app) {
     using clock = std::chrono::steady_clock;
-    const auto frame_duration = std::chrono::duration<double>(
-        static_cast<double>(app.host->config().cycles_per_frame()) / app.host->config().cpu_clock_hz);
     auto next_frame = clock::now();
 
     while (app.running) {
@@ -1392,7 +1560,20 @@ void run_message_loop(HWND hwnd, AppState& app) {
             break;
         }
 
+        if (!app.has_rom) {
+            if (app.quit_after_frames != 0 && ++app.rendered_frames >= app.quit_after_frames) {
+                app.running = false;
+                DestroyWindow(hwnd);
+                continue;
+            }
+            Sleep(10);
+            next_frame = clock::now();
+            continue;
+        }
+
         const auto now = clock::now();
+        const auto frame_duration = std::chrono::duration<double>(
+            static_cast<double>(app.host->config().cycles_per_frame()) / app.host->config().cpu_clock_hz);
         if (now >= next_frame) {
             if (app.emulation_paused) {
                 InvalidateRect(hwnd, nullptr, FALSE);
@@ -1433,11 +1614,49 @@ void run_message_loop(HWND hwnd, AppState& app) {
     }
 }
 
+int run_empty_frontend(Options options,
+                       const GraphicalSettings& graphical_settings,
+                       const std::filesystem::path& settings_path) {
+    AppState app;
+    HostRuntimeConfig runtime_config = host_runtime_config_for_video_standard(options.video_standard);
+    runtime_config.audio_sample_rate = options.audio_sample_rate;
+    app.host = std::make_unique<HostRuntime>(options.model, options.enhancements, runtime_config);
+    app.host->console().bus().set_mapper(options.mapper);
+    app.session_options = options;
+    app.overlay_enabled = options.overlay;
+    app.window_scale = options.scale;
+    app.quit_after_frames = options.quit_after_frames;
+    app.bindings = graphical_settings.bindings;
+    app.recent_games = load_recent_games(graphical_user_data_root() / L"recent-games.txt");
+    save_recent_games(graphical_user_data_root() / L"recent-games.txt", app.recent_games);
+    app.bitmap_info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    app.bitmap_info.bmiHeader.biWidth = Vdp::width;
+    app.bitmap_info.bmiHeader.biHeight = -Vdp::height;
+    app.bitmap_info.bmiHeader.biPlanes = 1;
+    app.bitmap_info.bmiHeader.biBitCount = 32;
+    app.bitmap_info.bmiHeader.biCompression = BI_RGB;
+    app.status_message = "nenhum jogo carregado";
+
+    configure_session_audio(app, options);
+    if (app.audio) {
+        app.audio->set_volume_percent(graphical_settings.volume_percent);
+        app.audio->set_muted(graphical_settings.muted);
+    }
+
+    HWND hwnd = create_main_window(GetModuleHandle(nullptr), app, options.scale);
+    SetWindowTextA(hwnd, "SG3000Recomp - Nenhum jogo carregado");
+    if (!options.rom.empty()) {
+        load_game_session(hwnd, app, options.rom);
+        update_menu_checks(hwnd, app);
+    }
+    run_message_loop(hwnd, app);
+    save_active_sram(app);
+    save_graphical_settings(settings_path, app, graphical_settings);
+    return 0;
+}
+
 int run(int argc, char** argv) {
     Options opts = parse_args(argc, argv);
-    if (opts.gui_launch && !complete_graphical_launch_options(opts)) {
-        return 0;
-    }
     const std::filesystem::path graphical_settings_path = graphical_user_data_root() / L"settings.ini";
     GraphicalSettings graphical_settings;
     if (opts.gui_launch) {
@@ -1451,26 +1670,11 @@ int run(int argc, char** argv) {
             opts.enhancements.mode = RuntimeMode::Enhanced;
         }
     }
+    if (opts.gui_launch) {
+        return run_empty_frontend(opts, graphical_settings, graphical_settings_path);
+    }
     auto rom = normalize_rom_payload(read_file(opts.rom));
-    std::vector<std::filesystem::path> recent_games;
-    if (opts.gui_launch) {
-        const std::filesystem::path recent_games_path = graphical_user_data_root() / L"recent-games.txt";
-        recent_games = touch_recent_game(load_recent_games(recent_games_path), std::filesystem::absolute(opts.rom));
-        save_recent_games(recent_games_path, recent_games);
-    }
     const std::string rom_hash = rom_hash_fnv1a64(rom);
-    std::filesystem::path graphical_quick_state_path;
-    if (opts.gui_launch) {
-        const std::filesystem::path saves = graphical_user_data_root() / L"saves";
-        std::filesystem::create_directories(saves);
-        const std::string stem = hash_file_stem(rom_hash);
-        const std::filesystem::path automatic_sram = saves / (stem + ".sav");
-        graphical_quick_state_path = saves / (stem + ".sgstate");
-        if (std::filesystem::exists(automatic_sram)) {
-            opts.load_sram = automatic_sram;
-        }
-        opts.save_sram = automatic_sram;
-    }
     const CartridgeHeaderInfo header = analyze_cartridge_header(rom);
     if (opts.print_hash) {
         std::cout << rom_hash << "\n";
@@ -1534,10 +1738,12 @@ int run(int argc, char** argv) {
     app.quit_after_frames = opts.quit_after_frames;
     app.rom_hash = rom_hash;
     app.profile_name = profile_name;
-    app.quick_state_path = graphical_quick_state_path;
-    app.recent_games = std::move(recent_games);
+    app.current_rom_path = std::filesystem::absolute(opts.rom);
+    app.current_sram_path = opts.save_sram;
+    app.session_options = opts;
     app.bindings = graphical_settings.bindings;
     app.window_scale = opts.scale;
+    app.has_rom = true;
     if (bios) {
         app.host->load_bios(*bios);
     }
@@ -1572,9 +1778,6 @@ int run(int argc, char** argv) {
         if (!app.audio->open(app.host->config().audio_sample_rate, opts.audio_latency_ms)) {
             std::cerr << "sgrecomp_host: audio device unavailable, continuing muted\n";
             app.audio.reset();
-        } else if (opts.gui_launch) {
-            app.audio->set_volume_percent(graphical_settings.volume_percent);
-            app.audio->set_muted(graphical_settings.muted);
         }
     }
 
@@ -1583,13 +1786,6 @@ int run(int argc, char** argv) {
     const std::string window_title = "SG3000Recomp - " + opts.rom.filename().string();
     SetWindowTextA(hwnd, window_title.c_str());
     run_message_loop(hwnd, app);
-    if (opts.gui_launch) {
-        try {
-            save_graphical_settings(graphical_settings_path, app, graphical_settings);
-        } catch (const std::exception& error) {
-            std::cerr << "sgrecomp_host: " << error.what() << "\n";
-        }
-    }
     if (!opts.save_sram.empty()) {
         const auto& sram = app.host->console().bus().debug_cartridge_ram();
         write_binary_file(opts.save_sram, std::span<const u8>(sram.data(), sram.size()));
@@ -1600,10 +1796,6 @@ int run(int argc, char** argv) {
         const auto bytes = save_console_state(app.host->console(), expected_state_metadata);
         write_binary_file(opts.save_state, std::span<const u8>(bytes.data(), bytes.size()));
         std::cout << "state saved: " << opts.save_state.string() << "\n";
-    }
-    if (app.pending_gui_rom && !launch_graphical_host(app.pending_gui_rom)) {
-        MessageBoxW(
-            nullptr, L"Nao foi possivel abrir uma nova instancia da interface.", L"SG3000Recomp", MB_OK | MB_ICONERROR);
     }
     return 0;
 }

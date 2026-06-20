@@ -97,11 +97,11 @@ Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
 ### 6. GUI amigavel para usuario final
 
 - [x] GUI inicial disponivel apos estabilizacao do host runtime com janela/audio.
-- [ ] GUI inicia em estado ocioso, com tela preta e menus disponiveis, sem abrir seletores automaticamente.
-- [ ] Abrir ou trocar ROM na mesma janela e no mesmo processo, salvando a sessao anterior com seguranca.
-- [ ] Seletor independente para carregar/remover BIOS antes da ROM; sem BIOS, iniciar diretamente pelo cartucho.
-- [ ] Boot com BIOS selecionada executa BIOS antes do jogo e preserva handoff pelo controle de memoria.
-- [ ] Soft reset reinicia somente a CPU/sessao ativa sem reabrir ROM nem forcar novo boot da BIOS.
+- [x] GUI inicia em estado ocioso, com tela preta e menus disponiveis, sem abrir seletores automaticamente.
+- [x] Abrir ou trocar ROM na mesma janela e no mesmo processo, salvando a SRAM da sessao anterior com seguranca.
+- [x] Seletor independente para carregar/remover BIOS antes da ROM; sem BIOS, iniciar diretamente pelo cartucho.
+- [x] Boot com BIOS selecionada executa BIOS antes do jogo e preserva handoff pelo controle de memoria.
+- [x] Soft reset reinicia somente a CPU/sessao ativa sem reabrir ROM nem forcar novo boot da BIOS.
 - [x] GUI usa seletores nativos de ROM e BIOS sem copiar ou versionar arquivos.
 - [ ] Biblioteca local de jogos por hash/header, com apelidos configurados pelo usuario.
 - [x] Tela de configuracao simples para modo fiel/enhanced e toggles de enhancements.

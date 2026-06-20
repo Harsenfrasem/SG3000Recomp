@@ -3559,6 +3559,28 @@ void test_host_runtime_execution_modes_and_fallback_metrics() {
     assert(rejected_missing_executor);
 }
 
+void test_host_runtime_soft_reset_preserves_loaded_session() {
+    std::vector<u8> rom(0x8000, 0x00);
+    rom[0] = 0x76;
+    std::vector<u8> bios(0x4000, 0x00);
+    bios[0] = 0x3E;
+
+    HostRuntime host(ConsoleModel::SMS);
+    host.load_bios(bios);
+    host.load_rom(rom);
+    host.console().bus().set_bios_enabled(false);
+    host.console().bus().write(0xC123, 0x5A);
+    host.console().cpu().pc = 0x4321;
+    host.console().cpu().cycles = 12345;
+
+    host.reset();
+    assert(host.console().cpu().pc == 0);
+    assert(host.console().cpu().cycles == 0);
+    assert(host.console().bus().read(0x0000) == 0x76);
+    assert(host.console().bus().read(0xC123) == 0x5A);
+    assert(!host.console().bus().bios_enabled());
+}
+
 void test_host_input_script_tracks_frame_state() {
     const HostInputScript script = parse_host_input_script("# deterministic title-screen input\n"
                                                            "frame,player1,player2,pause\n"
@@ -3850,6 +3872,7 @@ int main() {
     test_synthetic_rom_integrates_mapper_vdp_psg_and_input();
     test_host_runtime_stereo_mixer_respects_sample_rate();
     test_host_runtime_execution_modes_and_fallback_metrics();
+    test_host_runtime_soft_reset_preserves_loaded_session();
     test_host_input_script_tracks_frame_state();
     test_console_save_state_round_trip_restores_runtime_state();
     test_game_profile_hash_and_parse();
