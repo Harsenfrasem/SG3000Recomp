@@ -3035,6 +3035,38 @@ void test_cmapper_banks_and_auto_detection() {
     assert(console.bus().read(0x8000) == 0x11);
 }
 
+void test_cmapper_8k_cartridge_ram_window() {
+    std::vector<u8> rom(0x10000, 0x00);
+    rom[0x6000] = 0x16; // bank 1, offset $2000
+    rom[0xA000] = 0x26; // bank 2, offset $2000
+    rom[0xE000] = 0x36; // bank 3, offset $2000
+
+    Console console(ConsoleModel::SMS);
+    console.bus().set_mapper(CartridgeMapper::CMapper);
+    console.load_rom(rom);
+    assert(console.bus().read(0xA000) == 0x26);
+
+    console.bus().write(0x4000, 0x83); // bank 3 plus SRAM enable
+    assert(console.bus().cartridge_ram_enabled());
+    assert(console.bus().read(0x4000) == 0x00); // bank selection masks the RAM-enable bit
+    assert(console.bus().read(0xA000) == 0x00);
+    console.bus().write(0xA000, 0x5A);
+    console.bus().write(0xBFFF, 0xA5);
+    assert(console.bus().cartridge_ram_dirty());
+    assert(console.bus().debug_cartridge_ram()[0x0000] == 0x5A);
+    assert(console.bus().debug_cartridge_ram()[0x1FFF] == 0xA5);
+
+    const BusState saved = console.bus().save_state();
+    console.bus().write(0x4000, 0x03); // disable SRAM, retain bank 3
+    assert(!console.bus().cartridge_ram_enabled());
+    assert(console.bus().read(0xA000) == 0x26); // slot 2 ROM remains bank 2
+
+    console.bus().load_state(saved);
+    assert(console.bus().cartridge_ram_enabled());
+    assert(console.bus().read(0xA000) == 0x5A);
+    assert(console.bus().read(0xBFFF) == 0xA5);
+}
+
 void test_forced_kmapper_bank_switches_slot2() {
     std::vector<u8> rom(0x10000, 0x00);
     rom[0x0000] = 0x20;
@@ -3689,6 +3721,7 @@ int main() {
     test_auto_mapper_locks_after_first_hardware_family_evidence();
     test_mapper_snapshot_reports_active_mapper_and_banks();
     test_cmapper_banks_and_auto_detection();
+    test_cmapper_8k_cartridge_ram_window();
     test_forced_kmapper_bank_switches_slot2();
     test_forced_k8k_mapper_uses_8k_banks();
     test_plain_mapper_keeps_first_48k_linear();

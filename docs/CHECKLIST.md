@@ -225,7 +225,8 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Perfis locais por hash podem forcar mapper em ROMs maiores sem guardar caminhos privados.
 - [x] Heuristica automatica trava na primeira familia de registradores comprovada e ignora writes com cartucho desconectado.
 - [ ] Refinar heuristica automatica para imagens ambiguas sem writes de mapper conclusivos.
-- [ ] CMapper completo: SRAM/EEPROM se necessario e edge cases por jogo.
+- [x] CMapper com janela SRAM de 8 KiB em `0xA000-0xBFFF`, dirty/load/save e state restore.
+- [ ] CMapper EEPROM e edge cases adicionais quando identificados por perfil/hardware.
 - [ ] KMapper/K8K completos usados por ROMs especificas.
 - [ ] SG-3000 cartridge layouts.
 - [x] Porta de controle de memoria `0x3E`: bits centrais de BIOS, cartucho e RAM de trabalho modelados, testados e expostos no overlay.

@@ -39,6 +39,10 @@ read `$ff`. Reserved bits 1–0 are retained for state/debugging without invente
 
 Automatic mapper selection starts from the size-based default and locks after the first recognized hardware-register family. Canonical Sega writes at `$fffc-$ffff` therefore prevent later incidental ROM-space writes from reclassifying the cartridge as Codemasters, Korean, or 8 KiB Korean hardware. Save-state version 8 persists this lock; older states derive it conservatively from their recorded mapper/register state.
 
+The Codemasters mapper uses writes at `$0000/$4000/$8000` for its three 16 KiB slots.
+Bit 7 of the `$4000` register enables an 8 KiB cartridge-RAM window at `$a000-$bfff`;
+the lower seven bits still select slot 1, while slot 2 ROM remains visible at `$8000-$9fff`.
+
 Save-state version 9 adds hashes for the active BIOS and matched profile configuration.
 Version 10 expands framebuffer storage to 240 lines. New states therefore reject a load
 when ROM, model, BIOS presence/content, or effective profile settings differ, and preserve

@@ -190,6 +190,7 @@ class Bus {
     void log_io(bool write, u8 port, u8 value);
     void log_memory(BusMemoryAccessKind kind, u16 address, u32 physical, u8 value);
     bool slot2_cartridge_ram_enabled() const;
+    bool cmapper_cartridge_ram_enabled() const;
     static bool has_copier_header(std::span<const u8> rom);
     static u16 mirrored_ram_address(u16 address);
     static bool is_vdp_data_port(u8 port);

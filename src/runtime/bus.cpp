@@ -144,10 +144,13 @@ bool Bus::io_chip_enabled() const {
 }
 
 bool Bus::cartridge_ram_enabled() const {
-    return slot2_cartridge_ram_enabled();
+    return slot2_cartridge_ram_enabled() || cmapper_cartridge_ram_enabled();
 }
 
 u8 Bus::cartridge_ram_bank() const {
+    if (cmapper_cartridge_ram_enabled()) {
+        return 0;
+    }
     return static_cast<u8>((smapper_control_ & 0x04) != 0 ? 1 : 0);
 }
 
@@ -170,6 +173,15 @@ u8 Bus::read(u16 address) const {
 }
 
 void Bus::write(u16 address, u8 value) {
+    if (model_ == ConsoleModel::SMS && cmapper_cartridge_ram_enabled() && address >= 0xA000 && address < 0xC000) {
+        const std::size_t offset = address - 0xA000;
+        cartridge_ram_[offset] = value;
+        cartridge_ram_dirty_ = true;
+        memory_[address] = value;
+        log_memory(BusMemoryAccessKind::CartridgeRam, address, static_cast<u32>(offset), value);
+        return;
+    }
+
     if (model_ == ConsoleModel::SMS && slot2_cartridge_ram_enabled() && address >= 0x8000 && address < 0xC000) {
         const std::size_t offset = static_cast<std::size_t>(cartridge_ram_bank()) * 0x4000 + (address - 0x8000);
         cartridge_ram_[offset] = value;
@@ -443,7 +455,11 @@ void Bus::refresh_smapper() {
 
 void Bus::refresh_cmapper() {
     for (int slot = 0; slot < 3; ++slot) {
-        copy_rom_bank(cmapper_slots_[slot], static_cast<u16>(slot * 0x4000), 0x4000, 0x4000);
+        const u8 bank = slot == 1 ? static_cast<u8>(cmapper_slots_[slot] & 0x7F) : cmapper_slots_[slot];
+        copy_rom_bank(bank, static_cast<u16>(slot * 0x4000), 0x4000, 0x4000);
+    }
+    if (cmapper_cartridge_ram_enabled()) {
+        std::copy_n(cartridge_ram_.begin(), 0x2000, memory_.begin() + 0xA000);
     }
 }
 
@@ -490,6 +506,11 @@ void Bus::set_memory_control(u8 value) {
 bool Bus::slot2_cartridge_ram_enabled() const {
     const bool sega_mapper = mapper_ == CartridgeMapper::SMapper || mapper_ == CartridgeMapper::Auto;
     return model_ == ConsoleModel::SMS && sega_mapper && cartridge_enabled() && (smapper_control_ & 0x08) != 0;
+}
+
+bool Bus::cmapper_cartridge_ram_enabled() const {
+    return model_ == ConsoleModel::SMS && mapper_ == CartridgeMapper::CMapper && cartridge_enabled() &&
+           (cmapper_slots_[1] & 0x80) != 0;
 }
 
 bool Bus::has_copier_header(std::span<const u8> rom) {
