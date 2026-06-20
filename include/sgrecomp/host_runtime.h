@@ -16,6 +16,21 @@ enum class HostVideoStandard {
     Pal,
 };
 
+enum class HostExecutionMode {
+    Interpreter,
+    Hybrid,
+    Recompiled,
+};
+
+enum class HostInstructionResult {
+    Recompiled,
+    Fallback,
+};
+
+using HostInstructionExecutor = HostInstructionResult (*)(Z80State&, Bus&);
+
+const char* host_execution_mode_name(HostExecutionMode mode);
+
 inline HostVideoStandard host_video_standard_from_name(std::string_view name) {
     if (name == "ntsc" || name == "NTSC") {
         return HostVideoStandard::Ntsc;
@@ -41,6 +56,8 @@ struct HostRuntimeConfig {
     u32 audio_sample_rate = 44100;
     int cpu_cycles_per_scanline = 228;
     int scanlines_per_frame = 262;
+    HostExecutionMode execution_mode = HostExecutionMode::Interpreter;
+    HostInstructionExecutor instruction_executor = nullptr;
 
     u64 cycles_per_frame() const {
         return static_cast<u64>(cpu_cycles_per_scanline) * static_cast<u64>(scanlines_per_frame);
@@ -70,6 +87,9 @@ struct HostFrameResult {
     u16 pc_min = 0;
     u16 pc_max = 0;
     bool halted = false;
+    std::size_t interpreted_instructions = 0;
+    std::size_t recompiled_instructions = 0;
+    std::size_t fallback_instructions = 0;
 };
 
 struct HostRuntimeState {
@@ -116,7 +136,13 @@ class HostRuntime {
     bool previous_pause_ = false;
 
     void apply_input(const HostInputState& input);
-    void run_until_cycle(u64 target_cycle, std::size_t& instructions, u16& pc_min, u16& pc_max);
+    void run_until_cycle(u64 target_cycle,
+                         std::size_t& instructions,
+                         u16& pc_min,
+                         u16& pc_max,
+                         std::size_t& interpreted,
+                         std::size_t& recompiled,
+                         std::size_t& fallback);
     void tick_devices(int elapsed_cycles);
     void append_audio_samples(int elapsed_cycles);
 };

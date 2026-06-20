@@ -1904,7 +1904,8 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
         if (!frame_log) {
             throw std::runtime_error("cannot open frame log output");
         }
-        frame_log << "frame,start_cycle,end_cycle,instructions,pc_min,pc_max,framebuffer_fnv1a64,"
+        frame_log << "frame,start_cycle,end_cycle,instructions,interpreted_instructions,recompiled_instructions,"
+                     "fallback_instructions,pc_min,pc_max,framebuffer_fnv1a64,"
                   << "audio_frames,nonzero_audio_samples,mapper,memory_control,bios_enabled,cartridge_enabled,work_ram_"
                      "enabled,expansion_enabled,card_enabled,io_chip_enabled,"
                   << "bank0,bank1,bank2,bank3,bank4,bank5,"
@@ -1947,12 +1948,14 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
                 banks = mapper.k8k_slots;
             }
             frame_log << result.frame_index << ',' << result.start_cycle << ',' << result.end_cycle << ','
-                      << result.instructions << ",0x" << std::hex << std::setw(4) << std::setfill('0') << result.pc_min
-                      << ",0x" << std::setw(4) << result.pc_max << ',' << std::setw(16) << framebuffer_hash << std::dec
-                      << std::setfill(' ') << ',' << (host.audio().size() - audio_start) / 2 << ',' << nonzero_audio
-                      << ',' << cartridge_mapper_name(mapper.mapper) << ",0x" << std::hex << std::setw(2)
-                      << std::setfill('0') << static_cast<int>(mapper.memory_control) << std::dec << std::setfill(' ')
-                      << ',' << (mapper.bios_enabled ? 1 : 0) << ',' << (mapper.cartridge_enabled ? 1 : 0) << ','
+                      << result.instructions << ',' << result.interpreted_instructions << ','
+                      << result.recompiled_instructions << ',' << result.fallback_instructions << ",0x" << std::hex
+                      << std::setw(4) << std::setfill('0') << result.pc_min << ",0x" << std::setw(4) << result.pc_max
+                      << ',' << std::setw(16) << framebuffer_hash << std::dec << std::setfill(' ') << ','
+                      << (host.audio().size() - audio_start) / 2 << ',' << nonzero_audio << ','
+                      << cartridge_mapper_name(mapper.mapper) << ",0x" << std::hex << std::setw(2) << std::setfill('0')
+                      << static_cast<int>(mapper.memory_control) << std::dec << std::setfill(' ') << ','
+                      << (mapper.bios_enabled ? 1 : 0) << ',' << (mapper.cartridge_enabled ? 1 : 0) << ','
                       << (mapper.work_ram_enabled ? 1 : 0) << ',' << (mapper.expansion_enabled ? 1 : 0) << ','
                       << (mapper.card_enabled ? 1 : 0) << ',' << (mapper.io_chip_enabled ? 1 : 0);
             for (u8 bank : banks) {
@@ -1972,6 +1975,10 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
 
     std::cout << "host frames: " << opts.host_frames << "\nframe index: " << result.frame_index
               << "\ncycles: " << result.start_cycle << "-" << result.end_cycle
+              << "\nexecution mode: " << host_execution_mode_name(host.config().execution_mode)
+              << "\ninstructions: " << result.instructions << " (interpreted " << result.interpreted_instructions
+              << ", recompiled " << result.recompiled_instructions << ", fallback " << result.fallback_instructions
+              << ")"
               << "\nvideo standard: " << host_video_standard_name(opts.video_standard) << " ("
               << host.config().cpu_cycles_per_scanline << "x" << host.config().scanlines_per_frame << " cycles/frame)"
               << "\naudio sample rate: " << host.config().audio_sample_rate
@@ -2608,6 +2615,7 @@ void generate_cpp(const std::filesystem::path& output,
     }
 
     out << "#include \"sgrecomp/bus.h\"\n";
+    out << "#include \"sgrecomp/host_runtime.h\"\n";
     out << "#include \"sgrecomp/z80.h\"\n\n";
     out << "#include <array>\n\n";
     out << "namespace {\n";
@@ -2739,6 +2747,37 @@ void generate_cpp(const std::filesystem::path& output,
         pc = static_cast<u16>(pc + insn.size);
     }
     out << "    default: sgrecomp::execute_one(cpu, bus); return;\n";
+    out << "    }\n";
+    out << "}\n";
+
+    std::set<u16> direct_pcs;
+    for (const auto& block : blocks) {
+        for (const auto& instruction : block.instructions) {
+            if (instruction.direct_emit) {
+                direct_pcs.insert(instruction.decoded.pc);
+            }
+        }
+    }
+    for (u16 pc = 0; pc < limit && pc < 0xC000;) {
+        const auto instruction = decode_z80(image, pc);
+        if (is_direct_emit_supported(image, pc)) {
+            direct_pcs.insert(pc);
+        }
+        pc = static_cast<u16>(pc + instruction.size);
+    }
+    out << "\nextern \"C\" sgrecomp::HostInstructionResult "
+           "sgrecomp_run_host_instruction(sgrecomp::Z80State& cpu, sgrecomp::Bus& bus) {\n";
+    out << "    const auto pc = cpu.pc;\n";
+    out << "    sgrecomp_run_instruction(cpu, bus);\n";
+    out << "    switch (pc) {\n";
+    for (const u16 pc : direct_pcs) {
+        out << "    case 0x" << std::hex << std::setw(4) << std::setfill('0') << pc << ":\n";
+    }
+    if (!direct_pcs.empty()) {
+        out << "        return sgrecomp::HostInstructionResult::Recompiled;\n";
+    }
+    out << "    default:\n";
+    out << "        return sgrecomp::HostInstructionResult::Fallback;\n";
     out << "    }\n";
     out << "}\n";
 }

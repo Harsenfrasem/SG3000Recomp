@@ -1,15 +1,40 @@
 #include "sgrecomp/host_runtime.h"
 
 #include <algorithm>
+#include <stdexcept>
 
 namespace sgrecomp {
 
+const char* host_execution_mode_name(HostExecutionMode mode) {
+    switch (mode) {
+    case HostExecutionMode::Interpreter:
+        return "interpreter";
+    case HostExecutionMode::Hybrid:
+        return "hybrid";
+    case HostExecutionMode::Recompiled:
+        return "recompiled";
+    }
+    return "unknown";
+}
+
+namespace {
+
+void validate_execution_config(const HostRuntimeConfig& config) {
+    if (config.execution_mode != HostExecutionMode::Interpreter && config.instruction_executor == nullptr) {
+        throw std::invalid_argument("hybrid/recompiled HostRuntime requires an instruction executor");
+    }
+}
+
+} // namespace
+
 HostRuntime::HostRuntime(ConsoleModel model, HostRuntimeConfig config) : console_(model), config_(config) {
+    validate_execution_config(config_);
     console_.vdp().set_timing({config_.cpu_cycles_per_scanline, config_.scanlines_per_frame});
 }
 
 HostRuntime::HostRuntime(ConsoleModel model, const EnhancementConfig& enhancements, HostRuntimeConfig config)
     : console_(model, enhancements), config_(config) {
+    validate_execution_config(config_);
     console_.vdp().set_timing({config_.cpu_cycles_per_scanline, config_.scanlines_per_frame});
 }
 
@@ -47,9 +72,12 @@ HostFrameResult HostRuntime::run_frame(const HostInputState& input) {
     const u64 start_cycle = console_.cpu().cycles;
     const u64 target_cycle = start_cycle + config_.cycles_per_frame();
     std::size_t instructions = 0;
+    std::size_t interpreted = 0;
+    std::size_t recompiled = 0;
+    std::size_t fallback = 0;
     u16 pc_min = 0xFFFF;
     u16 pc_max = 0;
-    run_until_cycle(target_cycle, instructions, pc_min, pc_max);
+    run_until_cycle(target_cycle, instructions, pc_min, pc_max, interpreted, recompiled, fallback);
 
     const HostFrameResult result{
         frame_index_,
@@ -60,6 +88,9 @@ HostFrameResult HostRuntime::run_frame(const HostInputState& input) {
         instructions == 0 ? u16{0} : pc_min,
         instructions == 0 ? u16{0} : pc_max,
         console_.cpu().halted,
+        interpreted,
+        recompiled,
+        fallback,
     };
     ++frame_index_;
     return result;
@@ -82,7 +113,13 @@ void HostRuntime::apply_input(const HostInputState& input) {
     previous_pause_ = input.pause;
 }
 
-void HostRuntime::run_until_cycle(u64 target_cycle, std::size_t& instructions, u16& pc_min, u16& pc_max) {
+void HostRuntime::run_until_cycle(u64 target_cycle,
+                                  std::size_t& instructions,
+                                  u16& pc_min,
+                                  u16& pc_max,
+                                  std::size_t& interpreted,
+                                  std::size_t& recompiled,
+                                  std::size_t& fallback) {
     while (console_.cpu().cycles < target_cycle) {
         pc_min = std::min(pc_min, console_.cpu().pc);
         pc_max = std::max(pc_max, console_.cpu().pc);
@@ -92,7 +129,20 @@ void HostRuntime::run_until_cycle(u64 target_cycle, std::size_t& instructions, u
         console_.vdp().set_cycle(before);
         console_.psg().set_cycle(before);
         console_.ym2413().set_cycle(before);
-        execute_one(console_.cpu(), console_.bus());
+        if (config_.execution_mode == HostExecutionMode::Interpreter) {
+            execute_one(console_.cpu(), console_.bus());
+            ++interpreted;
+        } else {
+            const HostInstructionResult result = config_.instruction_executor(console_.cpu(), console_.bus());
+            if (result == HostInstructionResult::Recompiled) {
+                ++recompiled;
+            } else {
+                ++fallback;
+                if (config_.execution_mode == HostExecutionMode::Recompiled) {
+                    throw std::runtime_error("strict recompiled mode encountered an interpreter fallback");
+                }
+            }
+        }
         tick_devices(static_cast<int>(console_.cpu().cycles - before));
 
         if (console_.vdp().irq_pending()) {

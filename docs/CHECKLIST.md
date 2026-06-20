@@ -76,7 +76,7 @@ Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
 - [x] Overlay debug mostra scanline/status/IRQ do VDP.
 - [x] Controles de runtime no host: pausa, reset, mute e volume.
 - [x] Load/save SRAM local no host Win32.
-- [ ] Modo de execucao interpretado, recompilado e hibrido no host.
+- [x] Modo de execucao interpretado, recompilado e hibrido no host, com executor gerado injetavel e modo recompilado estrito.
 
 ### 5. Audio FM opcional e perfis por jogo
 
@@ -317,7 +317,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Debug overlay com estado de pausa, volume e latencia.
 - [x] Debug overlay com timing de scanline/frame do VDP.
 - [x] Debug overlay com registradores completos de CPU, flags de interrupcao, cycles e halt.
-- [ ] Debug overlay com fallback count/recompiler stats em tempo real.
+- [x] Debug overlay com contadores interpretado, recompilado e fallback por frame em tempo real.
 
 ## GUI
 

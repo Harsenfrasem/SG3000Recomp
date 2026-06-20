@@ -250,6 +250,7 @@ int main() {
 
     const std::string generated = read_text(generated_path);
     assert(contains(generated, "void sgrecomp_block_0000"));
+    assert(contains(generated, "sgrecomp_run_host_instruction"));
     assert(contains(generated, "sgrecomp_block_0000(cpu, bus); return;"));
     assert(contains(generated, "cpu.set_hl(0xc000)"));
     assert(contains(generated, "/* ld hl,"));
@@ -322,9 +323,16 @@ int main() {
     assert(run_command(xy_generate_command) == 0);
     write_text(xy_harness_path,
                "#include \"sgrecomp/console.h\"\n"
+               "#include \"sgrecomp/host_runtime.h\"\n"
                "extern \"C\" void sgrecomp_load_rom(sgrecomp::Bus&);\n"
                "extern \"C\" void sgrecomp_run_instruction(sgrecomp::Z80State&, sgrecomp::Bus&);\n"
+               "extern \"C\" sgrecomp::HostInstructionResult sgrecomp_run_host_instruction(sgrecomp::Z80State&, "
+               "sgrecomp::Bus&);\n"
                "int main() {\n"
+               "  sgrecomp::Console probe(sgrecomp::ConsoleModel::SMS);\n"
+               "  sgrecomp_load_rom(probe.bus());\n"
+               "  if (sgrecomp_run_host_instruction(probe.cpu(), probe.bus()) != "
+               "sgrecomp::HostInstructionResult::Recompiled) return 4;\n"
                "  sgrecomp::Console console(sgrecomp::ConsoleModel::SMS);\n"
                "  sgrecomp_load_rom(console.bus());\n"
                "  for (int i = 0; i < 8 && !console.cpu().halted; ++i)\n"
@@ -643,7 +651,9 @@ int main() {
     const auto host_frame = read_binary(host_frame_path);
     assert(host_frame.size() > 54);
     const std::string host_frame_log = read_text(host_frame_log_path);
-    assert(contains(host_frame_log, "frame,start_cycle,end_cycle,instructions,pc_min,pc_max,framebuffer_fnv1a64"));
+    assert(contains(host_frame_log,
+                    "frame,start_cycle,end_cycle,instructions,interpreted_instructions,recompiled_instructions,"
+                    "fallback_instructions,pc_min,pc_max,framebuffer_fnv1a64"));
     assert(contains(host_frame_log, "\n0,"));
     assert(contains(host_frame_log, "\n1,"));
     assert(host_frame[0] == 'B');

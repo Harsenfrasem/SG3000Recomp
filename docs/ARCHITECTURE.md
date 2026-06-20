@@ -80,14 +80,15 @@ the same configured rate is written to WAV headers and the backend format.
 
 ## Compatibility Strategy
 
-The project uses a hybrid path while the lifter matures:
+The project exposes three measured host execution modes while the lifter matures:
 
-- Lift decoded instructions to direct C++ when the generated code path is known.
-- Call the fallback interpreter for unsupported opcodes.
+- `interpreter` executes every instruction through the compatibility core.
+- `hybrid` executes generated C++ where the PC is known and reports interpreter fallbacks.
+- `recompiled` is strict and stops immediately if generated code requests a fallback.
 - Discover reachable basic blocks from the reset PC and report static successors, fallback opcodes, and indirect exits.
 - Add test ROMs and opcode-level tests as each family is promoted to generated code.
 
-This keeps ROMs debuggable from the first milestone while allowing the static code path to grow safely.
+Per-frame interpreted, recompiled, and fallback instruction counters are available to the GUI overlay and headless frame log. This keeps ROMs debuggable from the first milestone while allowing the static code path to grow safely.
 
 ## Enhancement Strategy
 

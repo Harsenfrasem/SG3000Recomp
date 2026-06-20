@@ -814,7 +814,10 @@ std::string overlay_text(const AppState& app) {
         << " cycles " << cpu.cycles << (cpu.halted ? " halted" : "") << "\n"
         << "mode " << runtime_mode_name(config.mode) << "  sprite_limit "
         << (config.disable_sprite_limit ? "off" : "on") << "  reduce_flicker " << (config.reduce_flicker ? "on" : "off")
-        << "  " << (app.emulation_paused ? "paused" : "running") << "\n";
+        << "  " << (app.emulation_paused ? "paused" : "running") << "\n"
+        << "execution " << host_execution_mode_name(app.host->config().execution_mode) << "  interpreted "
+        << app.last_frame.interpreted_instructions << "  recompiled " << app.last_frame.recompiled_instructions
+        << "  fallback " << app.last_frame.fallback_instructions << "\n";
     if (!app.profile_name.empty()) {
         out << "profile " << app.profile_name << "  ";
     } else {

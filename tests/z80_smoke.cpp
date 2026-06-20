@@ -3352,6 +3352,12 @@ void setup_host_visible_pixel(Vdp& vdp) {
     vdp.write_data(0x00);
 }
 
+HostInstructionResult synthetic_hybrid_executor(Z80State& cpu, Bus& bus) {
+    const u16 pc = cpu.pc;
+    execute_one(cpu, bus);
+    return pc == 0 ? HostInstructionResult::Recompiled : HostInstructionResult::Fallback;
+}
+
 void test_host_runtime_frame_audio_and_input() {
     const std::vector<u8> rom = {
         0xDB, 0xDC,       // in a,($dc)
@@ -3468,6 +3474,56 @@ void test_host_runtime_stereo_mixer_respects_sample_rate() {
     const std::size_t frames_22050 = run_at_rate(22050);
     const std::size_t frames_44100 = run_at_rate(44100);
     assert(frames_44100 == frames_22050 * 2 || frames_44100 == frames_22050 * 2 + 1);
+}
+
+void test_host_runtime_execution_modes_and_fallback_metrics() {
+    const std::vector<u8> rom = {
+        0x00, // nop: classified as recompiled by the synthetic executor
+        0x3E,
+        0x42, // ld a,$42: classified as fallback
+        0x18,
+        0xFB, // jr $0000: classified as fallback
+    };
+
+    HostRuntime interpreter(ConsoleModel::SMS);
+    interpreter.load_rom(rom);
+    const HostFrameResult interpreted = interpreter.run_frame();
+    assert(interpreted.interpreted_instructions == interpreted.instructions);
+    assert(interpreted.recompiled_instructions == 0);
+    assert(interpreted.fallback_instructions == 0);
+
+    HostRuntimeConfig hybrid_config;
+    hybrid_config.execution_mode = HostExecutionMode::Hybrid;
+    hybrid_config.instruction_executor = synthetic_hybrid_executor;
+    HostRuntime hybrid(ConsoleModel::SMS, hybrid_config);
+    hybrid.load_rom(rom);
+    const HostFrameResult mixed = hybrid.run_frame();
+    assert(mixed.recompiled_instructions > 0);
+    assert(mixed.fallback_instructions > 0);
+    assert(mixed.interpreted_instructions == 0);
+    assert(mixed.recompiled_instructions + mixed.fallback_instructions == mixed.instructions);
+
+    HostRuntimeConfig strict_config = hybrid_config;
+    strict_config.execution_mode = HostExecutionMode::Recompiled;
+    HostRuntime strict(ConsoleModel::SMS, strict_config);
+    strict.load_rom(rom);
+    bool rejected_fallback = false;
+    try {
+        (void)strict.run_frame();
+    } catch (const std::runtime_error&) {
+        rejected_fallback = true;
+    }
+    assert(rejected_fallback);
+
+    bool rejected_missing_executor = false;
+    try {
+        HostRuntimeConfig invalid;
+        invalid.execution_mode = HostExecutionMode::Hybrid;
+        (void)HostRuntime(ConsoleModel::SMS, invalid);
+    } catch (const std::invalid_argument&) {
+        rejected_missing_executor = true;
+    }
+    assert(rejected_missing_executor);
 }
 
 void test_host_input_script_tracks_frame_state() {
@@ -3759,6 +3815,7 @@ int main() {
     test_host_runtime_frame_audio_and_input();
     test_synthetic_rom_integrates_mapper_vdp_psg_and_input();
     test_host_runtime_stereo_mixer_respects_sample_rate();
+    test_host_runtime_execution_modes_and_fallback_metrics();
     test_host_input_script_tracks_frame_state();
     test_console_save_state_round_trip_restores_runtime_state();
     test_game_profile_hash_and_parse();
