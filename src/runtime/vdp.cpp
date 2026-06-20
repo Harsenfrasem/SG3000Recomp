@@ -43,12 +43,22 @@ u8 Vdp::read_status() {
 
 u8 Vdp::read_v_counter() const {
     if (timing_.scanlines_per_frame >= 300) {
-        if (scanline_ <= 0xF2) {
-            return static_cast<u8>(scanline_);
+        int discontinuity = 243;
+        if (active_height() == 224) {
+            discontinuity = 259;
+        } else if (active_height() == 240) {
+            discontinuity = 267;
+        }
+        if (scanline_ < discontinuity) {
+            return static_cast<u8>(scanline_ & 0xFF);
         }
         return static_cast<u8>(scanline_ - 0x39);
     }
-    if (scanline_ <= 0xDA) {
+    if (active_height() == 240) {
+        return static_cast<u8>(scanline_ & 0xFF);
+    }
+    const int last_linear_line = active_height() == 224 ? 0xEA : 0xDA;
+    if (scanline_ <= last_linear_line) {
         return static_cast<u8>(scanline_);
     }
     return static_cast<u8>(scanline_ - 6);

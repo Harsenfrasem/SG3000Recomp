@@ -2479,6 +2479,45 @@ void test_v_counter_uses_video_standard_timing() {
     assert(pal.read_v_counter() == 0xBA);
 }
 
+void test_v_counter_tracks_extended_mode_discontinuities() {
+    const auto select_height = [](Vdp& vdp, bool mode_240) {
+        vdp.write_control(0x02);
+        vdp.write_control(0x80);
+        vdp.write_control(static_cast<u8>(mode_240 ? 0x10 : 0x00));
+        vdp.write_control(0x81);
+    };
+
+    Vdp ntsc_224;
+    select_height(ntsc_224, false);
+    ntsc_224.tick(228 * 0xEA);
+    assert(ntsc_224.read_v_counter() == 0xEA);
+    ntsc_224.tick(228);
+    assert(ntsc_224.read_v_counter() == 0xE5);
+
+    Vdp ntsc_240;
+    select_height(ntsc_240, true);
+    ntsc_240.tick(228 * 0xFF);
+    assert(ntsc_240.read_v_counter() == 0xFF);
+    ntsc_240.tick(228);
+    assert(ntsc_240.read_v_counter() == 0x00);
+
+    Vdp pal_224;
+    pal_224.set_timing({228, 313});
+    select_height(pal_224, false);
+    pal_224.tick(228 * 258);
+    assert(pal_224.read_v_counter() == 0x02);
+    pal_224.tick(228);
+    assert(pal_224.read_v_counter() == 0xCA);
+
+    Vdp pal_240;
+    pal_240.set_timing({228, 313});
+    select_height(pal_240, true);
+    pal_240.tick(228 * 266);
+    assert(pal_240.read_v_counter() == 0x0A);
+    pal_240.tick(228);
+    assert(pal_240.read_v_counter() == 0xD2);
+}
+
 void test_index_register_basics() {
     std::vector<u8> rom(0x80, 0x00);
     rom[0x00] = 0x31; // ld sp,$c100
@@ -3628,6 +3667,7 @@ int main() {
     test_misc_jumps_and_flags();
     test_v_counter_port();
     test_v_counter_uses_video_standard_timing();
+    test_v_counter_tracks_extended_mode_discontinuities();
     test_index_register_basics();
     test_accumulator_rotates();
     test_index_cb_operations();

@@ -24,6 +24,7 @@ tile index, horizontal and vertical flip, palette select, and nonzero-pixel prio
 M2 selects the 224-line Mode 4 path and M1+M2 selects 240 lines. These modes use a
 256-line vertical tilemap period, move VBlank to the selected active height, disable the
 192-line `$d0` sprite terminator, and expose the active viewport to hosts and frame dumps.
+VCounter discontinuities are selected independently for NTSC/PAL and 192/224/240-line modes.
 
 VRAM reads use the VDP read buffer. A code-0 control command prefetches the addressed byte and advances the 14-bit address; each data-port read returns the buffered byte, prefetches the next byte, and advances with `$3fff` wrap. Save-state version 7 stores this buffer while older state versions load it as zero.
 
