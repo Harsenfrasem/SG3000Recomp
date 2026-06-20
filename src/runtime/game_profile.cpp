@@ -71,6 +71,27 @@ RuntimeMode parse_runtime_mode(const std::string& value) {
     throw std::runtime_error("invalid runtime mode in profile: " + value);
 }
 
+const char* runtime_mode_name(RuntimeMode mode) {
+    switch (mode) {
+    case RuntimeMode::Accurate:
+        return "accurate";
+    case RuntimeMode::Hybrid:
+        return "hybrid";
+    case RuntimeMode::Enhanced:
+        return "enhanced";
+    }
+    return "accurate";
+}
+
+std::string safe_profile_name(std::string value) {
+    std::replace_if(
+        value.begin(),
+        value.end(),
+        [](char character) { return character == '"' || character == '#' || character == '\r' || character == '\n'; },
+        '_');
+    return value;
+}
+
 void finish_profile(std::vector<GameProfile>& profiles, GameProfile& current, bool& in_profile) {
     if (!in_profile) {
         return;
@@ -219,6 +240,58 @@ const GameProfile* GameProfileDatabase::find_by_hash(std::string_view hash) cons
     const auto it = std::find_if(
         profiles_.begin(), profiles_.end(), [&](const GameProfile& profile) { return profile.hash == lowered; });
     return it == profiles_.end() ? nullptr : &*it;
+}
+
+std::string serialize_game_profiles(std::span<const GameProfile> profiles) {
+    std::ostringstream out;
+    out << "# Local SG3000Recomp profiles. Managed by the GUI or editable as text.\n";
+    for (const auto& profile : profiles) {
+        if (profile.hash.empty()) {
+            throw std::invalid_argument("cannot serialize a profile without hash");
+        }
+        out << "\n[profile]\n";
+        if (!profile.name.empty()) {
+            out << "name = \"" << safe_profile_name(profile.name) << "\"\n";
+        }
+        out << "hash = \"" << profile.hash << "\"\n";
+        if (profile.has_model) {
+            out << "model = \"" << (profile.model == ConsoleModel::SG3000 ? "sg3000" : "sms") << "\"\n";
+        }
+        if (profile.has_mapper) {
+            out << "mapper = \"" << cartridge_mapper_name(profile.mapper) << "\"\n";
+        }
+        if (profile.has_enhancements) {
+            out << "mode = \"" << runtime_mode_name(profile.enhancements.mode) << "\"\n"
+                << "disable_sprite_limit = " << (profile.enhancements.disable_sprite_limit ? "true" : "false")
+                << "\nreduce_flicker = " << (profile.enhancements.reduce_flicker ? "true" : "false")
+                << "\nenable_fm = " << (profile.enhancements.enable_fm ? "true" : "false")
+                << "\nenable_ym2612 = " << (profile.enhancements.enable_ym2612 ? "true" : "false") << "\n";
+        }
+        if (profile.has_audio_latency_ms) {
+            out << "audio_latency_ms = " << profile.audio_latency_ms << "\n";
+        }
+        if (profile.has_audio_sample_rate) {
+            out << "audio_sample_rate = " << profile.audio_sample_rate << "\n";
+        }
+        if (profile.has_video_standard) {
+            out << "video_standard = \"" << host_video_standard_name(profile.video_standard) << "\"\n";
+        }
+    }
+    return out.str();
+}
+
+void save_game_profiles(const std::filesystem::path& path, std::span<const GameProfile> profiles) {
+    if (!path.parent_path().empty()) {
+        std::filesystem::create_directories(path.parent_path());
+    }
+    std::ofstream file(path, std::ios::trunc);
+    if (!file) {
+        throw std::runtime_error("cannot save profile file");
+    }
+    file << serialize_game_profiles(profiles);
+    if (!file) {
+        throw std::runtime_error("cannot write profile file");
+    }
 }
 
 } // namespace sgrecomp

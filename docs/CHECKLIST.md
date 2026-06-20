@@ -109,7 +109,7 @@ Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
 - [x] GUI: escala inteira de janela entre 1x e 6x, configuravel e persistente.
 - [x] GUI: remapeamento persistente de direcional, botoes e Pause/NMI, com troca de conflitos.
 - [x] GUI: gerenciamento visual de save states, screenshots BMP e gravacoes WAV, com seletores nativos.
-- [ ] Perfis por jogo editaveis pela GUI.
+- [x] Perfis por hash editaveis pela GUI: mapper, NTSC/PAL, configuracao atual, aplicacao imediata e remocao.
 - [x] Tela nao modal de status com FPS, backends, modelo, CPU/VDP, mapper, fallback/recompiler e avisos de compatibilidade.
 - [x] Empacotamento Windows em ZIP portátil com checksum e guia de uso.
 

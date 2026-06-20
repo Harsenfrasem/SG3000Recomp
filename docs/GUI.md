@@ -20,6 +20,13 @@ O menu **Melhorias** também alterna explicitamente entre o modo fiel e o enhanc
 Antes da primeira ativação enhanced da sessão, a GUI explica que essas opções podem
 alterar a aparência original e pede confirmação. Voltar ao modo fiel desliga as duas melhorias visuais.
 
+Em **Arquivo > Perfil do jogo**, a configuração pode ser persistida para a ROM atual pelo
+hash, sem guardar o caminho da ROM. O submenu permite escolher mapper e NTSC/PAL, salvar o
+modelo, enhancements e parâmetros de áudio atualmente ativos, ou remover o perfil. Cada
+alteração salva a SRAM e recarrega a mesma ROM imediatamente. Por padrão, esses perfis ficam
+em `%LOCALAPPDATA%\SG3000Recomp\profiles.txt`; um arquivo indicado por `--profile` continua
+sendo respeitado quando a GUI é iniciada pelo terminal.
+
 **YM2612 experimental (portas F4-F7)** ativa o núcleo [Nuked-OPN2](https://github.com/nukeykt/Nuked-OPN2)
 em modo compatível com YM2612. Essa extensão não pertence ao hardware SMS/SG-3000 e não
 substitui automaticamente o PSG ou o YM2413: software preparado deve escrever endereço/dados
@@ -61,7 +68,8 @@ No fluxo gráfico, a SRAM é carregada automaticamente ao abrir a ROM e salva ao
 
 O modo de execução, escala da janela, controles, overlay, melhorias de vídeo/áudio, mute e volume ficam em `settings.ini`, diretamente
 na pasta `SG3000Recomp`. `recent-games.txt` guarda localmente até dez caminhos de ROM para alimentar
-o menu de recentes; caminhos de BIOS não são salvos. Esses arquivos permanecem fora do repositório.
+o menu de recentes; `profiles.txt` guarda configurações por hash. Caminhos de BIOS não são
+salvos. Esses arquivos permanecem fora do repositório.
 
 O quick-load valida modelo, ROM, BIOS e configuração de perfil antes de restaurar estados
 novos. Estados antigos continuam legíveis com a identidade disponível em sua versão.

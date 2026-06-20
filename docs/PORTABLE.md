@@ -30,6 +30,10 @@ compatibilidade. SRAM, quick-save e preferências ficam somente em
 **Exibição > Status detalhado...** mantém uma janela auxiliar atualizada com FPS, CPU,
 VDP, mapper, áudio, backends e uso do executor recompilado/fallback, sem pausar o jogo.
 
+**Arquivo > Perfil do jogo** salva por hash o mapper, NTSC/PAL e a configuração ativa para
+a ROM atual. O perfil pode ser alterado ou removido sem reiniciar o aplicativo e fica somente
+em `%LOCALAPPDATA%\SG3000Recomp\profiles.txt`.
+
 Em **Arquivo**, também é possível salvar/carregar estados `.sgstate`, capturar a tela em
 BMP e gravar a saída de áudio em WAV. Cancelar o destino de uma gravação mantém o áudio na
 memória para salvar depois; a opção de descartar o remove sem criar arquivos.

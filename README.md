@@ -38,7 +38,7 @@ cmake --build --preset zig-debug
 ctest --preset zig-debug
 ```
 
-For the simplest Windows test, double-click `build\zig-debug\SG3000Recomp.exe`. The idle black frontend lets you configure controls and scaling, optionally select a BIOS, and then open or switch ROMs without restarting the process. The graphical flow automatically persists cartridge SRAM, provides hash-validated save-state management, BMP screenshots, WAV audio recording, a live detailed-status window, and keeps a local ten-game recent list under `%LOCALAPPDATA%\SG3000Recomp`. `sgrecomp_host.exe` remains the equivalent technical/CLI name. See `docs/GUI.md` for controls and current limits.
+For the simplest Windows test, double-click `build\zig-debug\SG3000Recomp.exe`. The idle black frontend lets you configure controls and scaling, optionally select a BIOS, and then open or switch ROMs without restarting the process. The graphical flow automatically persists cartridge SRAM, provides hash-validated save-state management, BMP screenshots, WAV audio recording, editable per-game profiles, a live detailed-status window, and keeps a local ten-game recent list under `%LOCALAPPDATA%\SG3000Recomp`. `sgrecomp_host.exe` remains the equivalent technical/CLI name. See `docs/GUI.md` for controls and current limits.
 
 The optional non-historical YM2612 extension uses [Nuked-OPN2](https://github.com/nukeykt/Nuked-OPN2)
 by Alexey Khokholov (Nuke.YKT), distributed under LGPL-2.1-or-later. See

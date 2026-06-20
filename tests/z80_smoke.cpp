@@ -3874,6 +3874,20 @@ void test_game_profile_hash_and_parse() {
     const auto host_config = host_runtime_config_for_video_standard(profile->video_standard);
     assert(host_config.scanlines_per_frame == 313);
 
+    GameProfile serializable = *profile;
+    serializable.name = "local #test\nprofile";
+    const std::array serialized_profiles{serializable};
+    const std::string serialized = serialize_game_profiles(serialized_profiles);
+    const auto reparsed = GameProfileDatabase::parse(serialized);
+    const GameProfile* reparsed_profile = reparsed.find_by_hash(hash);
+    assert(reparsed_profile != nullptr);
+    assert(reparsed_profile->name == "local _test_profile");
+    assert(game_profile_fingerprint(*reparsed_profile) == profile_fingerprint);
+    const auto profile_path = std::filesystem::temp_directory_path() / "sgrecomp_profile_save_test.txt";
+    save_game_profiles(profile_path, serialized_profiles);
+    assert(GameProfileDatabase::load(profile_path).find_by_hash(hash) != nullptr);
+    std::filesystem::remove(profile_path);
+
     assert(cartridge_mapper_from_name("NONE") == CartridgeMapper::Plain);
     assert(cartridge_mapper_from_name("s") == CartridgeMapper::SMapper);
     bool rejected_mapper = false;

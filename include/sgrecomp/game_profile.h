@@ -46,5 +46,7 @@ class GameProfileDatabase {
 
 std::string rom_hash_fnv1a64(std::span<const u8> rom);
 std::string game_profile_fingerprint(const GameProfile& profile);
+std::string serialize_game_profiles(std::span<const GameProfile> profiles);
+void save_game_profiles(const std::filesystem::path& path, std::span<const GameProfile> profiles);
 
 } // namespace sgrecomp

@@ -378,6 +378,21 @@ enum MenuCommand : UINT {
     MenuControlFirst = 1300,
     MenuControlLast = MenuControlFirst + static_cast<UINT>(ControlAction::Count) - 1,
     MenuControlReset,
+    MenuProfileMapperFirst = 1400,
+    MenuProfileMapperLast = MenuProfileMapperFirst + 5,
+    MenuProfileVideoNtsc,
+    MenuProfileVideoPal,
+    MenuProfileSave,
+    MenuProfileRemove,
+};
+
+constexpr std::array<CartridgeMapper, 6> graphical_profile_mappers{
+    CartridgeMapper::Auto,
+    CartridgeMapper::Plain,
+    CartridgeMapper::SMapper,
+    CartridgeMapper::CMapper,
+    CartridgeMapper::KMapper,
+    CartridgeMapper::K8KMapper,
 };
 
 std::vector<u8> read_file(const std::filesystem::path& path) {
@@ -888,7 +903,7 @@ void apply_profile_to_options(Options& options,
                               const std::string& rom_hash,
                               std::string& profile_name,
                               std::string& profile_fingerprint) {
-    if (options.profile.empty()) {
+    if (options.profile.empty() || !std::filesystem::exists(options.profile)) {
         return;
     }
     const auto profiles = GameProfileDatabase::load(options.profile);
@@ -1099,6 +1114,70 @@ void stop_audio_recording(AppState& app) {
     }
 }
 
+std::vector<GameProfile> load_editable_profiles(const std::filesystem::path& path) {
+    if (path.empty() || !std::filesystem::exists(path)) {
+        return {};
+    }
+    const auto database = GameProfileDatabase::load(path);
+    return database.profiles();
+}
+
+GameProfile current_game_profile(const AppState& app) {
+    GameProfile profile;
+    profile.name = app.current_rom_path.stem().string();
+    profile.hash = app.rom_hash;
+    profile.has_model = true;
+    profile.model = app.state_metadata.model;
+    profile.has_mapper = true;
+    profile.mapper = app.host->console().bus().mapper_snapshot().requested_mapper;
+    profile.has_enhancements = true;
+    profile.enhancements = app.host->console().enhancements();
+    profile.has_audio_latency_ms = true;
+    profile.audio_latency_ms = app.audio ? app.audio->target_latency_ms() : app.session_options.audio_latency_ms;
+    profile.has_audio_sample_rate = true;
+    profile.audio_sample_rate = app.host->config().audio_sample_rate;
+    profile.has_video_standard = true;
+    profile.video_standard =
+        app.host->config().scanlines_per_frame == 313 ? HostVideoStandard::Pal : HostVideoStandard::Ntsc;
+    return profile;
+}
+
+void store_game_profile(HWND hwnd,
+                        AppState& app,
+                        std::optional<CartridgeMapper> mapper = {},
+                        std::optional<HostVideoStandard> video_standard = {}) {
+    GameProfile profile = current_game_profile(app);
+    if (mapper) {
+        profile.mapper = *mapper;
+    }
+    if (video_standard) {
+        profile.video_standard = *video_standard;
+    }
+    auto profiles = load_editable_profiles(app.session_options.profile);
+    profiles.erase(std::remove_if(profiles.begin(),
+                                  profiles.end(),
+                                  [&](const GameProfile& candidate) { return candidate.hash == profile.hash; }),
+                   profiles.end());
+    profiles.push_back(profile);
+    save_game_profiles(app.session_options.profile, profiles);
+    load_game_session(hwnd, app, app.current_rom_path);
+    app.status_message = "perfil local salvo e aplicado";
+}
+
+void remove_game_profile(HWND hwnd, AppState& app) {
+    auto profiles = load_editable_profiles(app.session_options.profile);
+    const auto end = std::remove_if(
+        profiles.begin(), profiles.end(), [&](const GameProfile& profile) { return profile.hash == app.rom_hash; });
+    if (end == profiles.end()) {
+        app.status_message = "este jogo nao possui perfil local";
+        return;
+    }
+    profiles.erase(end, profiles.end());
+    save_game_profiles(app.session_options.profile, profiles);
+    load_game_session(hwnd, app, app.current_rom_path);
+    app.status_message = "perfil local removido";
+}
+
 void request_control_binding(HWND hwnd, AppState& app, ControlAction action) {
     app.pending_binding = action;
     app.input = {};
@@ -1186,6 +1265,14 @@ void update_menu_checks(HWND hwnd, const AppState& app) {
                    MF_BYCOMMAND | (!app.audio_recording && !app.recorded_audio.empty() ? MF_ENABLED : MF_GRAYED));
     EnableMenuItem(
         menu, MenuFileClearBios, MF_BYCOMMAND | (!app.session_options.bios.empty() ? MF_ENABLED : MF_GRAYED));
+    for (UINT command = MenuProfileMapperFirst; command <= MenuProfileMapperLast; ++command) {
+        EnableMenuItem(menu, command, MF_BYCOMMAND | (app.has_rom ? MF_ENABLED : MF_GRAYED));
+    }
+    EnableMenuItem(menu, MenuProfileVideoNtsc, MF_BYCOMMAND | (app.has_rom ? MF_ENABLED : MF_GRAYED));
+    EnableMenuItem(menu, MenuProfileVideoPal, MF_BYCOMMAND | (app.has_rom ? MF_ENABLED : MF_GRAYED));
+    EnableMenuItem(menu, MenuProfileSave, MF_BYCOMMAND | (app.has_rom ? MF_ENABLED : MF_GRAYED));
+    EnableMenuItem(
+        menu, MenuProfileRemove, MF_BYCOMMAND | (app.has_rom && !app.profile_name.empty() ? MF_ENABLED : MF_GRAYED));
     const auto& config = app.host->console().enhancements();
     check(MenuEmulationPause, app.emulation_paused);
     CheckMenuRadioItem(menu,
@@ -1198,6 +1285,20 @@ void update_menu_checks(HWND hwnd, const AppState& app) {
     check(MenuEnhancementYm2612, config.enable_ym2612);
     check(MenuViewOverlay, app.overlay_enabled);
     check(MenuViewStatus, app.status_window != nullptr && IsWindowVisible(app.status_window));
+    const auto mapper = app.host->console().bus().mapper_snapshot().requested_mapper;
+    const auto mapper_it = std::find(graphical_profile_mappers.begin(), graphical_profile_mappers.end(), mapper);
+    if (mapper_it != graphical_profile_mappers.end()) {
+        CheckMenuRadioItem(menu,
+                           MenuProfileMapperFirst,
+                           MenuProfileMapperLast,
+                           MenuProfileMapperFirst + static_cast<UINT>(mapper_it - graphical_profile_mappers.begin()),
+                           MF_BYCOMMAND);
+    }
+    CheckMenuRadioItem(menu,
+                       MenuProfileVideoNtsc,
+                       MenuProfileVideoPal,
+                       app.host->config().scanlines_per_frame == 313 ? MenuProfileVideoPal : MenuProfileVideoNtsc,
+                       MF_BYCOMMAND);
     CheckMenuRadioItem(app.scale_menu,
                        MenuScaleFirst,
                        MenuScaleLast,
@@ -1649,6 +1750,18 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
             InvalidateRect(hwnd, nullptr, FALSE);
             return 0;
         }
+        if (const UINT command = LOWORD(wparam);
+            command >= MenuProfileMapperFirst && command <= MenuProfileMapperLast && app->has_rom) {
+            try {
+                store_game_profile(
+                    hwnd, *app, graphical_profile_mappers[command - MenuProfileMapperFirst], std::nullopt);
+            } catch (const std::exception& error) {
+                MessageBoxA(hwnd, error.what(), "SG3000Recomp - Erro de perfil", MB_OK | MB_ICONERROR);
+            }
+            update_menu_checks(hwnd, *app);
+            InvalidateRect(hwnd, nullptr, FALSE);
+            return 0;
+        }
         if (const UINT command = LOWORD(wparam); command >= MenuControlFirst && command <= MenuControlLast) {
             request_control_binding(hwnd, *app, static_cast<ControlAction>(command - MenuControlFirst));
             return 0;
@@ -1682,6 +1795,26 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
                 MessageBoxA(hwnd, error.what(), "SG3000Recomp - Erro ao remover BIOS", MB_OK | MB_ICONERROR);
             }
             update_menu_checks(hwnd, *app);
+            return 0;
+        case MenuProfileVideoNtsc:
+        case MenuProfileVideoPal:
+        case MenuProfileSave:
+        case MenuProfileRemove:
+            try {
+                if (LOWORD(wparam) == MenuProfileVideoNtsc) {
+                    store_game_profile(hwnd, *app, std::nullopt, HostVideoStandard::Ntsc);
+                } else if (LOWORD(wparam) == MenuProfileVideoPal) {
+                    store_game_profile(hwnd, *app, std::nullopt, HostVideoStandard::Pal);
+                } else if (LOWORD(wparam) == MenuProfileSave) {
+                    store_game_profile(hwnd, *app);
+                } else {
+                    remove_game_profile(hwnd, *app);
+                }
+            } catch (const std::exception& error) {
+                MessageBoxA(hwnd, error.what(), "SG3000Recomp - Erro de perfil", MB_OK | MB_ICONERROR);
+            }
+            update_menu_checks(hwnd, *app);
+            InvalidateRect(hwnd, nullptr, FALSE);
             return 0;
         case MenuFileSaveState:
         case MenuFileLoadState:
@@ -1818,6 +1951,7 @@ HMENU create_application_menu(AppState& app) {
     const HMENU file = CreatePopupMenu();
     const HMENU recent = CreatePopupMenu();
     const HMENU audio_dump = CreatePopupMenu();
+    const HMENU profile = CreatePopupMenu();
     const HMENU emulation = CreatePopupMenu();
     const HMENU enhancements = CreatePopupMenu();
     const HMENU view = CreatePopupMenu();
@@ -1840,6 +1974,20 @@ HMENU create_application_menu(AppState& app) {
     AppendMenuW(audio_dump, MF_STRING, MenuAudioSaveLast, L"Salvar ultima gravacao...");
     AppendMenuW(audio_dump, MF_STRING, MenuAudioClear, L"Descartar ultima gravacao");
     AppendMenuW(file, MF_POPUP, reinterpret_cast<UINT_PTR>(audio_dump), L"Gravacao de audio");
+    AppendMenuW(file, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(profile, MF_STRING, MenuProfileMapperFirst + 0, L"Mapper automatico");
+    AppendMenuW(profile, MF_STRING, MenuProfileMapperFirst + 1, L"Mapper linear/plain");
+    AppendMenuW(profile, MF_STRING, MenuProfileMapperFirst + 2, L"Mapper Sega");
+    AppendMenuW(profile, MF_STRING, MenuProfileMapperFirst + 3, L"Mapper Codemasters");
+    AppendMenuW(profile, MF_STRING, MenuProfileMapperFirst + 4, L"Mapper Korean");
+    AppendMenuW(profile, MF_STRING, MenuProfileMapperFirst + 5, L"Mapper Korean 8K");
+    AppendMenuW(profile, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(profile, MF_STRING, MenuProfileVideoNtsc, L"Video NTSC");
+    AppendMenuW(profile, MF_STRING, MenuProfileVideoPal, L"Video PAL");
+    AppendMenuW(profile, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(profile, MF_STRING, MenuProfileSave, L"Salvar configuracao atual");
+    AppendMenuW(profile, MF_STRING, MenuProfileRemove, L"Remover perfil deste jogo");
+    AppendMenuW(file, MF_POPUP, reinterpret_cast<UINT_PTR>(profile), L"Perfil do jogo");
     AppendMenuW(file, MF_SEPARATOR, 0, nullptr);
     if (app.recent_games.empty()) {
         AppendMenuW(recent, MF_STRING | MF_GRAYED, 0, L"(nenhum jogo recente)");
@@ -2012,6 +2160,9 @@ int run_empty_frontend(Options options,
                        const GraphicalSettings& graphical_settings,
                        const std::filesystem::path& settings_path) {
     AppState app;
+    if (options.profile.empty()) {
+        options.profile = graphical_user_data_root() / L"profiles.txt";
+    }
     HostRuntimeConfig runtime_config = host_runtime_config_for_video_standard(options.video_standard);
     runtime_config.audio_sample_rate = options.audio_sample_rate;
     app.host = std::make_unique<HostRuntime>(options.model, options.enhancements, runtime_config);
