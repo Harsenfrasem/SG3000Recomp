@@ -49,6 +49,7 @@ struct Options {
     std::filesystem::path dump_frame_log;
     std::filesystem::path header_output;
     std::filesystem::path bios;
+    std::filesystem::path profile;
     std::filesystem::path dump_frame;
     std::filesystem::path dump_frame_bmp;
     std::filesystem::path dump_audio;
@@ -88,6 +89,7 @@ struct Options {
     HeaderWriteMode header_write_mode = HeaderWriteMode::None;
     CartridgeHeaderRegion header_region = CartridgeHeaderRegion::SmsExport;
     std::string header_product_code = "00000";
+    std::string profile_fingerprint;
     u8 header_version = 0;
 };
 
@@ -247,6 +249,15 @@ void apply_config_file(Options& opts, const std::filesystem::path& path) {
         throw std::runtime_error("cannot open config file");
     }
 
+    const std::filesystem::path config_root = std::filesystem::absolute(path).parent_path();
+    const auto config_path = [&](const std::string& value) {
+        std::filesystem::path result = strip_quotes(value);
+        return result.is_absolute() ? result : config_root / result;
+    };
+
+    const std::set<std::string> supported_sections{"target", "recompiler", "runtime", "run", "paths"};
+    std::set<std::string> seen_sections;
+    std::set<std::string> seen_keys;
     std::string section;
     std::string line;
     while (std::getline(file, line)) {
@@ -260,6 +271,12 @@ void apply_config_file(Options& opts, const std::filesystem::path& path) {
         }
         if (line.front() == '[' && line.back() == ']') {
             section = lower_ascii(trim_ascii(line.substr(1, line.size() - 2)));
+            if (!supported_sections.contains(section)) {
+                throw std::runtime_error("unknown config section: " + section);
+            }
+            if (!seen_sections.insert(section).second) {
+                throw std::runtime_error("duplicate config section: " + section);
+            }
             continue;
         }
 
@@ -269,6 +286,10 @@ void apply_config_file(Options& opts, const std::filesystem::path& path) {
         }
         const std::string key = lower_ascii(trim_ascii(line.substr(0, equals)));
         const std::string value = trim_ascii(line.substr(equals + 1));
+        const std::string qualified_key = section + "." + key;
+        if (!seen_keys.insert(qualified_key).second) {
+            throw std::runtime_error("duplicate config key: " + qualified_key);
+        }
 
         if (section == "target") {
             if (key == "model") {
@@ -309,14 +330,114 @@ void apply_config_file(Options& opts, const std::filesystem::path& path) {
             } else {
                 throw std::runtime_error("unknown runtime config key: " + key);
             }
+        } else if (section == "run") {
+            if (key == "mode") {
+                const std::string mode = lower_ascii(strip_quotes(value));
+                opts.run_smoke = mode == "smoke";
+                opts.run_host = mode == "host";
+                opts.disassemble_only = mode == "disassemble";
+                if (mode != "generate" && !opts.run_smoke && !opts.run_host && !opts.disassemble_only) {
+                    throw std::runtime_error("unknown run mode: " + mode);
+                }
+            } else if (key == "steps") {
+                opts.max_steps = parse_number(value);
+            } else if (key == "frames") {
+                opts.host_frames = parse_number(value);
+            } else if (key == "trace") {
+                opts.trace = parse_config_bool(value);
+            } else if (key == "force_state") {
+                opts.force_state = parse_config_bool(value);
+            } else {
+                throw std::runtime_error("unknown run config key: " + key);
+            }
+        } else if (section == "paths") {
+            const std::filesystem::path resolved = config_path(value);
+            if (key == "input")
+                opts.input = resolved;
+            else if (key == "output")
+                opts.output = resolved;
+            else if (key == "bios")
+                opts.bios = resolved;
+            else if (key == "profile")
+                opts.profile = resolved;
+            else if (key == "input_script")
+                opts.input_script = resolved;
+            else if (key == "frame_log")
+                opts.dump_frame_log = resolved;
+            else if (key == "frame")
+                opts.dump_frame = resolved;
+            else if (key == "frame_bmp")
+                opts.dump_frame_bmp = resolved;
+            else if (key == "audio")
+                opts.dump_audio = resolved;
+            else if (key == "vgm")
+                opts.dump_vgm = resolved;
+            else if (key == "fm_log")
+                opts.dump_fm_log = resolved;
+            else if (key == "io_log")
+                opts.dump_io_log = resolved;
+            else if (key == "memory_log")
+                opts.dump_memory_log = resolved;
+            else if (key == "vdp_log")
+                opts.dump_vdp_log = resolved;
+            else if (key == "vram")
+                opts.dump_vram = resolved;
+            else if (key == "cram")
+                opts.dump_cram = resolved;
+            else if (key == "tilemap")
+                opts.dump_tilemap = resolved;
+            else if (key == "sprites")
+                opts.dump_sprites = resolved;
+            else if (key == "sram_dump")
+                opts.dump_sram = resolved;
+            else if (key == "coverage")
+                opts.dump_coverage = resolved;
+            else if (key == "analysis")
+                opts.dump_analysis = resolved;
+            else if (key == "sram_load")
+                opts.load_sram = resolved;
+            else if (key == "sram_save")
+                opts.save_sram = resolved;
+            else if (key == "state_load")
+                opts.load_state = resolved;
+            else if (key == "state_save")
+                opts.save_state = resolved;
+            else
+                throw std::runtime_error("unknown paths config key: " + key);
         } else {
             throw std::runtime_error("config key outside supported section: " + key);
         }
     }
 }
 
+void apply_game_profile(Options& opts, std::span<const u8> rom) {
+    if (opts.profile.empty()) {
+        return;
+    }
+    const auto profiles = GameProfileDatabase::load(opts.profile);
+    const std::string hash = rom_hash_fnv1a64(rom);
+    const GameProfile* profile = profiles.find_by_hash(hash);
+    if (profile == nullptr) {
+        std::cout << "profile matched: none (" << hash << ")\n";
+        return;
+    }
+    if (profile->has_model)
+        opts.model = profile->model;
+    if (profile->has_mapper)
+        opts.mapper = profile->mapper;
+    if (profile->has_enhancements)
+        opts.enhancements = profile->enhancements;
+    if (profile->has_audio_sample_rate)
+        opts.audio_sample_rate = profile->audio_sample_rate;
+    if (profile->has_video_standard)
+        opts.video_standard = profile->video_standard;
+    opts.profile_fingerprint = game_profile_fingerprint(*profile);
+    std::cout << "profile matched: " << (profile->name.empty() ? profile->hash : profile->name) << "\n";
+}
+
 void print_usage() {
-    std::cout << "usage: sgrecomp <rom.sms|rom.sg> [--config config.toml] [-o generated.cpp] [--model sms|sg3000] "
+    std::cout << "usage: sgrecomp <rom.sms|rom.sg> [--config config.toml] [--profile profiles.txt] [-o generated.cpp] "
+                 "[--model sms|sg3000] "
                  "[--mapper auto|plain|smapper|cmapper|kmapper|k8k] [--disasm] [--bios bios.sms]\n"
               << "       sgrecomp <rom.sms|rom.sg> --run-smoke [--steps n] [--trace] [--bios bios.sms] [--mapper "
                  "auto|plain|smapper|cmapper|kmapper|k8k]\n"
@@ -362,6 +483,10 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--bios" && i + 1 < argc) {
             opts.bios = argv[++i];
+            continue;
+        }
+        if (arg == "--profile" && i + 1 < argc) {
+            opts.profile = argv[++i];
             continue;
         }
         if ((arg == "--rebuild-header" || arg == "--generate-header") && i + 1 < argc) {
@@ -1540,6 +1665,7 @@ void run_smoke(ConsoleModel model,
     expected_state_metadata.model = model;
     expected_state_metadata.rom_hash = rom_hash_fnv1a64(rom);
     expected_state_metadata.bios_hash = bios != nullptr ? rom_hash_fnv1a64(*bios) : std::string{};
+    expected_state_metadata.profile_fingerprint = opts.profile_fingerprint;
     if (!opts.load_state.empty()) {
         const SaveStateImage image = deserialize_console_state_image(read_file(opts.load_state));
         if (!opts.force_state) {
@@ -1757,6 +1883,7 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
     expected_state_metadata.model = model;
     expected_state_metadata.rom_hash = rom_hash_fnv1a64(rom);
     expected_state_metadata.bios_hash = bios != nullptr ? rom_hash_fnv1a64(*bios) : std::string{};
+    expected_state_metadata.profile_fingerprint = opts.profile_fingerprint;
     if (!opts.load_state.empty()) {
         const auto state_bytes = read_file(opts.load_state);
         if (!opts.force_state) {
@@ -2620,7 +2747,7 @@ void generate_cpp(const std::filesystem::path& output,
 
 int main(int argc, char** argv) {
     try {
-        const Options opts = parse_args(argc, argv);
+        Options opts = parse_args(argc, argv);
         auto rom = normalize_rom_payload(read_file(opts.input));
         if (opts.header_write_mode != HeaderWriteMode::None) {
             CartridgeHeaderBuildOptions header_options;
@@ -2635,6 +2762,7 @@ int main(int argc, char** argv) {
                       << header.stored_checksum << std::dec << "\nwrote " << opts.header_output.string() << "\n";
             return 0;
         }
+        apply_game_profile(opts, rom);
         const std::optional<std::vector<u8>> bios =
             opts.bios.empty() ? std::optional<std::vector<u8>>{} : std::optional<std::vector<u8>>{read_file(opts.bios)};
         const auto image =

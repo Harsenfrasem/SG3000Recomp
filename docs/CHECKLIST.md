@@ -157,7 +157,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Relatorio de analise: deteccao heuristica de tabelas de ponteiros little-endian.
 - [x] Relatorio de analise: acessos estaticos a I/O e writes diretos de mapper.
 - [x] Config TOML inicial via `--config` para modelo, mapper, limite estatico, video/audio e enhancements basicos.
-- [ ] Config TOML completo para opcoes de alvo, perfis, paths locais ignoraveis e validacao de schema.
+- [x] Config TOML com alvo/runtime/run/perfil, paths relativos locais e schema estrito.
 
 ## CPU Z80
 

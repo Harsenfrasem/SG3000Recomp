@@ -63,7 +63,10 @@ Target defaults can come from a small TOML file:
 .\build\zig-debug\sgrecomp.exe game.sms --config config\example.toml --run-host --frames 1
 ```
 
-The current config reader supports `[target]` `model`/`mapper`, `[recompiler]` `max_static_bytes`, and `[runtime]` `region` or `video_standard`, `audio_sample_rate`, `enable_fm`, `disable_sprite_limit`, and `reduce_flicker`. CLI flags after `--config` can still override those defaults.
+The config reader validates `[target]`, `[recompiler]`, `[runtime]`, `[run]`, and
+`[paths]` tables, rejecting unknown/duplicate keys and tables. Relative paths are based
+on the TOML location; local profiles are matched by ROM hash after loading. CLI flags
+after `--config` can still override those defaults.
 
 `--dump-analysis` writes a static report with reachable basic blocks, static successors, direct-emitted instructions, fallback instructions, and indirect exits. It is the easiest way to see how close a ROM is to the current lifted C++ path.
 

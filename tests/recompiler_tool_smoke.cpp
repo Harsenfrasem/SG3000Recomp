@@ -178,6 +178,7 @@ int main() {
     const std::filesystem::path bios_handoff_frame_log_path = output_dir / "bios_handoff_frames.csv";
     const std::filesystem::path bios_handoff_memory_log_path = output_dir / "bios_handoff_memory.csv";
     const std::filesystem::path host_config_path = output_dir / "host_config.toml";
+    const std::filesystem::path invalid_config_path = output_dir / "invalid_config.toml";
     const std::filesystem::path host_config_audio_path = output_dir / "host_config_audio.wav";
     const std::filesystem::path host_sram_rom_path = output_dir / "host_sram_fixture.sms";
     const std::filesystem::path host_sram_path = output_dir / "host_save.sav";
@@ -734,10 +735,16 @@ int main() {
                "[runtime]\n"
                "region = \"pal\"\n"
                "audio_sample_rate = 32000\n"
-               "enable_fm = false\n");
-    const std::string host_config_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(audio_rom_path) + " --config " +
-                                            quote(host_config_path) + " --run-host --frames 1 --dump-audio " +
-                                            quote(host_config_audio_path);
+               "enable_fm = false\n"
+               "\n"
+               "[run]\n"
+               "mode = \"host\"\n"
+               "frames = 1\n"
+               "\n"
+               "[paths]\n"
+               "input = \"audio_fixture.sms\"\n"
+               "audio = \"host_config_audio.wav\"\n");
+    const std::string host_config_command = quote_arg(SGRECOMP_TOOL_PATH) + " --config " + quote(host_config_path);
     assert(run_command(host_config_command) == 0);
     const auto host_config_wav_bytes = read_binary(host_config_audio_path);
     const unsigned config_sample_rate = static_cast<unsigned>(host_config_wav_bytes[24]) |
@@ -745,6 +752,15 @@ int main() {
                                         (static_cast<unsigned>(host_config_wav_bytes[26]) << 16) |
                                         (static_cast<unsigned>(host_config_wav_bytes[27]) << 24);
     assert(config_sample_rate == 32000);
+
+    write_text(invalid_config_path,
+               "[runtime]\n"
+               "audio_sample_rate = 44100\n"
+               "[runtime]\n"
+               "audio_sample_rate = 22050\n");
+    const std::string invalid_config_command =
+        quote_arg(SGRECOMP_TOOL_PATH) + " --config " + quote(invalid_config_path);
+    assert(run_command(invalid_config_command) != 0);
 
 #ifdef SGRECOMP_HOST_PATH
     std::vector<unsigned char> host_sram_rom(0x10000, 0x00);

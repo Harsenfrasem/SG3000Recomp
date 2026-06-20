@@ -11,3 +11,15 @@ max_static_bytes = "0xC000"
 [runtime]
 region = "ntsc"
 audio_sample_rate = 48000
+
+[run]
+mode = "host"
+frames = 1
+
+# Relative paths are resolved from this TOML file. Keep local copies of this
+# section under an ignored directory when they point to private material.
+[paths]
+input = "../local-roms/example.sms"
+profile = "../out/profiles/example.txt"
+frame_bmp = "../out/example.bmp"
+audio = "../out/example.wav"
