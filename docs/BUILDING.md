@@ -75,9 +75,10 @@ Set-Location build\zig-debug
 cpack -G ZIP
 ```
 
-O arquivo `SG3000Recomp-0.1.0-windows-x64-portable.zip` contém somente
-`SG3000Recomp.exe` e o guia de uso. ROMs, BIOS, saves, perfis locais e artefatos de
-diagnóstico não fazem parte do pacote. O CPack também gera um arquivo `.sha256`.
+O arquivo `SG3000Recomp-0.1.0-windows-x64-portable.zip` contém o executável, a DLL substituível
+Nuked-OPN2, o guia, avisos de terceiros e as licenças LGPL/MIT dos núcleos de áudio. ROMs, BIOS,
+saves, perfis locais e artefatos de diagnóstico não fazem parte do pacote. O CPack também gera
+um arquivo `.sha256`.
 
 ## ROM Diagnostics
 

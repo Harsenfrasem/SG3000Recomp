@@ -1,22 +1,41 @@
 #include "sgrecomp/ym2413.h"
 
-#include <algorithm>
-#include <cmath>
+#include "emu2413.h"
+
+#include <cstring>
+#include <new>
 
 namespace sgrecomp {
 namespace {
 
-constexpr double kCpuClock = 3579545.0;
-constexpr double kTwoPi = 6.28318530717958647692;
+constexpr u32 kOpllClock = 3579545;
+constexpr u32 kOpllInternalRate = 49716;
+constexpr u64 kCpuCyclesPerOpllSample = 72;
 
 } // namespace
+
+Ym2413::Ym2413() : core_(OPLL_new(kOpllClock, kOpllInternalRate)) {
+    if (core_ == nullptr) {
+        throw std::bad_alloc();
+    }
+    OPLL_setChipType(core_, 0);
+    OPLL_resetPatch(core_, OPLL_2413_TONE);
+}
+
+Ym2413::~Ym2413() {
+    OPLL_delete(core_);
+}
 
 void Ym2413::reset() {
     selected_register_ = 0;
     audio_control_ = 0;
     registers_.fill(0);
-    phase_.fill(0.0);
+    clock_accumulator_ = 0;
+    output_ = 0;
     logged_writes_.clear();
+    OPLL_reset(core_);
+    OPLL_setChipType(core_, 0);
+    OPLL_resetPatch(core_, OPLL_2413_TONE);
 }
 
 void Ym2413::set_present(bool present) {
@@ -46,6 +65,7 @@ void Ym2413::write_data(u8 value) {
         return;
     }
     registers_[selected_register_ & 0x3F] = value;
+    OPLL_writeReg(core_, selected_register_ & 0x3F, value);
     log_write(0xF1, value);
 }
 
@@ -65,14 +85,14 @@ u8 Ym2413::read_audio_control() const {
 }
 
 void Ym2413::tick(int cpu_cycles) {
-    if (!fm_enabled()) {
+    if (!present_ || cpu_cycles <= 0) {
         return;
     }
 
-    const double seconds = static_cast<double>(cpu_cycles) / kCpuClock;
-    for (int channel = 0; channel < 9; ++channel) {
-        phase_[channel] += channel_frequency(channel) * seconds;
-        phase_[channel] -= std::floor(phase_[channel]);
+    clock_accumulator_ += static_cast<u64>(cpu_cycles);
+    while (clock_accumulator_ >= kCpuCyclesPerOpllSample) {
+        clock_accumulator_ -= kCpuCyclesPerOpllSample;
+        output_ = OPLL_calc(core_);
     }
 }
 
@@ -80,40 +100,8 @@ std::array<float, 2> Ym2413::sample() const {
     if (!fm_enabled()) {
         return {0.0F, 0.0F};
     }
-
-    float mixed = 0.0F;
-    for (int channel = 0; channel < 9; ++channel) {
-        mixed += channel_sample(channel);
-    }
-    mixed = std::clamp(mixed / 9.0F, -1.0F, 1.0F);
-    return {mixed, mixed};
-}
-
-float Ym2413::channel_sample(int channel) const {
-    const u8 key_block_fnum = registers_[0x20 + channel];
-    if ((key_block_fnum & 0x10) == 0) {
-        return 0.0F;
-    }
-
-    const float amplitude = channel_amplitude(channel);
-    const double modulator = std::sin(phase_[channel] * kTwoPi * 2.0) * 0.18;
-    return static_cast<float>(std::sin((phase_[channel] + modulator) * kTwoPi) * amplitude);
-}
-
-double Ym2413::channel_frequency(int channel) const {
-    const u16 fnum = static_cast<u16>(registers_[0x10 + channel] | ((registers_[0x20 + channel] & 0x01) << 8));
-    const int block = (registers_[0x20 + channel] >> 1) & 0x07;
-    if (fnum == 0) {
-        return 0.0;
-    }
-
-    const double base = static_cast<double>(fnum) * 49716.0 / 524288.0;
-    return base * static_cast<double>(1 << block);
-}
-
-float Ym2413::channel_amplitude(int channel) const {
-    const u8 volume = registers_[0x30 + channel] & 0x0F;
-    return static_cast<float>((15 - volume) / 15.0) * 0.65F;
+    const float sample = static_cast<float>(output_) / 32768.0F;
+    return {sample, sample};
 }
 
 void Ym2413::log_write(u8 port, u8 value) {
@@ -122,8 +110,65 @@ void Ym2413::log_write(u8 port, u8 value) {
     }
 }
 
+std::vector<u8> Ym2413::serialize_core() const {
+    OPLL snapshot = *core_;
+    snapshot.conv = nullptr;
+    for (auto& slot : snapshot.slot) {
+        slot.patch = nullptr;
+        slot.wave_table = nullptr;
+    }
+
+    std::vector<u8> bytes(sizeof(snapshot));
+    std::memcpy(bytes.data(), &snapshot, sizeof(snapshot));
+    return bytes;
+}
+
+bool Ym2413::restore_core(std::span<const u8> bytes) {
+    if (bytes.size() != sizeof(OPLL)) {
+        return false;
+    }
+
+    OPLL snapshot{};
+    std::memcpy(&snapshot, bytes.data(), sizeof(snapshot));
+    if (snapshot.clk != kOpllClock || snapshot.rate != kOpllInternalRate || snapshot.chip_type != 0) {
+        return false;
+    }
+    for (const int patch_number : snapshot.patch_number) {
+        if (patch_number < 0 || patch_number >= 19) {
+            return false;
+        }
+    }
+
+    std::memcpy(core_, &snapshot, sizeof(snapshot));
+    core_->conv = nullptr;
+    for (auto& slot : core_->slot) {
+        slot.patch = nullptr;
+        slot.wave_table = nullptr;
+    }
+    OPLL_forceRefresh(core_);
+    return true;
+}
+
+void Ym2413::replay_registers() {
+    OPLL_reset(core_);
+    OPLL_setChipType(core_, 0);
+    OPLL_resetPatch(core_, OPLL_2413_TONE);
+    for (u32 reg = 0; reg < registers_.size(); ++reg) {
+        OPLL_writeReg(core_, reg, registers_[reg]);
+    }
+}
+
 Ym2413State Ym2413::save_state() const {
-    return {present_, selected_register_, audio_control_, registers_, phase_};
+    return {
+        present_,
+        selected_register_,
+        audio_control_,
+        registers_,
+        {},
+        clock_accumulator_,
+        output_,
+        serialize_core(),
+    };
 }
 
 void Ym2413::load_state(const Ym2413State& state) {
@@ -131,7 +176,13 @@ void Ym2413::load_state(const Ym2413State& state) {
     selected_register_ = static_cast<u8>(state.selected_register & 0x3F);
     audio_control_ = static_cast<u8>(state.audio_control & 0x03);
     registers_ = state.registers;
-    phase_ = state.phase;
+    clock_accumulator_ = state.clock_accumulator % kCpuCyclesPerOpllSample;
+    output_ = state.output;
+    if (!restore_core(state.core_state)) {
+        replay_registers();
+        clock_accumulator_ = 0;
+        output_ = 0;
+    }
 }
 
 } // namespace sgrecomp

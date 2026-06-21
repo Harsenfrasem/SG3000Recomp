@@ -1,5 +1,18 @@
 # Third-party notices
 
+## emu2413
+
+SG3000Recomp uses [emu2413](https://github.com/digital-sound-antiques/emu2413) for Yamaha
+YM2413/OPLL synthesis.
+
+- Copyright (c) 2001-2019 Mitsutaka Okazaki.
+- Imported revision: `813cff619f5f01c47bd5c0588c1fd8435530b125`.
+- License: MIT.
+- Imported source, the compatibility-patch note, hashes and license are under
+  `third_party/emu2413/`.
+
+See `third_party/emu2413/LICENSE` and `third_party/emu2413/IMPORT.md`.
+
 ## Nuked-OPN2
 
 SG3000Recomp uses [Nuked-OPN2](https://github.com/nukeykt/Nuked-OPN2), a cycle-accurate Yamaha YM3438/OPN2 emulator compatible with the YM2612.

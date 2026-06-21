@@ -8,7 +8,7 @@ namespace sgrecomp {
 namespace {
 
 constexpr u32 kMagic = 0x53534753; // SGSS
-constexpr u16 kVersion = 13;
+constexpr u16 kVersion = 14;
 
 class Writer {
   public:
@@ -325,6 +325,12 @@ void write_state(Writer& out, const ConsoleState& state, const SaveStateMetadata
     out.array_bytes(state.vdp.game_gear_cram);
     out.boolv(state.vdp.game_gear);
     out.u8v(state.psg.stereo);
+    out.u64v(state.ym2413.clock_accumulator);
+    out.u16v(static_cast<u16>(state.ym2413.output));
+    out.u32v(static_cast<u32>(state.ym2413.core_state.size()));
+    for (const u8 byte : state.ym2413.core_state) {
+        out.u8v(byte);
+    }
 }
 
 SaveStateImage read_image(Reader& in) {
@@ -436,6 +442,18 @@ SaveStateImage read_image(Reader& in) {
         in.array_bytes(state.vdp.game_gear_cram);
         state.vdp.game_gear = in.boolv();
         state.psg.stereo = in.u8v();
+    }
+    if (version >= 14) {
+        state.ym2413.clock_accumulator = in.u64v();
+        state.ym2413.output = static_cast<s16>(in.u16v());
+        const u32 core_size = in.u32v();
+        if (core_size > 1024 * 1024) {
+            throw std::runtime_error("YM2413 save state is too large");
+        }
+        state.ym2413.core_state.resize(core_size);
+        for (u8& byte : state.ym2413.core_state) {
+            byte = in.u8v();
+        }
     }
     in.finish();
     image.state = state;

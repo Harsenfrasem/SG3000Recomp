@@ -2526,17 +2526,70 @@ void test_ym2413_audio_control_and_register_writes() {
     assert(!console.ym2413().psg_enabled());
 
     console.bus().output(0xF0, 0x20);
-    console.bus().output(0xF1, 0x11);
+    console.bus().output(0xF1, 0x15);
     assert(console.ym2413().selected_register() == 0x20);
-    assert(console.ym2413().debug_registers()[0x20] == 0x11);
+    assert(console.ym2413().debug_registers()[0x20] == 0x15);
 
     console.bus().output(0xF0, 0x10);
     console.bus().output(0xF1, 0x80);
     console.bus().output(0xF0, 0x30);
-    console.bus().output(0xF1, 0x00);
-    console.ym2413().tick(4096);
-    const auto sample = console.ym2413().sample();
-    assert(sample[0] == sample[1]);
+    console.bus().output(0xF1, 0x10); // preset instrument 1, maximum volume
+    bool produced_tone = false;
+    for (int index = 0; index < 256; ++index) {
+        console.ym2413().tick(72);
+        const auto sample = console.ym2413().sample();
+        assert(sample[0] == sample[1]);
+        produced_tone = produced_tone || sample[0] != 0.0F;
+    }
+    assert(produced_tone);
+
+    const Ym2413State saved = console.ym2413().save_state();
+    assert(!saved.core_state.empty());
+    std::array<float, 32> expected{};
+    for (float& value : expected) {
+        console.ym2413().tick(72);
+        value = console.ym2413().sample()[0];
+    }
+    Ym2413 restored;
+    restored.load_state(saved);
+    for (const float value : expected) {
+        restored.tick(72);
+        assert(restored.sample()[0] == value);
+    }
+
+    const Ym2413State serialized_state = console.ym2413().save_state();
+    const auto console_bytes = save_console_state(console);
+    const auto serialized_console = deserialize_console_state(console_bytes);
+    assert(serialized_console.ym2413.core_state == serialized_state.core_state);
+    std::array<float, 16> serialized_expected{};
+    for (float& value : serialized_expected) {
+        console.ym2413().tick(72);
+        value = console.ym2413().sample()[0];
+    }
+    Console restored_console(ConsoleModel::SMS, config);
+    load_console_state(restored_console, console_bytes);
+    for (const float value : serialized_expected) {
+        restored_console.ym2413().tick(72);
+        assert(restored_console.ym2413().sample()[0] == value);
+    }
+
+    Ym2413 rhythm;
+    rhythm.set_present(true);
+    rhythm.write_audio_control(0x01);
+    const auto write = [&](u8 reg, u8 value) {
+        rhythm.write_address(reg);
+        rhythm.write_data(value);
+    };
+    write(0x36, 0x00);
+    write(0x37, 0x00);
+    write(0x38, 0x00);
+    write(0x0E, 0x3F); // rhythm mode plus all five percussion key-ons
+    bool produced_rhythm = false;
+    for (int index = 0; index < 512; ++index) {
+        rhythm.tick(72);
+        produced_rhythm = produced_rhythm || rhythm.sample()[0] != 0.0F;
+    }
+    assert(produced_rhythm);
 }
 
 void test_ym2413_absent_audio_control_probe() {
@@ -3834,7 +3887,7 @@ void test_console_save_state_round_trip_restores_runtime_state() {
     metadata.bios_hash = "fnv1a64:bios";
     metadata.profile_fingerprint = "fnv1a64:profile";
     const auto bytes = save_console_state(console, metadata);
-    assert(bytes[4] == 13 && bytes[5] == 0);
+    assert(bytes[4] == 14 && bytes[5] == 0);
     console.bus().write(0xC000, 0x99);
     console.cpu().a = 0x11;
     assert(console.bus().read(0xC000) == 0x99);
@@ -3882,7 +3935,15 @@ void test_console_save_state_round_trip_restores_runtime_state() {
     const std::size_t v12_metadata_size =
         1 + 2 + metadata.rom_hash.size() + 2 + metadata.bios_hash.size() + 2 + metadata.profile_fingerprint.size();
     constexpr std::size_t legacy_cpu_state_size = 41;
-    std::vector<u8> legacy_v12 = bytes;
+    const std::size_t ym2413_v14_extension_size = 8 + 2 + 4 + console.save_state().ym2413.core_state.size();
+    std::vector<u8> legacy_v13 = bytes;
+    legacy_v13.resize(legacy_v13.size() - ym2413_v14_extension_size);
+    legacy_v13[4] = 13;
+    legacy_v13[5] = 0;
+    const auto legacy_v13_image = deserialize_console_state_image(legacy_v13);
+    assert(legacy_v13_image.state.ym2413.core_state.empty());
+
+    std::vector<u8> legacy_v12 = legacy_v13;
     legacy_v12.resize(legacy_v12.size() - 66); // Game Gear CRAM/mode and PSG stereo were added in v13.
     legacy_v12[4] = 12;
     legacy_v12[5] = 0;

@@ -3,7 +3,10 @@
 #include "sgrecomp/types.h"
 
 #include <array>
+#include <span>
 #include <vector>
+
+struct __OPLL;
 
 namespace sgrecomp {
 
@@ -18,11 +21,20 @@ struct Ym2413State {
     u8 selected_register = 0;
     u8 audio_control = 0;
     std::array<u8, 0x40> registers{};
+    // Retained to load save-state versions 1-13 written by the former diagnostic synthesizer.
     std::array<double, 9> phase{};
+    u64 clock_accumulator = 0;
+    s16 output = 0;
+    std::vector<u8> core_state;
 };
 
 class Ym2413 {
   public:
+    Ym2413();
+    ~Ym2413();
+    Ym2413(const Ym2413&) = delete;
+    Ym2413& operator=(const Ym2413&) = delete;
+
     void reset();
     void set_present(bool present);
     bool present() const {
@@ -66,15 +78,17 @@ class Ym2413 {
     u8 selected_register_ = 0;
     u8 audio_control_ = 0;
     std::array<u8, 0x40> registers_{};
-    std::array<double, 9> phase_{};
+    u64 clock_accumulator_ = 0;
+    s16 output_ = 0;
+    __OPLL* core_ = nullptr;
     u64 current_cycle_ = 0;
     bool write_logging_enabled_ = false;
     std::vector<Ym2413Write> logged_writes_;
 
-    float channel_sample(int channel) const;
-    double channel_frequency(int channel) const;
-    float channel_amplitude(int channel) const;
     void log_write(u8 port, u8 value);
+    std::vector<u8> serialize_core() const;
+    bool restore_core(std::span<const u8> bytes);
+    void replay_registers();
 };
 
 } // namespace sgrecomp

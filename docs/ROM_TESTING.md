@@ -51,7 +51,9 @@ In `auto`, the first recognized mapper-register family locks the selection for t
 
 Local hash profiles accept the same mapper names through `mapper = "..."`. A matched profile overrides the CLI mapper, which makes the per-title choice deterministic across launches without storing the ROM path.
 
-FM support status: the runtime now exposes the expected local FM control path and can log writes to `$F0/$F1/$F2`. The current synthesis is still an approximation for plumbing and diagnostics, not a faithful YM2413/OPLL implementation.
+FM support status: the runtime exposes the local FM control path and logs writes to `$F0/$F1/$F2`.
+Synthesis uses the revision-pinned emu2413 YM2413/OPLL core; catalog-wide compatibility still
+requires regression runs with redistributable or private test images.
 
 For enhanced-port research, keep per-game notes in ignored local folders and identify games by `fnv1a64` hash. The public repository should contain only generic tools, synthetic tests, and neutral profile examples. See `docs/ENHANCED_PORT_ROADMAP.md` for the staged workflow.
 

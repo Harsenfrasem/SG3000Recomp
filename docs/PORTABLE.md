@@ -33,8 +33,8 @@ catálogo ainda não são prometidos.
 
 A fila waveOut ajusta automaticamente sua meta após underruns e volta gradualmente à
 latência configurada quando estabiliza. Pausar preserva a fila; reset e load-state descartam
-som pertencente ao estado anterior. O YM2413 continua aproximado e não representa fidelidade
-OPLL histórica; o YM2612 é uma extensão opcional não histórica.
+som pertencente ao estado anterior. O YM2413 usa o núcleo emu2413 com instrumentos, envelopes,
+LFO e rhythm mode; o YM2612 é uma extensão opcional não histórica.
 
 **Exibição > Status detalhado...** mantém uma janela auxiliar atualizada com FPS, CPU,
 VDP, mapper, áudio, backends e uso do executor recompilado/fallback, sem pausar o jogo.
@@ -55,7 +55,9 @@ memória para salvar depois; a opção de descartar o remove sem criar arquivos.
 
 - `SG3000Recomp.exe`: aplicativo e runtime.
 - `nuked_opn2.dll`: núcleo YM2612/YM3438 opcional e substituível, por Nuke.YKT.
+- `EMU2413-LICENSE.txt`: licença MIT do núcleo YM2413/OPLL integrado.
 - `README.md`: este guia.
-- `THIRD_PARTY_NOTICES.md` e `NUKED-OPN2-LICENSE.txt`: crédito, procedência e LGPL-2.1-or-later.
+- `THIRD_PARTY_NOTICES.md` e `NUKED-OPN2-LICENSE.txt`: créditos, procedência e licença LGPL do
+  núcleo YM2612; a licença MIT do emu2413 está no arquivo listado acima.
 
 O pacote não inclui jogos, firmware proprietário nem arquivos do usuário.

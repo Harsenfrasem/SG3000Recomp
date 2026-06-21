@@ -79,11 +79,15 @@ add_library(sgrecomp_runtime STATIC
     src/runtime/ym2413.cpp
     src/runtime/ym2612.cpp
     src/runtime/z80.cpp
+    third_party/emu2413/emu2413.c
 )
 
 target_include_directories(sgrecomp_runtime PUBLIC
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
     "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+)
+target_include_directories(sgrecomp_runtime PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/emu2413"
 )
 target_link_libraries(sgrecomp_runtime PUBLIC nuked_opn2)
 
@@ -269,6 +273,12 @@ if(TARGET sgrecomp_host)
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/Nuked-OPN2/LICENSE"
         DESTINATION "."
         RENAME NUKED-OPN2-LICENSE.txt
+        COMPONENT Portable
+    )
+    install(FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/third_party/emu2413/LICENSE"
+        DESTINATION "."
+        RENAME EMU2413-LICENSE.txt
         COMPONENT Portable
     )
     install(FILES

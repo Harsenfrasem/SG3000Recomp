@@ -88,11 +88,11 @@ Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
 - [x] Portas FM iniciais: endereco `$F0`, dados `$F1` e controle/deteccao `$F2`.
 - [x] Smoke runner com log CSV local de escritas FM.
 - [ ] FM opcional fiel para jogos com suporte conhecido.
-- [ ] Substituir sintetizador FM aproximado por nucleo YM2413/OPLL validado.
+- [x] Substituir sintetizador FM aproximado pelo nucleo emu2413/OPLL com revisao e licenca fixadas.
 - [x] YM2612 opcional nao historico via Nuked-OPN2: DLL LGPL substituivel, portas F4-F7, mixer, GUI/CLI/perfil e save state.
 - [ ] Experimento de FM enhancement para PSG-only com perfis manuais.
 - [x] Fallback PSG original permanece padrao mesmo com FM detectavel, ate software selecionar outro modo em `$F2`.
-- [x] Limites de YM2413 aproximado e YM2612 nao historico documentados sem promessa de fidelidade.
+- [x] Limites de validacao por jogos do YM2413 e natureza nao historica do YM2612 documentados.
 
 ### 6. GUI amigavel para usuario final
 
@@ -285,7 +285,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Dump WAV local pelo smoke runner.
 - [x] Dump VGM local de writes PSG pelo smoke runner.
 - [x] Infraestrutura inicial YM2413/OPLL: portas, audio control, logging e mix no host.
-- [ ] YM2413/OPLL fiel: instrumentos, envelopes, rhythm mode, LFO e tabelas validadas.
+- [x] YM2413/OPLL via emu2413: instrumentos, envelopes, rhythm mode, LFO, ruido e tabelas integrados.
 - [x] Mixer estereo PSG+FM e sample rate configuravel no runtime/WAV.
 - [x] Buffer de audio para host backend headless.
 - [x] Saida Win32 waveOut inicial no host.
@@ -318,7 +318,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Save RAM em arquivo local pelo host Win32.
 - [x] Estado serializavel inicial para save states.
 - [x] Save states com versao inicial e validacao de ROM hash/modelo.
-- [x] Save states v13 com migracao de v1-v12, Game Gear, MEMPTR/Q, framebuffer 240, identidade e estado Nuked-OPN2.
+- [x] Save states v14 com migracao de v1-v13, estados emu2413/Nuked-OPN2, Game Gear, MEMPTR/Q, framebuffer 240 e identidade.
 - [x] Save state v7 preserva o read buffer do VDP e continua lendo formatos v1-v6.
 - [x] Save state v8 preserva o lock da familia de mapper e continua lendo formatos v1-v7.
 - [x] Debug overlay de PC, FPS, frame, modo runtime e audio.
