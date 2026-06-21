@@ -19,6 +19,6 @@ CPU conformance fixtures are derived from [SingleStepTests/z80](https://github.c
 - Copyright (c) 2024 SingleStepTests.
 - Imported revision: `ebe1875d48f374bcfd4b505d8eb8ee751568b5f7`.
 - License: MIT.
-- The generated compact fixture covers 1,574 non-I/O opcode sequences.
+- The generated compact fixture covers all 1,604 opcode sequences, including deterministic I/O.
 
 See `tests/data/SINGLE_STEP_TESTS_LICENSE.txt` and `tests/data/SINGLE_STEP_TESTS_IMPORT.md`.

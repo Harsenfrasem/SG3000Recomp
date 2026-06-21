@@ -33,7 +33,7 @@
 - Generated C++ X/Y flags for directly emitted ALU, INC/DEC, 16-bit add, accumulator rotate, and LDI/LDIR paths
 - Generated C++ refresh-register M1 accounting for base, ED/DD direct paths and HALT cycles without duplicating fallback increments
 - Generated dispatcher delayed-EI promotion before the following direct or fallback instruction, including HALT handling
-- ED block-I/O flags, including direction-dependent sum, H/C overflow, N from transferred data, X/Y from B, and parity formula
+- ED block-I/O flags, including direction-dependent sum, H/C overflow, N from transferred data, X/Y from B or repeat PC, parity formula, and repeat quirks
 - Runtime refresh register `R` with bit-7 preservation and M1 counts for CB/ED/DD/FD, indexed-CB, repeated prefixes, and HALT cycles
 - IRQ/NMI acknowledge state: R increment, HALT release, stack return address, IFF transitions, IM1 13-cycle and IM2 19-cycle service
 - Conditional cycle matrix for all eight `RET`/`JP`/`CALL` conditions, all four conditional `JR` forms, `DJNZ`, and final/repeating block instructions
@@ -42,8 +42,9 @@
 - CB-prefixed `rlc`, `rrc`, `rl`, `rr`, `sla`, `sra`, `sll`, `srl`, `bit`, `res`, `set`
 - EI habilita IFF imediatamente e usa `ei_pending` somente para bloquear IRQ por uma instrução.
 - MEMPTR/WZ e latch Q preservados no save-state v12 e usados por flags X/Y de BIT, blocos e SCF/CCF.
-- 1.574 sequências não-I/O passam contra SingleStepTests/z80 na revisão fixada
-  `ebe1875d48f374bcfd4b505d8eb8ee751568b5f7`, comparando registradores, flags, RAM e ciclos.
+- 1.604 sequências passam contra SingleStepTests/z80 na revisão fixada
+  `ebe1875d48f374bcfd4b505d8eb8ee751568b5f7`, incluindo I/O determinístico e comparando
+  registradores, flags, RAM, escritas em portas e ciclos.
 
 ## Implemented Generated Opcodes
 
@@ -58,7 +59,4 @@
 ## Next Opcode Families
 
 - Expand external coverage from one representative vector to all randomized vectors per sequence.
-- Add a deterministic peripheral-port adapter for the 30 externally generated I/O-only sequences.
 - Remaining interrupt priority edge cases and external trace conformance.
-- Flag parity conformance tests against a known Z80 suite.
-- Remaining per-opcode cycle-count conformance against a known external Z80 suite.

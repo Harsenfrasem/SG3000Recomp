@@ -189,7 +189,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Runtime Z80: flags X/Y em ALU, INC/DEC, CB/BIT, BIT indexado, 16-bit, controle do acumulador e block transfer/search.
 - [x] Recompilador direto: helpers e caminhos levantados preservam X/Y nas familias emitidas, com binario gerado executado em teste.
 - [x] Prefixo `ED`: flags de block I/O com soma dependente da direcao, overflow H/C, N, X/Y e paridade.
-- [ ] Prefixo `ED`: ciclos exatos contra suite externa conhecida.
+- [x] Prefixo `ED`: ciclos exatos contra suite externa conhecida, incluindo block I/O repetido.
 - [x] Prefixos `DD/FD` iniciais: IX/IY, stack, `jp (ix/iy)`, loads absolutos, deslocamento `ld/inc/dec/alu`, `DD/FD CB`, `IXH/IXL/IYH/IYL`.
 - [x] Prefixos `DD/FD`: fallback de prefixo ignorado para opcodes nao afetados e varredura completa sem caminhos nao implementados.
 - [x] Prefixos `DD/FD` nao-I/O: semantica rara, flags e ciclos validados por vetores SingleStepTests externos.
@@ -203,8 +203,8 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Recompilador direto: `CALL` tomado/nao tomado validado no binario gerado com PC, SP, ciclos e registrador R.
 - [x] Interrupts: NMI ligado ao Pause.
 - [ ] Interrupts: prioridades e timing restantes contra trace externo.
-- [x] Flags por sequencia nao-I/O validadas contra 1.574 vetores externos SingleStepTests, incluindo X/Y, DAA, CP, BIT e blocos.
-- [ ] Validar cycle counts restantes por opcode contra suite externa conhecida.
+- [x] Flags por sequencia validadas contra 1.604 vetores externos SingleStepTests, incluindo I/O, X/Y, DAA, CP, BIT e blocos.
+- [x] Cycle counts por sequencia validados contra 1.604 vetores externos SingleStepTests.
 
 ## Memoria e Cartucho
 
@@ -352,7 +352,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 
 - [x] Smoke test de programa Z80 minimo.
 - [x] Varredura automatica de todas as entradas base, ED, DD e FD sem caminhos nao implementados.
-- [x] Teste de conformidade com 1.574 sequencias nao-I/O de SingleStepTests/z80 em revisao fixada e licenciada.
+- [x] Teste de conformidade com todas as 1.604 sequencias de SingleStepTests/z80 em revisao fixada e licenciada, incluindo I/O deterministico.
 - [x] ROM sintetica integrada para mapper, VDP, PSG e input via CPU/HostRuntime.
 - [ ] Comparacao de traces com emulador de referencia.
 - [x] Testes do gerador C++ compilando o arquivo emitido.

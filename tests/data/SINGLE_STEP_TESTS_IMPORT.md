@@ -9,10 +9,9 @@ python tools/import_z80_conformance.py <upstream>/v1 tests/z80_external_vectors.
   --revision ebe1875d48f374bcfd4b505d8eb8ee751568b5f7
 ```
 
-The compact fixture selects the first vector without external port transactions from each
-opcode-sequence file: 1,574 cases. Thirty sequences whose every vector performs I/O are
-excluded because this runner intentionally validates CPU registers, flat RAM, flags and total
-cycles without mocking peripheral port values. The normal local tests cover I/O instruction
-semantics separately.
+The compact fixture selects the first vector from every opcode-sequence file: 1,604 cases.
+The conformance runner provides deterministic flat RAM and peripheral-port input, records port
+output, and validates CPU registers, flags, RAM, port writes and total cycles. This includes all
+30 instruction sequences whose vectors perform I/O.
 
 The upstream data is MIT licensed; see `SINGLE_STEP_TESTS_LICENSE.txt`.

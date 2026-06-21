@@ -638,6 +638,22 @@ void set_block_io_flags(Z80State& cpu, u8 value, u8 addend) {
                             parity(static_cast<u8>((sum & 0x07) ^ cpu.b)));
 }
 
+void adjust_repeating_block_io_flags(Z80State& cpu) {
+    cpu.f = static_cast<u8>((cpu.f & ~(flag_y | flag_x)) | ((cpu.pc >> 8) & (flag_y | flag_x)));
+
+    const bool carry = (cpu.f & flag_c) != 0;
+    const bool subtract = (cpu.f & flag_n) != 0;
+    u8 parity_value = cpu.b;
+    if (carry) {
+        parity_value = static_cast<u8>(subtract ? cpu.b - 1 : cpu.b + 1);
+        const bool half_carry = subtract ? (cpu.b & 0x0F) == 0 : (cpu.b & 0x0F) == 0x0F;
+        cpu.f = static_cast<u8>((cpu.f & ~flag_h) | (half_carry ? flag_h : 0));
+    }
+
+    const bool parity_matches = ((cpu.f & flag_pv) != 0) == (parity(parity_value & 0x07) != 0);
+    cpu.f = static_cast<u8>((cpu.f & ~flag_pv) | (parity_matches ? flag_pv : 0));
+}
+
 void ini(Z80State& cpu, Bus& bus, s16 step) {
     const u8 value = bus.input(cpu.c);
     bus.write(cpu.hl(), value);
@@ -873,6 +889,8 @@ void execute_ed(Z80State& cpu, Bus& bus, u8 op) {
         ini(cpu, bus, 1);
         if (cpu.b != 0) {
             cpu.pc = static_cast<u16>(cpu.pc - 2);
+            cpu.memptr = static_cast<u16>(cpu.pc + 1);
+            adjust_repeating_block_io_flags(cpu);
             cpu.cycles += 21;
         } else {
             cpu.cycles += 16;
@@ -882,6 +900,8 @@ void execute_ed(Z80State& cpu, Bus& bus, u8 op) {
         outi(cpu, bus, 1);
         if (cpu.b != 0) {
             cpu.pc = static_cast<u16>(cpu.pc - 2);
+            cpu.memptr = static_cast<u16>(cpu.pc + 1);
+            adjust_repeating_block_io_flags(cpu);
             cpu.cycles += 21;
         } else {
             cpu.cycles += 16;
@@ -891,6 +911,8 @@ void execute_ed(Z80State& cpu, Bus& bus, u8 op) {
         ini(cpu, bus, -1);
         if (cpu.b != 0) {
             cpu.pc = static_cast<u16>(cpu.pc - 2);
+            cpu.memptr = static_cast<u16>(cpu.pc + 1);
+            adjust_repeating_block_io_flags(cpu);
             cpu.cycles += 21;
         } else {
             cpu.cycles += 16;
@@ -900,6 +922,8 @@ void execute_ed(Z80State& cpu, Bus& bus, u8 op) {
         outi(cpu, bus, -1);
         if (cpu.b != 0) {
             cpu.pc = static_cast<u16>(cpu.pc - 2);
+            cpu.memptr = static_cast<u16>(cpu.pc + 1);
+            adjust_repeating_block_io_flags(cpu);
             cpu.cycles += 21;
         } else {
             cpu.cycles += 16;

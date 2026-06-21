@@ -147,10 +147,20 @@ class Bus {
         flat_memory_mode_for_cpu_conformance_ = enabled;
         if (enabled) {
             memory_.fill(0);
+            flat_io_input_for_cpu_conformance_.fill(0xFF);
+            flat_io_output_for_cpu_conformance_.fill(0);
+            flat_io_output_written_for_cpu_conformance_.fill(false);
         }
     }
     void set_flat_memory_byte_for_cpu_conformance(u16 address, u8 value) {
         memory_[address] = value;
+    }
+    void set_flat_io_input_for_cpu_conformance(u8 port, u8 value) {
+        flat_io_input_for_cpu_conformance_[port] = value;
+    }
+    bool flat_io_output_for_cpu_conformance(u8 port, u8& value) const {
+        value = flat_io_output_for_cpu_conformance_[port];
+        return flat_io_output_written_for_cpu_conformance_[port];
     }
 
     const std::array<u8, 0x10000>& debug_memory() const {
@@ -188,6 +198,9 @@ class Bus {
     std::vector<BusIoAccess> logged_io_;
     bool memory_logging_enabled_ = false;
     bool flat_memory_mode_for_cpu_conformance_ = false;
+    std::array<u8, 0x100> flat_io_input_for_cpu_conformance_{};
+    std::array<u8, 0x100> flat_io_output_for_cpu_conformance_{};
+    std::array<bool, 0x100> flat_io_output_written_for_cpu_conformance_{};
     std::vector<BusMemoryAccess> logged_memory_;
 
     void refresh_cartridge_map();

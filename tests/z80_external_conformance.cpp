@@ -45,6 +45,12 @@ struct ExternalCase {
     u64 cycles;
     std::vector<std::pair<u16, u8>> initial_memory;
     std::vector<std::pair<u16, u8>> expected_memory;
+    struct Port {
+        u16 address;
+        u8 value;
+        bool write;
+    };
+    std::vector<Port> ports;
 };
 
 #include "z80_external_vectors.inc"
@@ -119,6 +125,11 @@ int main() {
         for (const auto [address, value] : test.initial_memory) {
             bus.set_flat_memory_byte_for_cpu_conformance(address, value);
         }
+        for (const auto& port : test.ports) {
+            if (!port.write) {
+                bus.set_flat_io_input_for_cpu_conformance(static_cast<u8>(port.address), port.value);
+            }
+        }
         auto& cpu = console.cpu();
         load_registers(cpu, test.initial);
         execute_one(cpu, bus);
@@ -127,10 +138,20 @@ int main() {
         for (const auto [address, value] : test.expected_memory) {
             memory_matches = memory_matches && bus.read(address) == value;
         }
-        if (!registers_match(cpu, test.expected) || cpu.cycles != test.cycles || !memory_matches) {
+        bool ports_match = true;
+        for (const auto& port : test.ports) {
+            if (port.write) {
+                u8 value = 0;
+                ports_match = ports_match &&
+                              bus.flat_io_output_for_cpu_conformance(static_cast<u8>(port.address), value) &&
+                              value == port.value;
+            }
+        }
+        if (!registers_match(cpu, test.expected) || cpu.cycles != test.cycles || !memory_matches || !ports_match) {
             if (failures < 20) {
                 std::cerr << test.name << ": registers=" << registers_match(cpu, test.expected)
-                          << " cycles=" << cpu.cycles << "/" << test.cycles << " memory=" << memory_matches << '\n';
+                          << " cycles=" << cpu.cycles << "/" << test.cycles << " memory=" << memory_matches
+                          << " ports=" << ports_match << '\n';
                 print_register_difference(cpu, test.expected);
             }
             ++failures;

@@ -268,6 +268,9 @@ void Bus::write(u16 address, u8 value) {
 }
 
 u8 Bus::input(u8 port) {
+    if (flat_memory_mode_for_cpu_conformance_) {
+        return flat_io_input_for_cpu_conformance_[port];
+    }
     if (model_ == ConsoleModel::SMS && ym2612_ != nullptr && ym2612_->enabled() && (port == 0xF4 || port == 0xF6)) {
         const u8 value = ym2612_->read_status(port == 0xF6 ? 1 : 0);
         log_io(false, port, value);
@@ -313,6 +316,11 @@ u8 Bus::input(u8 port) {
 }
 
 void Bus::output(u8 port, u8 value) {
+    if (flat_memory_mode_for_cpu_conformance_) {
+        flat_io_output_for_cpu_conformance_[port] = value;
+        flat_io_output_written_for_cpu_conformance_[port] = true;
+        return;
+    }
     log_io(true, port, value);
     if (model_ == ConsoleModel::SMS && ym2612_ != nullptr && ym2612_->enabled()) {
         if (port == 0xF4 || port == 0xF6) {
