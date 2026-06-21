@@ -72,6 +72,7 @@ struct Options {
     std::filesystem::path save_state;
     std::filesystem::path output = "recompiled_rom.cpp";
     ConsoleModel model = ConsoleModel::SMS;
+    bool model_explicit = false;
     CartridgeMapper mapper = CartridgeMapper::Auto;
     EnhancementConfig enhancements;
     HostVideoStandard video_standard = HostVideoStandard::Ntsc;
@@ -179,6 +180,9 @@ ConsoleModel parse_console_model(std::string text) {
     }
     if (text == "sg3000" || text == "sg-3000") {
         return ConsoleModel::SG3000;
+    }
+    if (text == "gamegear" || text == "game-gear" || text == "gg") {
+        return ConsoleModel::GameGear;
     }
     throw std::runtime_error("unknown model: " + text);
 }
@@ -295,6 +299,7 @@ void apply_config_file(Options& opts, const std::filesystem::path& path) {
         if (section == "target") {
             if (key == "model") {
                 opts.model = parse_console_model(value);
+                opts.model_explicit = true;
             } else if (key == "mapper") {
                 opts.mapper = parse_mapper(value);
             } else if (key == "name" || key == "entry") {
@@ -427,8 +432,10 @@ void apply_game_profile(Options& opts, std::span<const u8> rom) {
         std::cout << "profile matched: none (" << hash << ")\n";
         return;
     }
-    if (profile->has_model)
+    if (profile->has_model) {
         opts.model = profile->model;
+        opts.model_explicit = true;
+    }
     if (profile->has_mapper)
         opts.mapper = profile->mapper;
     if (profile->has_enhancements)
@@ -442,34 +449,35 @@ void apply_game_profile(Options& opts, std::span<const u8> rom) {
 }
 
 void print_usage() {
-    std::cout << "usage: sgrecomp <rom.sms|rom.sg> [--config config.toml] [--profile profiles.txt] [-o generated.cpp] "
-                 "[--model sms|sg3000] "
-                 "[--mapper auto|plain|smapper|cmapper|kmapper|k8k] [--disasm] [--bios bios.sms]\n"
-              << "       sgrecomp <rom.sms|rom.sg> --run-smoke [--steps n] [--trace] [--bios bios.sms] [--mapper "
-                 "auto|plain|smapper|cmapper|kmapper|k8k]\n"
-              << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp]\n"
-              << "                [--dump-audio audio.wav] [--dump-vgm audio.vgm] [--dump-fm-log fm.csv]\n"
-              << "                [--dump-io-log io.csv] [--dump-memory-log memory.csv] [--dump-vdp-log vdp.csv]\n"
-              << "                [--io-port port] [--watch addr|start-end] [--watch-vdp addr|start-end]\n"
-              << "                [--dump-vram vram.bin] [--dump-cram cram.bin]\n"
-              << "                [--dump-tilemap tilemap.csv] [--dump-sprites sprites.csv]\n"
-              << "                [--load-sram save.sav] [--save-sram save.sav] [--dump-sram sram.bin]\n"
-              << "                [--load-state state.sgstate] [--save-state state.sgstate] [--force-state]\n"
-              << "                [--dump-coverage pcs.csv] [--disable-sprite-limit] [--reduce-flicker] [--enable-fm]"
-                 " [--enable-ym2612]\n"
-              << "       sgrecomp <rom.sms|rom.sg> --run-host [--frames n] [--input-script input.csv] [--bios "
-                 "bios.sms] [--video-standard ntsc|pal] [--audio-sample-rate hz]\n"
-              << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp] [--dump-audio audio.wav] "
-                 "[--dump-frame-log frames.csv]\n"
-              << "                [--dump-vgm audio.vgm] [--dump-fm-log fm.csv] [--dump-io-log io.csv]\n"
-              << "                [--dump-memory-log memory.csv] [--dump-vdp-log vdp.csv]\n"
-              << "                [--dump-vram vram.bin] [--dump-cram cram.bin] [--dump-tilemap tilemap.csv] "
-                 "[--dump-sprites sprites.csv]\n"
-              << "       sgrecomp <rom.sms|rom.sg> [-o generated.cpp] [--dump-analysis analysis.txt]\n"
-              << "       sgrecomp <rom.sms> --rebuild-header output.sms\n"
-              << "       sgrecomp <rom.sms> --generate-header output.sms [--header-region "
-                 "sms-japan|sms-export|gg-japan|gg-export|gg-international]\n"
-              << "                [--product-code 00000] [--header-version 0]\n";
+    std::cout
+        << "usage: sgrecomp <rom.sms|rom.sg|rom.gg> [--config config.toml] [--profile profiles.txt] [-o generated.cpp] "
+           "[--model sms|sg3000|gamegear] "
+           "[--mapper auto|plain|smapper|cmapper|kmapper|k8k] [--disasm] [--bios bios.sms]\n"
+        << "       sgrecomp <rom.sms|rom.sg|rom.gg> --run-smoke [--steps n] [--trace] [--bios bios.sms] [--mapper "
+           "auto|plain|smapper|cmapper|kmapper|k8k]\n"
+        << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp]\n"
+        << "                [--dump-audio audio.wav] [--dump-vgm audio.vgm] [--dump-fm-log fm.csv]\n"
+        << "                [--dump-io-log io.csv] [--dump-memory-log memory.csv] [--dump-vdp-log vdp.csv]\n"
+        << "                [--io-port port] [--watch addr|start-end] [--watch-vdp addr|start-end]\n"
+        << "                [--dump-vram vram.bin] [--dump-cram cram.bin]\n"
+        << "                [--dump-tilemap tilemap.csv] [--dump-sprites sprites.csv]\n"
+        << "                [--load-sram save.sav] [--save-sram save.sav] [--dump-sram sram.bin]\n"
+        << "                [--load-state state.sgstate] [--save-state state.sgstate] [--force-state]\n"
+        << "                [--dump-coverage pcs.csv] [--disable-sprite-limit] [--reduce-flicker] [--enable-fm]"
+           " [--enable-ym2612]\n"
+        << "       sgrecomp <rom.sms|rom.sg|rom.gg> --run-host [--frames n] [--input-script input.csv] [--bios "
+           "bios.sms] [--video-standard ntsc|pal] [--audio-sample-rate hz]\n"
+        << "                [--dump-frame frame.ppm] [--dump-frame-bmp frame.bmp] [--dump-audio audio.wav] "
+           "[--dump-frame-log frames.csv]\n"
+        << "                [--dump-vgm audio.vgm] [--dump-fm-log fm.csv] [--dump-io-log io.csv]\n"
+        << "                [--dump-memory-log memory.csv] [--dump-vdp-log vdp.csv]\n"
+        << "                [--dump-vram vram.bin] [--dump-cram cram.bin] [--dump-tilemap tilemap.csv] "
+           "[--dump-sprites sprites.csv]\n"
+        << "       sgrecomp <rom.sms|rom.sg|rom.gg> [-o generated.cpp] [--dump-analysis analysis.txt]\n"
+        << "       sgrecomp <rom.sms> --rebuild-header output.sms\n"
+        << "       sgrecomp <rom.sms> --generate-header output.sms [--header-region "
+           "sms-japan|sms-export|gg-japan|gg-export|gg-international]\n"
+        << "                [--product-code 00000] [--header-version 0]\n";
 }
 
 Options parse_args(int argc, char** argv) {
@@ -618,6 +626,7 @@ Options parse_args(int argc, char** argv) {
         }
         if (arg == "--model" && i + 1 < argc) {
             opts.model = parse_console_model(argv[++i]);
+            opts.model_explicit = true;
             continue;
         }
         if (arg == "--disasm") {
@@ -718,7 +727,12 @@ void disassemble(const std::array<u8, 0x10000>& image, std::size_t limit) {
     }
 }
 
-void write_frame_ppm(const std::filesystem::path& path, const Vdp::Framebuffer& framebuffer, int active_height) {
+void write_frame_ppm(const std::filesystem::path& path,
+                     const Vdp::Framebuffer& framebuffer,
+                     int source_x,
+                     int source_y,
+                     int width,
+                     int height) {
     if (path.has_parent_path()) {
         std::filesystem::create_directories(path.parent_path());
     }
@@ -728,16 +742,17 @@ void write_frame_ppm(const std::filesystem::path& path, const Vdp::Framebuffer& 
         throw std::runtime_error("cannot open frame output file");
     }
 
-    out << "P6\n" << Vdp::width << " " << active_height << "\n255\n";
-    const std::size_t pixels = static_cast<std::size_t>(Vdp::width * active_height);
-    for (std::size_t index = 0; index < pixels; ++index) {
-        const u32 pixel = framebuffer[index];
-        const char rgb[3] = {
-            static_cast<char>((pixel >> 16) & 0xFF),
-            static_cast<char>((pixel >> 8) & 0xFF),
-            static_cast<char>(pixel & 0xFF),
-        };
-        out.write(rgb, sizeof(rgb));
+    out << "P6\n" << width << " " << height << "\n255\n";
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            const u32 pixel = framebuffer[static_cast<std::size_t>(source_y + y) * Vdp::width + source_x + x];
+            const char rgb[3] = {
+                static_cast<char>((pixel >> 16) & 0xFF),
+                static_cast<char>((pixel >> 8) & 0xFF),
+                static_cast<char>(pixel & 0xFF),
+            };
+            out.write(rgb, sizeof(rgb));
+        }
     }
 }
 
@@ -759,7 +774,12 @@ void write_u32_le(std::ostream& out, u32 value) {
     out.write(bytes, sizeof(bytes));
 }
 
-void write_frame_bmp(const std::filesystem::path& path, const Vdp::Framebuffer& framebuffer, int active_height) {
+void write_frame_bmp(const std::filesystem::path& path,
+                     const Vdp::Framebuffer& framebuffer,
+                     int source_x,
+                     int source_y,
+                     int output_width,
+                     int output_height) {
     if (path.has_parent_path()) {
         std::filesystem::create_directories(path.parent_path());
     }
@@ -769,12 +789,12 @@ void write_frame_bmp(const std::filesystem::path& path, const Vdp::Framebuffer& 
         throw std::runtime_error("cannot open BMP frame output file");
     }
 
-    constexpr u32 width = Vdp::width;
-    const u32 height = static_cast<u32>(active_height);
+    const u32 width = static_cast<u32>(output_width);
+    const u32 height = static_cast<u32>(output_height);
     constexpr u32 file_header_size = 14;
     constexpr u32 dib_header_size = 40;
     constexpr u32 data_offset = file_header_size + dib_header_size;
-    constexpr u32 row_stride = ((width * 3 + 3) / 4) * 4;
+    const u32 row_stride = ((width * 3 + 3) / 4) * 4;
     const u32 image_size = row_stride * height;
     const u32 file_size = data_offset + image_size;
 
@@ -797,11 +817,11 @@ void write_frame_bmp(const std::filesystem::path& path, const Vdp::Framebuffer& 
     write_u32_le(out, 0);
     write_u32_le(out, 0);
 
-    std::array<char, row_stride> row{};
+    std::vector<char> row(row_stride);
     for (int y = static_cast<int>(height) - 1; y >= 0; --y) {
-        row.fill(0);
+        std::fill(row.begin(), row.end(), 0);
         for (u32 x = 0; x < width; ++x) {
-            const u32 pixel = framebuffer[static_cast<std::size_t>(y) * width + x];
+            const u32 pixel = framebuffer[static_cast<std::size_t>(source_y + y) * Vdp::width + source_x + x];
             row[x * 3 + 0] = static_cast<char>(pixel & 0xFF);
             row[x * 3 + 1] = static_cast<char>((pixel >> 8) & 0xFF);
             row[x * 3 + 2] = static_cast<char>((pixel >> 16) & 0xFF);
@@ -1658,6 +1678,7 @@ void run_smoke(ConsoleModel model,
     Bus bus(model, vdp, psg, ym2413, joypad, &ym2612);
     Z80State cpu;
     bus.set_mapper(opts.mapper);
+    vdp.set_game_gear(model == ConsoleModel::GameGear);
     vdp.set_enhancements(opts.enhancements);
     psg.set_enhancements(opts.enhancements);
     psg.set_write_logging_enabled(!opts.dump_vgm.empty());
@@ -1746,11 +1767,21 @@ void run_smoke(ConsoleModel model,
                   << ", enable_fm=" << (opts.enhancements.enable_fm ? "on" : "off")
                   << ", enable_ym2612=" << (opts.enhancements.enable_ym2612 ? "on" : "off") << "\n";
         if (!opts.dump_frame.empty()) {
-            write_frame_ppm(opts.dump_frame, framebuffer, vdp.active_height());
+            write_frame_ppm(opts.dump_frame,
+                            framebuffer,
+                            vdp.viewport_x(),
+                            vdp.viewport_y(),
+                            vdp.viewport_width(),
+                            vdp.viewport_height());
             std::cout << "frame dumped: " << opts.dump_frame.string() << "\n";
         }
         if (!opts.dump_frame_bmp.empty()) {
-            write_frame_bmp(opts.dump_frame_bmp, framebuffer, vdp.active_height());
+            write_frame_bmp(opts.dump_frame_bmp,
+                            framebuffer,
+                            vdp.viewport_x(),
+                            vdp.viewport_y(),
+                            vdp.viewport_width(),
+                            vdp.viewport_height());
             std::cout << "bmp frame dumped: " << opts.dump_frame_bmp.string() << "\n";
         }
         if (!opts.dump_audio.empty()) {
@@ -1788,7 +1819,11 @@ void run_smoke(ConsoleModel model,
             std::cout << "vram dumped: " << opts.dump_vram.string() << "\n";
         }
         if (!opts.dump_cram.empty()) {
-            write_binary_dump(opts.dump_cram, vdp.debug_cram());
+            if (vdp.game_gear()) {
+                write_binary_dump(opts.dump_cram, vdp.debug_game_gear_cram());
+            } else {
+                write_binary_dump(opts.dump_cram, vdp.debug_cram());
+            }
             std::cout << "cram dumped: " << opts.dump_cram.string() << "\n";
         }
         if (!opts.dump_tilemap.empty()) {
@@ -2034,11 +2069,23 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
     }
 
     if (!opts.dump_frame.empty()) {
-        write_frame_ppm(opts.dump_frame, framebuffer, host.console().vdp().active_height());
+        const auto& vdp = host.console().vdp();
+        write_frame_ppm(opts.dump_frame,
+                        framebuffer,
+                        vdp.viewport_x(),
+                        vdp.viewport_y(),
+                        vdp.viewport_width(),
+                        vdp.viewport_height());
         std::cout << "frame dumped: " << opts.dump_frame.string() << "\n";
     }
     if (!opts.dump_frame_bmp.empty()) {
-        write_frame_bmp(opts.dump_frame_bmp, framebuffer, host.console().vdp().active_height());
+        const auto& vdp = host.console().vdp();
+        write_frame_bmp(opts.dump_frame_bmp,
+                        framebuffer,
+                        vdp.viewport_x(),
+                        vdp.viewport_y(),
+                        vdp.viewport_width(),
+                        vdp.viewport_height());
         std::cout << "bmp frame dumped: " << opts.dump_frame_bmp.string() << "\n";
     }
     if (!opts.dump_audio.empty()) {
@@ -2076,7 +2123,11 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
         std::cout << "vram dumped: " << opts.dump_vram.string() << "\n";
     }
     if (!opts.dump_cram.empty()) {
-        write_binary_dump(opts.dump_cram, host.console().vdp().debug_cram());
+        if (host.console().vdp().game_gear()) {
+            write_binary_dump(opts.dump_cram, host.console().vdp().debug_game_gear_cram());
+        } else {
+            write_binary_dump(opts.dump_cram, host.console().vdp().debug_cram());
+        }
         std::cout << "cram dumped: " << opts.dump_cram.string() << "\n";
     }
     if (!opts.dump_tilemap.empty()) {
@@ -2827,6 +2878,10 @@ int main(int argc, char** argv) {
             return 0;
         }
         apply_game_profile(opts, rom);
+        const CartridgeHeaderInfo detected_header = analyze_cartridge_header(rom);
+        if (!opts.model_explicit && cartridge_header_is_game_gear(detected_header)) {
+            opts.model = ConsoleModel::GameGear;
+        }
         const std::optional<std::vector<u8>> bios =
             opts.bios.empty() ? std::optional<std::vector<u8>>{} : std::optional<std::vector<u8>>{read_file(opts.bios)};
         const auto image =

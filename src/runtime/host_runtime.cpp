@@ -105,7 +105,10 @@ const Vdp::Framebuffer& HostRuntime::framebuffer() const {
 }
 
 void HostRuntime::apply_input(const HostInputState& input) {
-    console_.joypad().set_player1(input.player1);
+    const u8 player1 = console_.model() == ConsoleModel::GameGear && input.pause
+                           ? static_cast<u8>(input.player1 | Joypad::Start)
+                           : input.player1;
+    console_.joypad().set_player1(player1);
     console_.joypad().set_player2(input.player2);
     if (input.pause && !previous_pause_) {
         console_.press_pause();

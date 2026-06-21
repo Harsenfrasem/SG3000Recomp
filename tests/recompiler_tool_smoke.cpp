@@ -147,6 +147,9 @@ int main() {
     const std::filesystem::path header_analysis_path = output_dir / "header_analysis.txt";
     const std::filesystem::path generated_header_rom_path = output_dir / "generated_header.sms";
     const std::filesystem::path generated_header_analysis_path = output_dir / "generated_header_analysis.txt";
+    const std::filesystem::path game_gear_rom_path = output_dir / "game_gear_fixture.gg";
+    const std::filesystem::path game_gear_frame_path = output_dir / "game_gear_frame.bmp";
+    const std::filesystem::path game_gear_cram_path = output_dir / "game_gear_cram.bin";
     const std::filesystem::path entry_rom_path = output_dir / "entry_fixture.sms";
     const std::filesystem::path entry_analysis_path = output_dir / "entry_analysis.txt";
     const std::filesystem::path pointer_rom_path = output_dir / "pointer_fixture.sms";
@@ -431,6 +434,26 @@ int main() {
     assert(contains(generated_header_analysis, "header_product_code: 12ABF"));
     assert(contains(generated_header_analysis, "header_version: 3"));
     assert(contains(generated_header_analysis, "header_checksum_matches_declared_size: yes"));
+
+    const std::string generate_game_gear_command =
+        quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(header_rom_path) + " --generate-header " +
+        quote(game_gear_rom_path) + " --header-region gg-international --product-code 00A11 --header-version 1";
+    assert(run_command(generate_game_gear_command) == 0);
+    const std::string run_game_gear_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(game_gear_rom_path) +
+                                              " --run-host --frames 1 --dump-frame-bmp " + quote(game_gear_frame_path) +
+                                              " --dump-cram " + quote(game_gear_cram_path);
+    assert(run_command(run_game_gear_command) == 0);
+    const auto game_gear_frame = read_binary(game_gear_frame_path);
+    assert(game_gear_frame.size() > 54);
+    const auto bmp_u32 = [&](std::size_t offset) {
+        return static_cast<unsigned>(game_gear_frame[offset]) |
+               (static_cast<unsigned>(game_gear_frame[offset + 1]) << 8) |
+               (static_cast<unsigned>(game_gear_frame[offset + 2]) << 16) |
+               (static_cast<unsigned>(game_gear_frame[offset + 3]) << 24);
+    };
+    assert(bmp_u32(18) == 160);
+    assert(bmp_u32(22) == 144);
+    assert(read_binary(game_gear_cram_path).size() == 64);
 
     std::vector<unsigned char> entry_rom(0x80, 0x00);
     entry_rom[0x0000] = 0x76; // halt

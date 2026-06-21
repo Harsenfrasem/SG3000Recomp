@@ -2,6 +2,10 @@
 
 No Windows, abra `build\zig-debug\SG3000Recomp.exe` com duplo clique. `sgrecomp_host.exe` oferece o mesmo host com o nome técnico usado por scripts e testes. A janela abre ociosa, com tela preta, sem executar CPU e sem mostrar seletores automaticamente.
 
+ROMs Game Gear (`.gg` ou headers Game Gear em `.bin/.rom`) selecionam automaticamente o modelo
+portátil e redimensionam a área de jogo para 160x144. A ação remapeável `Pause/NMI` funciona como
+Start nesse modelo. Consulte `GAME_GEAR.md` para os limites atuais.
+
 1. Ajuste tamanho da tela, controles e melhorias se desejar.
 2. Opcionalmente use **Arquivo > Selecionar BIOS...**. A BIOS fica selecionada apenas para a sessão.
 3. Use **Arquivo > Abrir ROM...** e escolha uma imagem local (`.sms`, `.sg`, `.bin` ou `.rom`).

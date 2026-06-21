@@ -3,6 +3,7 @@
 namespace sgrecomp {
 
 Console::Console(ConsoleModel model) : bus_(model, vdp_, psg_, ym2413_, joypad_, &ym2612_), model_(model) {
+    vdp_.set_game_gear(model_ == ConsoleModel::GameGear);
     if (model_ == ConsoleModel::SG3000) {
         vdp_.set_video_mode(VdpVideoMode::TmsGraphics1);
     }
@@ -10,6 +11,7 @@ Console::Console(ConsoleModel model) : bus_(model, vdp_, psg_, ym2413_, joypad_,
 
 Console::Console(ConsoleModel model, const EnhancementConfig& enhancements)
     : bus_(model, vdp_, psg_, ym2413_, joypad_, &ym2612_), model_(model), enhancements_(enhancements) {
+    vdp_.set_game_gear(model_ == ConsoleModel::GameGear);
     if (model_ == ConsoleModel::SG3000) {
         vdp_.set_video_mode(VdpVideoMode::TmsGraphics1);
     }
@@ -56,6 +58,7 @@ void Console::load_state(const ConsoleState& state) {
     cpu_ = state.cpu;
     bus_.load_state(state.bus);
     vdp_.load_state(state.vdp);
+    vdp_.set_game_gear(model_ == ConsoleModel::GameGear);
     psg_.load_state(state.psg);
     ym2413_.load_state(state.ym2413);
     ym2612_.load_state(state.ym2612);

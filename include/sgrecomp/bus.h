@@ -87,6 +87,7 @@ struct BusMapperSnapshot {
 enum class ConsoleModel {
     SMS,
     SG3000,
+    GameGear,
 };
 
 class Bus {

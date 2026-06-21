@@ -8,7 +8,7 @@ namespace sgrecomp {
 namespace {
 
 constexpr u32 kMagic = 0x53534753; // SGSS
-constexpr u16 kVersion = 12;
+constexpr u16 kVersion = 13;
 
 class Writer {
   public:
@@ -238,7 +238,8 @@ Z80State read_cpu(Reader& in, u16 version) {
 }
 
 void write_metadata(Writer& out, const SaveStateMetadata& metadata) {
-    out.u8v(static_cast<u8>(metadata.model == ConsoleModel::SG3000 ? 1 : 0));
+    const u8 model = metadata.model == ConsoleModel::SG3000 ? 1 : (metadata.model == ConsoleModel::GameGear ? 2 : 0);
+    out.u8v(model);
     out.stringv(metadata.rom_hash);
     out.stringv(metadata.bios_hash);
     out.stringv(metadata.profile_fingerprint);
@@ -247,7 +248,8 @@ void write_metadata(Writer& out, const SaveStateMetadata& metadata) {
 SaveStateMetadata read_metadata(Reader& in, u16 version) {
     SaveStateMetadata metadata;
     metadata.present = true;
-    metadata.model = in.u8v() == 1 ? ConsoleModel::SG3000 : ConsoleModel::SMS;
+    const u8 model = in.u8v();
+    metadata.model = model == 1 ? ConsoleModel::SG3000 : (model == 2 ? ConsoleModel::GameGear : ConsoleModel::SMS);
     metadata.rom_hash = in.stringv();
     if (version >= 9) {
         metadata.environment_identity_present = true;
@@ -320,6 +322,9 @@ void write_state(Writer& out, const ConsoleState& state, const SaveStateMetadata
     }
     out.u8v(state.joypad_player1);
     out.u8v(state.joypad_player2);
+    out.array_bytes(state.vdp.game_gear_cram);
+    out.boolv(state.vdp.game_gear);
+    out.u8v(state.psg.stereo);
 }
 
 SaveStateImage read_image(Reader& in) {
@@ -427,6 +432,11 @@ SaveStateImage read_image(Reader& in) {
     }
     state.joypad_player1 = in.u8v();
     state.joypad_player2 = in.u8v();
+    if (version >= 13) {
+        in.array_bytes(state.vdp.game_gear_cram);
+        state.vdp.game_gear = in.boolv();
+        state.psg.stereo = in.u8v();
+    }
     in.finish();
     image.state = state;
     return image;

@@ -54,6 +54,9 @@ ConsoleModel parse_model(const std::string& value) {
     if (lowered == "sg3000" || lowered == "sg-3000") {
         return ConsoleModel::SG3000;
     }
+    if (lowered == "gamegear" || lowered == "game-gear" || lowered == "gg") {
+        return ConsoleModel::GameGear;
+    }
     throw std::runtime_error("invalid model in profile: " + value);
 }
 
@@ -255,7 +258,10 @@ std::string serialize_game_profiles(std::span<const GameProfile> profiles) {
         }
         out << "hash = \"" << profile.hash << "\"\n";
         if (profile.has_model) {
-            out << "model = \"" << (profile.model == ConsoleModel::SG3000 ? "sg3000" : "sms") << "\"\n";
+            const char* model = profile.model == ConsoleModel::SG3000
+                                    ? "sg3000"
+                                    : (profile.model == ConsoleModel::GameGear ? "gamegear" : "sms");
+            out << "model = \"" << model << "\"\n";
         }
         if (profile.has_mapper) {
             out << "mapper = \"" << cartridge_mapper_name(profile.mapper) << "\"\n";

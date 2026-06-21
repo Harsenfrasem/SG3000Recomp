@@ -3834,7 +3834,7 @@ void test_console_save_state_round_trip_restores_runtime_state() {
     metadata.bios_hash = "fnv1a64:bios";
     metadata.profile_fingerprint = "fnv1a64:profile";
     const auto bytes = save_console_state(console, metadata);
-    assert(bytes[4] == 12 && bytes[5] == 0);
+    assert(bytes[4] == 13 && bytes[5] == 0);
     console.bus().write(0xC000, 0x99);
     console.cpu().a = 0x11;
     assert(console.bus().read(0xC000) == 0x99);
@@ -3882,7 +3882,15 @@ void test_console_save_state_round_trip_restores_runtime_state() {
     const std::size_t v12_metadata_size =
         1 + 2 + metadata.rom_hash.size() + 2 + metadata.bios_hash.size() + 2 + metadata.profile_fingerprint.size();
     constexpr std::size_t legacy_cpu_state_size = 41;
-    std::vector<u8> legacy_v11 = bytes;
+    std::vector<u8> legacy_v12 = bytes;
+    legacy_v12.resize(legacy_v12.size() - 66); // Game Gear CRAM/mode and PSG stereo were added in v13.
+    legacy_v12[4] = 12;
+    legacy_v12[5] = 0;
+    const auto legacy_v12_image = deserialize_console_state_image(legacy_v12);
+    assert(legacy_v12_image.state.cpu.q == 0xA5);
+    assert(legacy_v12_image.state.psg.stereo == 0xFF);
+
+    std::vector<u8> legacy_v11 = legacy_v12;
     const std::size_t cpu_extension_start = 6 + v12_metadata_size + legacy_cpu_state_size;
     legacy_v11.erase(legacy_v11.begin() + static_cast<std::ptrdiff_t>(cpu_extension_start),
                      legacy_v11.begin() + static_cast<std::ptrdiff_t>(cpu_extension_start + 3));
@@ -4004,6 +4012,70 @@ void test_game_profile_hash_and_parse() {
         rejected_mapper = true;
     }
     assert(rejected_mapper);
+
+    const auto game_gear_profiles = GameProfileDatabase::parse("[profile]\n"
+                                                               "hash = \"fnv1a64:1122334455667788\"\n"
+                                                               "model = \"gamegear\"\n");
+    const GameProfile* game_gear_profile = game_gear_profiles.find_by_hash("fnv1a64:1122334455667788");
+    assert(game_gear_profile != nullptr);
+    assert(game_gear_profile->has_model);
+    assert(game_gear_profile->model == ConsoleModel::GameGear);
+    assert(serialize_game_profiles(game_gear_profiles.profiles()).find("model = \"gamegear\"") != std::string::npos);
+}
+
+void test_game_gear_model_viewport_palette_input_and_stereo() {
+    Console console(ConsoleModel::GameGear);
+    assert(console.model() == ConsoleModel::GameGear);
+    assert(console.vdp().game_gear());
+    assert(console.vdp().viewport_x() == 48);
+    assert(console.vdp().viewport_y() == 24);
+    assert(console.vdp().viewport_width() == 160);
+    assert(console.vdp().viewport_height() == 144);
+
+    console.joypad().set_player1(Joypad::Start);
+    assert(console.bus().input(0x00) == 0x7F);
+    console.joypad().set_player1(0);
+    assert(console.bus().input(0x00) == 0xFF);
+
+    console.bus().output(0x06, 0x10); // channel 0 on the left only
+    assert(console.psg().stereo() == 0x10);
+    PsgState psg = console.psg().save_state();
+    psg.volume = {0, 0x0F, 0x0F, 0x0F};
+    psg.output = {true, true, true, true};
+    console.psg().load_state(psg);
+    const auto stereo_sample = console.psg().sample();
+    assert(stereo_sample[0] > 0.0F);
+    assert(stereo_sample[1] == 0.0F);
+
+    auto& vdp = console.vdp();
+    vdp.write_control(0x40);
+    vdp.write_control(0x81); // display enabled
+    vdp.write_control(0x0E);
+    vdp.write_control(0x82); // name table at $3800
+    vdp.write_control(0x02);
+    vdp.write_control(0xC0); // Game Gear CRAM color 1, low byte
+    vdp.write_data(0x0F);    // red = 15
+    vdp.write_data(0x00);
+    vdp.write_control(0x00);
+    vdp.write_control(0x40); // pattern 0, row 0
+    vdp.write_data(0xFF);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+    vdp.write_data(0x00);
+    vdp.tick(vdp.timing().cpu_cycles_per_scanline * 25);
+    assert(vdp.framebuffer()[24 * Vdp::width + 48] == 0xFFFF0000);
+    assert(vdp.debug_game_gear_cram()[2] == 0x0F);
+
+    SaveStateMetadata metadata;
+    metadata.present = true;
+    metadata.model = ConsoleModel::GameGear;
+    metadata.rom_hash = "fnv1a64:0011223344556677";
+    const auto bytes = save_console_state(console, metadata);
+    const auto image = deserialize_console_state_image(bytes);
+    assert(image.metadata.model == ConsoleModel::GameGear);
+    assert(image.state.vdp.game_gear);
+    assert(image.state.vdp.game_gear_cram[2] == 0x0F);
+    assert(image.state.psg.stereo == 0x10);
 }
 
 int main() {
@@ -4134,5 +4206,6 @@ int main() {
     test_host_input_script_tracks_frame_state();
     test_console_save_state_round_trip_restores_runtime_state();
     test_game_profile_hash_and_parse();
+    test_game_gear_model_viewport_palette_input_and_stereo();
     return 0;
 }

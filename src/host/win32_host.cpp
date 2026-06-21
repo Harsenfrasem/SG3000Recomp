@@ -49,6 +49,7 @@ struct Options {
     std::filesystem::path save_state;
     std::filesystem::path profile;
     ConsoleModel model = ConsoleModel::SMS;
+    bool model_explicit = false;
     CartridgeMapper mapper = CartridgeMapper::Auto;
     EnhancementConfig enhancements;
     HostVideoStandard video_standard = HostVideoStandard::Ntsc;
@@ -568,7 +569,7 @@ void print_usage() {
     std::cout
         << "usage: sgrecomp_host                         (open an idle graphical frontend)\n"
         << "       sgrecomp_host --gui                   (open an idle graphical frontend)\n"
-        << "       sgrecomp_host <rom.sms|rom.sg> [--bios bios.sms] [--model sms|sg3000] [--mapper "
+        << "       sgrecomp_host <rom.sms|rom.sg|rom.gg> [--bios bios.sms] [--model sms|sg3000|gamegear] [--mapper "
            "auto|plain|smapper|cmapper|kmapper|k8k]\n"
         << "                    [--video-standard ntsc|pal]\n"
         << "                    [--scale n] [--mute] [--no-overlay] [--audio-latency-ms n] [--audio-sample-rate hz]\n"
@@ -641,9 +642,12 @@ Options parse_args(int argc, char** argv) {
                 opts.model = ConsoleModel::SMS;
             } else if (model == "sg3000" || model == "sg-3000") {
                 opts.model = ConsoleModel::SG3000;
+            } else if (model == "gamegear" || model == "game-gear" || model == "gg") {
+                opts.model = ConsoleModel::GameGear;
             } else {
                 throw std::runtime_error("unknown model: " + model);
             }
+            opts.model_explicit = true;
             continue;
         }
         if (arg == "--video-standard" && i + 1 < argc) {
@@ -730,7 +734,7 @@ std::optional<std::filesystem::path> choose_local_file(const wchar_t* title, con
 }
 
 std::optional<std::filesystem::path> choose_rom_file() {
-    static constexpr wchar_t filter[] = L"ROMs Sega (*.sms;*.sg;*.bin;*.rom)\0*.sms;*.sg;*.bin;*.rom\0"
+    static constexpr wchar_t filter[] = L"ROMs Sega (*.sms;*.sg;*.gg;*.bin;*.rom)\0*.sms;*.sg;*.gg;*.bin;*.rom\0"
                                         L"Todos os arquivos (*.*)\0*.*\0\0";
     return choose_local_file(L"Selecione a ROM para jogar", filter);
 }
@@ -796,7 +800,7 @@ const char* control_action_name(ControlAction action) {
     case ControlAction::Button2:
         return "Botao 2";
     case ControlAction::Pause:
-        return "Pause/NMI";
+        return "Pause/NMI ou Start";
     case ControlAction::Count:
         break;
     }
@@ -864,7 +868,8 @@ void resize_game_window(HWND hwnd, AppState& app, int scale) {
     app.window_scale = std::clamp(scale, 1, 6);
     RECT window{};
     GetWindowRect(hwnd, &window);
-    RECT desired{0, 0, Vdp::width * app.window_scale, app.host->console().vdp().active_height() * app.window_scale};
+    const auto& vdp = app.host->console().vdp();
+    RECT desired{0, 0, vdp.viewport_width() * app.window_scale, vdp.viewport_height() * app.window_scale};
     AdjustWindowRectEx(&desired,
                        static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_STYLE)),
                        GetMenu(hwnd) != nullptr,
@@ -988,6 +993,7 @@ void apply_profile_to_options(Options& options,
     profile_fingerprint = game_profile_fingerprint(*profile);
     if (profile->has_model) {
         options.model = profile->model;
+        options.model_explicit = true;
     }
     if (profile->has_mapper) {
         options.mapper = profile->mapper;
@@ -1032,6 +1038,9 @@ void load_game_session(HWND hwnd, AppState& app, const std::filesystem::path& ro
     std::string profile_name;
     std::string profile_fingerprint;
     apply_profile_to_options(options, rom_hash, profile_name, profile_fingerprint);
+    if (!options.model_explicit && cartridge_header_is_game_gear(header)) {
+        options.model = ConsoleModel::GameGear;
+    }
     const std::optional<std::vector<u8>> bios = options.bios.empty()
                                                     ? std::optional<std::vector<u8>>{}
                                                     : std::optional<std::vector<u8>>{read_file(options.bios)};
@@ -1161,10 +1170,22 @@ void save_screenshot(AppState& app) {
     if (!path) {
         return;
     }
-    write_bmp_image(*path,
-                    std::span<const u32>(app.host->framebuffer().data(), app.host->framebuffer().size()),
-                    Vdp::width,
-                    app.host->console().vdp().active_height());
+    const auto& vdp = app.host->console().vdp();
+    if (vdp.game_gear()) {
+        std::vector<u32> cropped(static_cast<std::size_t>(vdp.viewport_width() * vdp.viewport_height()));
+        for (int y = 0; y < vdp.viewport_height(); ++y) {
+            const u32* source = app.host->framebuffer().data() +
+                                static_cast<std::size_t>(vdp.viewport_y() + y) * Vdp::width + vdp.viewport_x();
+            std::copy_n(
+                source, vdp.viewport_width(), cropped.begin() + static_cast<std::ptrdiff_t>(y * vdp.viewport_width()));
+        }
+        write_bmp_image(*path, cropped, vdp.viewport_width(), vdp.viewport_height());
+    } else {
+        write_bmp_image(*path,
+                        std::span<const u32>(app.host->framebuffer().data(), app.host->framebuffer().size()),
+                        Vdp::width,
+                        vdp.active_height());
+    }
     app.status_message = "screenshot salvo em " + path->filename().string();
 }
 
@@ -1778,7 +1799,9 @@ std::string detailed_status_text(const AppState& app) {
         << "Modelo: "
         << ((app.has_rom ? app.state_metadata.model : app.session_options.model) == ConsoleModel::SG3000
                 ? "SG-3000"
-                : "Master System")
+                : ((app.has_rom ? app.state_metadata.model : app.session_options.model) == ConsoleModel::GameGear
+                       ? "Game Gear"
+                       : "Master System"))
         << "\r\nVideo: " << (app.host->config().scanlines_per_frame == 313 ? "PAL" : "NTSC")
         << " | Backend de janela: Win32"
         << " | Backend de audio: " << (app.audio ? "waveOut" : "desativado") << "\r\n";
@@ -1960,23 +1983,25 @@ void render_frame(HWND hwnd, AppState& app) {
         EndPaint(hwnd, &paint);
         return;
     }
-    const int active_height = app.host->console().vdp().active_height();
-    const int scale = std::max(1, std::min(client_width / Vdp::width, client_height / active_height));
-    const int output_width = Vdp::width * scale;
-    const int output_height = active_height * scale;
+    const auto& vdp = app.host->console().vdp();
+    const int viewport_width = vdp.viewport_width();
+    const int viewport_height = vdp.viewport_height();
+    const int scale = std::max(1, std::min(client_width / viewport_width, client_height / viewport_height));
+    const int output_width = viewport_width * scale;
+    const int output_height = viewport_height * scale;
     const int output_x = (client_width - output_width) / 2;
     const int output_y = (client_height - output_height) / 2;
 
-    app.bitmap_info.bmiHeader.biHeight = -active_height;
+    app.bitmap_info.bmiHeader.biHeight = -vdp.active_height();
     StretchDIBits(dc,
                   output_x,
                   output_y,
                   output_width,
                   output_height,
-                  0,
-                  0,
-                  Vdp::width,
-                  active_height,
+                  vdp.viewport_x(),
+                  vdp.viewport_y(),
+                  viewport_width,
+                  viewport_height,
                   app.host->framebuffer().data(),
                   &app.bitmap_info,
                   DIB_RGB_COLORS,
@@ -2355,7 +2380,8 @@ HWND create_main_window(HINSTANCE instance, AppState& app, int scale) {
     RegisterClass(&wc);
 
     const HMENU menu = create_application_menu(app);
-    RECT rect{0, 0, Vdp::width * scale, app.host->console().vdp().active_height() * scale};
+    const auto& vdp = app.host->console().vdp();
+    RECT rect{0, 0, vdp.viewport_width() * scale, vdp.viewport_height() * scale};
     AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, TRUE);
 
     HWND hwnd = CreateWindowEx(0,
@@ -2549,10 +2575,6 @@ int run(int argc, char** argv) {
         }
         return 0;
     }
-    if (cartridge_header_is_game_gear(header) && opts.model == ConsoleModel::SMS) {
-        std::cout << "warning: cartridge header identifies a Game Gear image; SMS host support is not expected to be "
-                     "faithful yet\n";
-    }
     std::string profile_name;
     std::string profile_fingerprint;
     if (!opts.profile.empty()) {
@@ -2562,6 +2584,7 @@ int run(int argc, char** argv) {
             profile_fingerprint = game_profile_fingerprint(*profile);
             if (profile->has_model) {
                 opts.model = profile->model;
+                opts.model_explicit = true;
             }
             if (profile->has_mapper) {
                 opts.mapper = profile->mapper;
@@ -2582,6 +2605,12 @@ int run(int argc, char** argv) {
         } else {
             std::cout << "profile matched: none (" << rom_hash << ")\n";
         }
+    }
+    if (!opts.model_explicit && cartridge_header_is_game_gear(header)) {
+        opts.model = ConsoleModel::GameGear;
+    }
+    if (cartridge_header_is_game_gear(header) && opts.model_explicit && opts.model == ConsoleModel::SMS) {
+        std::cout << "warning: cartridge header identifies a Game Gear image, but the explicit SMS model was kept\n";
     }
     const std::optional<std::vector<u8>> bios =
         opts.bios.empty() ? std::optional<std::vector<u8>>{} : std::optional<std::vector<u8>>{read_file(opts.bios)};

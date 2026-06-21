@@ -15,7 +15,7 @@ Cancelar um seletor mantém a janela e a sessão atual sem copiar o arquivo sele
 
 - Setas: direcional.
 - `Z` / `X`: botões 1 e 2.
-- `Enter`: Pause/NMI do Master System.
+- `Enter`: Pause/NMI do Master System ou Start no Game Gear.
 - `Space`: pausa a emulação.
 - `R`: soft reset.
 - `M`: mute.
@@ -26,6 +26,10 @@ Cancelar um seletor mantém a janela e a sessão atual sem copiar o arquivo sele
 Os menus permitem voltar ao modo fiel ou ativar melhorias visuais com um aviso de
 compatibilidade. SRAM, quick-save e preferências ficam somente em
 `%LOCALAPPDATA%\SG3000Recomp`; nenhum caminho de ROM ou BIOS é gravado no pacote.
+
+ROMs Game Gear com header válido são reconhecidas automaticamente e usam a janela LCD
+160x144, paleta de 12 bits e áudio PSG estéreo. Link cable e compatibilidade integral do
+catálogo ainda não são prometidos.
 
 A fila waveOut ajusta automaticamente sua meta após underruns e volta gradualmente à
 latência configurada quando estabiliza. Pausar preserva a fila; reset e load-state descartam

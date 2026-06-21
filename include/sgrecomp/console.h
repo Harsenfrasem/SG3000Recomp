@@ -38,6 +38,9 @@ class Console {
     const EnhancementConfig& enhancements() const {
         return enhancements_;
     }
+    ConsoleModel model() const {
+        return model_;
+    }
     ConsoleState save_state() const;
     void load_state(const ConsoleState& state);
 

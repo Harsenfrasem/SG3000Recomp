@@ -13,6 +13,7 @@ class Joypad {
         Right = 1 << 3,
         Button1 = 1 << 4,
         Button2 = 1 << 5,
+        Start = 1 << 6,
     };
 
     void set_player1(u8 pressed_mask) {

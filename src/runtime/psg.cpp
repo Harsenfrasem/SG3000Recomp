@@ -74,12 +74,18 @@ void Psg::tick(int cpu_cycles) {
 }
 
 std::array<float, 2> Psg::sample() const {
-    float mixed = 0.0F;
+    float left = 0.0F;
+    float right = 0.0F;
     for (u8 channel = 0; channel < 4; ++channel) {
-        mixed += (output_[channel] ? 1.0F : -1.0F) * volume_amplitude(channel);
+        const float sample = (output_[channel] ? 1.0F : -1.0F) * volume_amplitude(channel);
+        if ((stereo_ & (1u << (channel + 4))) != 0) {
+            left += sample;
+        }
+        if ((stereo_ & (1u << channel)) != 0) {
+            right += sample;
+        }
     }
-    mixed *= 0.25F;
-    return {mixed, mixed};
+    return {left * 0.25F, right * 0.25F};
 }
 
 int Psg::period(u8 channel) const {
@@ -104,7 +110,7 @@ float Psg::volume_amplitude(u8 channel) const {
 }
 
 PsgState Psg::save_state() const {
-    return {tone_, volume_, counters_, output_, noise_lfsr_, latched_channel_, latched_volume_};
+    return {tone_, volume_, counters_, output_, noise_lfsr_, latched_channel_, latched_volume_, stereo_};
 }
 
 void Psg::load_state(const PsgState& state) {
@@ -115,6 +121,7 @@ void Psg::load_state(const PsgState& state) {
     noise_lfsr_ = state.noise_lfsr;
     latched_channel_ = static_cast<u8>(state.latched_channel & 0x03);
     latched_volume_ = state.latched_volume;
+    stereo_ = state.stereo;
 }
 
 } // namespace sgrecomp

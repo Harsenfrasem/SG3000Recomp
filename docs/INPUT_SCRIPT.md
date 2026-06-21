@@ -21,6 +21,8 @@ Each row replaces the complete input state at the beginning of that frame. The s
 
 Controller values may combine `up`, `down`, `left`, `right`, `button1`/`b1`, and `button2`/`b2` with `+`. Use `none` or `-` for no buttons. Pause accepts `on`/`off`, `true`/`false`, `pressed`/`released`, or `1`/`0`.
 
+The `pause` column triggers Master System Pause/NMI; in a Game Gear session it drives Start instead.
+
 Keep scripts tied to private ROMs under an ignored local directory. Do not commit ROM-specific filenames, hashes, routes, or input sequences without confirming redistribution is appropriate.
 
 Add `--dump-frame-log out\frames.csv` to capture a regression-friendly row for every frame. The log includes the framebuffer FNV-1a hash, executed PC range, instruction count, mapper banks, cycle range, and non-zero audio sample count.

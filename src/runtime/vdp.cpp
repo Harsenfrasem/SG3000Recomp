@@ -71,8 +71,13 @@ u8 Vdp::read_h_counter() const {
 void Vdp::write_data(u8 value) {
     pending_control_ = false;
     if (code_ == 3) {
-        cram_[address_ & 0x1F] = value;
-        log_access(VdpAccessKind::Cram, static_cast<u16>(address_ & 0x1F), value);
+        if (game_gear_) {
+            game_gear_cram_[address_ & 0x3F] = value;
+            log_access(VdpAccessKind::Cram, static_cast<u16>(address_ & 0x3F), value);
+        } else {
+            cram_[address_ & 0x1F] = value;
+            log_access(VdpAccessKind::Cram, static_cast<u16>(address_ & 0x1F), value);
+        }
     } else {
         vram_[address_ & 0x3FFF] = value;
         log_access(VdpAccessKind::Vram, static_cast<u16>(address_ & 0x3FFF), value);
@@ -498,6 +503,14 @@ void Vdp::render_tms_sprites(int line) {
 }
 
 u32 Vdp::cram_color(u8 index) const {
+    if (game_gear_) {
+        const std::size_t address = static_cast<std::size_t>(index & 0x1F) * 2;
+        const u16 raw = make_u16(game_gear_cram_[address], game_gear_cram_[address + 1]);
+        const u8 r = static_cast<u8>((raw & 0x000F) * 17);
+        const u8 g = static_cast<u8>(((raw >> 4) & 0x000F) * 17);
+        const u8 b = static_cast<u8>(((raw >> 8) & 0x000F) * 17);
+        return kOpaque | (static_cast<u32>(r) << 16) | (static_cast<u32>(g) << 8) | b;
+    }
     const u8 raw = cram_[index & 0x1F];
     const u8 r = static_cast<u8>((raw & 0x03) * 85);
     const u8 g = static_cast<u8>(((raw >> 2) & 0x03) * 85);
@@ -640,30 +653,17 @@ std::vector<VdpSpriteEntry> Vdp::debug_sprites() const {
 
 VdpState Vdp::save_state() const {
     return {
-        vram_,
-        cram_,
-        registers_,
-        framebuffer_,
-        scanline_bg_priority_,
-        address_,
-        latch_,
-        code_,
-        pending_control_,
-        status_,
-        scanline_cycles_,
-        scanline_,
-        line_counter_,
-        first_line_,
-        line_irq_pending_,
-        timing_,
-        video_mode_,
-        read_buffer_,
+        vram_,      cram_,         game_gear_cram_, registers_,        framebuffer_, scanline_bg_priority_,
+        address_,   latch_,        code_,           pending_control_,  status_,      scanline_cycles_,
+        scanline_,  line_counter_, first_line_,     line_irq_pending_, timing_,      video_mode_,
+        game_gear_, read_buffer_,
     };
 }
 
 void Vdp::load_state(const VdpState& state) {
     vram_ = state.vram;
     cram_ = state.cram;
+    game_gear_cram_ = state.game_gear_cram;
     registers_ = state.registers;
     framebuffer_ = state.framebuffer;
     scanline_bg_priority_ = state.scanline_bg_priority;
@@ -679,6 +679,7 @@ void Vdp::load_state(const VdpState& state) {
     line_irq_pending_ = state.line_irq_pending;
     set_timing(state.timing);
     video_mode_ = state.video_mode;
+    game_gear_ = state.game_gear;
     read_buffer_ = state.read_buffer;
 }
 

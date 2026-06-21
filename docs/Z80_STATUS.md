@@ -41,7 +41,7 @@
 - `halt`
 - CB-prefixed `rlc`, `rrc`, `rl`, `rr`, `sla`, `sra`, `sll`, `srl`, `bit`, `res`, `set`
 - EI habilita IFF imediatamente e usa `ei_pending` somente para bloquear IRQ por uma instrução.
-- MEMPTR/WZ e latch Q preservados no save-state v12 e usados por flags X/Y de BIT, blocos e SCF/CCF.
+- MEMPTR/WZ e latch Q preservados no save-state v13 e usados por flags X/Y de BIT, blocos e SCF/CCF.
 - 1.604 sequências passam contra SingleStepTests/z80 na revisão fixada
   `ebe1875d48f374bcfd4b505d8eb8ee751568b5f7`, incluindo I/O determinístico e comparando
   registradores, flags, RAM, escritas em portas e ciclos.

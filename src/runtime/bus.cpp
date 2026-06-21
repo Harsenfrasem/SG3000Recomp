@@ -125,23 +125,23 @@ void Bus::set_bios_enabled(bool enabled) {
 }
 
 bool Bus::cartridge_enabled() const {
-    return model_ != ConsoleModel::SMS || (memory_control_ & 0x40) == 0;
+    return model_ == ConsoleModel::SG3000 || (memory_control_ & 0x40) == 0;
 }
 
 bool Bus::work_ram_enabled() const {
-    return model_ != ConsoleModel::SMS || (memory_control_ & 0x10) == 0;
+    return model_ == ConsoleModel::SG3000 || (memory_control_ & 0x10) == 0;
 }
 
 bool Bus::expansion_enabled() const {
-    return model_ != ConsoleModel::SMS || (memory_control_ & 0x80) == 0;
+    return model_ == ConsoleModel::SG3000 || (memory_control_ & 0x80) == 0;
 }
 
 bool Bus::card_enabled() const {
-    return model_ != ConsoleModel::SMS || (memory_control_ & 0x20) == 0;
+    return model_ == ConsoleModel::SG3000 || (memory_control_ & 0x20) == 0;
 }
 
 bool Bus::io_chip_enabled() const {
-    return model_ != ConsoleModel::SMS || (memory_control_ & 0x04) == 0;
+    return model_ == ConsoleModel::SG3000 || (memory_control_ & 0x04) == 0;
 }
 
 bool Bus::cartridge_ram_enabled() const {
@@ -181,7 +181,7 @@ void Bus::write(u16 address, u8 value) {
         memory_[address] = value;
         return;
     }
-    if (model_ == ConsoleModel::SMS && cmapper_cartridge_ram_enabled() && address >= 0xA000 && address < 0xC000) {
+    if (model_ != ConsoleModel::SG3000 && cmapper_cartridge_ram_enabled() && address >= 0xA000 && address < 0xC000) {
         const std::size_t offset = address - 0xA000;
         cartridge_ram_[offset] = value;
         cartridge_ram_dirty_ = true;
@@ -190,7 +190,7 @@ void Bus::write(u16 address, u8 value) {
         return;
     }
 
-    if (model_ == ConsoleModel::SMS && slot2_cartridge_ram_enabled() && address >= 0x8000 && address < 0xC000) {
+    if (model_ != ConsoleModel::SG3000 && slot2_cartridge_ram_enabled() && address >= 0x8000 && address < 0xC000) {
         const std::size_t offset = static_cast<std::size_t>(cartridge_ram_bank()) * 0x4000 + (address - 0x8000);
         cartridge_ram_[offset] = value;
         cartridge_ram_dirty_ = true;
@@ -199,7 +199,7 @@ void Bus::write(u16 address, u8 value) {
         return;
     }
 
-    if (model_ == ConsoleModel::SMS && cartridge_enabled() && requested_mapper_ == CartridgeMapper::Auto &&
+    if (model_ != ConsoleModel::SG3000 && cartridge_enabled() && requested_mapper_ == CartridgeMapper::Auto &&
         !auto_mapper_locked_) {
         if (address == 0x0000 || address == 0x4000 || address == 0x8000) {
             select_auto_mapper(CartridgeMapper::CMapper);
@@ -210,7 +210,7 @@ void Bus::write(u16 address, u8 value) {
         }
     }
 
-    if (model_ == ConsoleModel::SMS && cartridge_enabled() && mapper_ == CartridgeMapper::CMapper &&
+    if (model_ != ConsoleModel::SG3000 && cartridge_enabled() && mapper_ == CartridgeMapper::CMapper &&
         (address == 0x0000 || address == 0x4000 || address == 0x8000)) {
         cmapper_slots_[address / 0x4000] = value;
         log_memory(BusMemoryAccessKind::Mapper, address, address, value);
@@ -218,7 +218,7 @@ void Bus::write(u16 address, u8 value) {
         return;
     }
 
-    if (model_ == ConsoleModel::SMS && cartridge_enabled() && mapper_ == CartridgeMapper::KMapper &&
+    if (model_ != ConsoleModel::SG3000 && cartridge_enabled() && mapper_ == CartridgeMapper::KMapper &&
         address == 0xA000) {
         kmapper_slot2_ = value;
         log_memory(BusMemoryAccessKind::Mapper, address, address, value);
@@ -226,7 +226,7 @@ void Bus::write(u16 address, u8 value) {
         return;
     }
 
-    if (model_ == ConsoleModel::SMS && cartridge_enabled() && mapper_ == CartridgeMapper::K8KMapper &&
+    if (model_ != ConsoleModel::SG3000 && cartridge_enabled() && mapper_ == CartridgeMapper::K8KMapper &&
         address <= 0x0003) {
         k8k_slots_[address] = value;
         log_memory(BusMemoryAccessKind::Mapper, address, address, value);
@@ -234,7 +234,7 @@ void Bus::write(u16 address, u8 value) {
         return;
     }
 
-    if (model_ == ConsoleModel::SMS && cartridge_enabled() && mapper_ == CartridgeMapper::SMapper &&
+    if (model_ != ConsoleModel::SG3000 && cartridge_enabled() && mapper_ == CartridgeMapper::SMapper &&
         address >= 0xFFFC) {
         if (requested_mapper_ == CartridgeMapper::Auto) {
             auto_mapper_locked_ = true;
@@ -281,6 +281,11 @@ u8 Bus::input(u8 port) {
         log_io(false, port, value);
         return value;
     }
+    if (model_ == ConsoleModel::GameGear && port == 0x00) {
+        const u8 value = (joypad_.player1() & Joypad::Start) != 0 ? 0x7F : 0xFF;
+        log_io(false, port, value);
+        return value;
+    }
     if (is_v_counter_port(port)) {
         const u8 value = vdp_.read_v_counter();
         log_io(false, port, value);
@@ -322,6 +327,10 @@ void Bus::output(u8 port, u8 value) {
         return;
     }
     log_io(true, port, value);
+    if (model_ == ConsoleModel::GameGear && port == 0x06) {
+        psg_.set_stereo(value);
+        return;
+    }
     if (model_ == ConsoleModel::SMS && ym2612_ != nullptr && ym2612_->enabled()) {
         if (port == 0xF4 || port == 0xF6) {
             ym2612_->write_address(port == 0xF6 ? 1 : 0, value);
@@ -344,7 +353,7 @@ void Bus::output(u8 port, u8 value) {
         ym2413_.write_audio_control(value);
         return;
     }
-    if (model_ == ConsoleModel::SMS && port == 0x3E) {
+    if (model_ != ConsoleModel::SG3000 && port == 0x3E) {
         set_memory_control(value);
         return;
     }
@@ -485,7 +494,7 @@ void Bus::refresh_smapper() {
         }
     }
 
-    if (model_ == ConsoleModel::SMS && slot2_cartridge_ram_enabled()) {
+    if (model_ != ConsoleModel::SG3000 && slot2_cartridge_ram_enabled()) {
         const std::size_t offset = static_cast<std::size_t>(cartridge_ram_bank()) * 0x4000;
         std::copy_n(cartridge_ram_.begin() + static_cast<std::ptrdiff_t>(offset), 0x4000, memory_.begin() + 0x8000);
     }
@@ -543,11 +552,11 @@ void Bus::set_memory_control(u8 value) {
 
 bool Bus::slot2_cartridge_ram_enabled() const {
     const bool sega_mapper = mapper_ == CartridgeMapper::SMapper || mapper_ == CartridgeMapper::Auto;
-    return model_ == ConsoleModel::SMS && sega_mapper && cartridge_enabled() && (smapper_control_ & 0x08) != 0;
+    return model_ != ConsoleModel::SG3000 && sega_mapper && cartridge_enabled() && (smapper_control_ & 0x08) != 0;
 }
 
 bool Bus::cmapper_cartridge_ram_enabled() const {
-    return model_ == ConsoleModel::SMS && mapper_ == CartridgeMapper::CMapper && cartridge_enabled() &&
+    return model_ != ConsoleModel::SG3000 && mapper_ == CartridgeMapper::CMapper && cartridge_enabled() &&
            (cmapper_slots_[1] & 0x80) != 0;
 }
 

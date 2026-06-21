@@ -9,7 +9,10 @@ SMS and SG-3000 share a Z80 CPU family and a similar I/O style, but they differ 
 The SG-3000/TMS model exposes 1 KiB of internal RAM at `$c000-$c3ff`, mirrored every
 `$400` bytes through `$ffff`. The SMS model retains its separate 8 KiB RAM mirrored once.
 
-Game Gear is a planned future target because it can reuse much of the SMS core, including Z80 execution, cartridge metadata, PSG behavior, and parts of the VDP pipeline. It still needs its own explicit platform model for 160x144 output, 12-bit palette handling, Start/input differences, and compatibility heuristics. Until those pieces are validated, Game Gear headers are detected for diagnostics but SMS/SG-3000 remain the active compatibility targets.
+Game Gear is an explicit platform model that reuses the SMS Z80, mapper, RAM, PSG, and Mode 4
+pipeline while isolating its 160x144 LCD viewport, 12-bit palette, Start input, and stereo PSG
+register. Valid headers select it automatically unless a model was explicitly forced. Serial/link
+hardware and catalog-wide compatibility remain outside the validated scope; see `GAME_GEAR.md`.
 
 The SG-3000 VDP path selects the four standard TMS9918 display modes from register bits M1/M2/M3. Graphics I and II use their distinct pattern/color table addressing, Text uses the 40-column six-pixel glyph layout and border, and Multicolor uses four-pixel color blocks. TMS sprites remain active in the graphics modes and disabled in Text mode.
 

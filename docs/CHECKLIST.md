@@ -136,14 +136,14 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 
 - [x] Detectar headers que indicam Game Gear e reportar plataforma no `--dump-analysis`.
 - [x] Avisar no host quando uma imagem Game Gear for aberta no modelo SMS atual.
-- [ ] Adicionar `ConsoleModel::GameGear` sem alterar o comportamento padrao de SMS/SG-3000.
-- [ ] Viewport 160x144 com janela/letterbox correta no host.
-- [ ] Paleta Game Gear 12-bit/4096 cores separada da CRAM SMS 6-bit.
-- [ ] Portas/input especificos, incluindo botao Start.
-- [ ] Ajustar VDP/render para diferencas GG mantendo fallback SMS.
-- [ ] Perfis por hash/header para selecionar Game Gear automaticamente quando seguro.
-- [ ] Testes sinteticos de header, paleta, viewport e input GG.
-- [ ] Documentar limites: sem prometer compatibilidade GG ate VDP/paleta/input estarem validados.
+- [x] Adicionar `ConsoleModel::GameGear` sem alterar o comportamento padrao de SMS/SG-3000.
+- [x] Viewport 160x144 com janela/letterbox correta no host.
+- [x] Paleta Game Gear 12-bit/4096 cores separada da CRAM SMS 6-bit.
+- [x] Portas/input especificos, incluindo botao Start e stereo PSG.
+- [x] Ajustar VDP/render para diferencas GG mantendo fallback SMS.
+- [x] Perfis por hash/header para selecionar Game Gear automaticamente quando seguro.
+- [x] Testes sinteticos de header, paleta, viewport e input GG.
+- [x] Documentar limites sem prometer compatibilidade total antes de traces e ROMs permitidas.
 
 ## Recompilador
 
@@ -318,7 +318,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Save RAM em arquivo local pelo host Win32.
 - [x] Estado serializavel inicial para save states.
 - [x] Save states com versao inicial e validacao de ROM hash/modelo.
-- [x] Save states v12 com migracao de v1-v11, MEMPTR/Q, framebuffer 240, identidade e estado Nuked-OPN2.
+- [x] Save states v13 com migracao de v1-v12, Game Gear, MEMPTR/Q, framebuffer 240, identidade e estado Nuked-OPN2.
 - [x] Save state v7 preserva o read buffer do VDP e continua lendo formatos v1-v6.
 - [x] Save state v8 preserva o lock da familia de mapper e continua lendo formatos v1-v7.
 - [x] Debug overlay de PC, FPS, frame, modo runtime e audio.

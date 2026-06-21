@@ -98,10 +98,28 @@ class Vdp {
     void set_video_mode(VdpVideoMode mode) {
         video_mode_ = mode;
     }
+    void set_game_gear(bool enabled) {
+        game_gear_ = enabled;
+    }
+    bool game_gear() const {
+        return game_gear_;
+    }
     VdpVideoMode video_mode() const {
         return video_mode_;
     }
     int active_height() const;
+    int viewport_x() const {
+        return game_gear_ ? 48 : 0;
+    }
+    int viewport_y() const {
+        return game_gear_ ? 24 : 0;
+    }
+    int viewport_width() const {
+        return game_gear_ ? 160 : width;
+    }
+    int viewport_height() const {
+        return game_gear_ ? 144 : active_height();
+    }
     void set_cycle(u64 cycle) {
         current_cycle_ = cycle;
     }
@@ -125,6 +143,9 @@ class Vdp {
     const std::array<u8, 32>& debug_cram() const {
         return cram_;
     }
+    const std::array<u8, 64>& debug_game_gear_cram() const {
+        return game_gear_cram_;
+    }
     const std::array<u8, 16>& debug_registers() const {
         return registers_;
     }
@@ -137,6 +158,7 @@ class Vdp {
   private:
     std::array<u8, 16 * 1024> vram_{};
     std::array<u8, 32> cram_{};
+    std::array<u8, 64> game_gear_cram_{};
     std::array<u8, 16> registers_{};
     Framebuffer framebuffer_{};
     std::array<bool, width> scanline_bg_priority_{};
@@ -153,6 +175,7 @@ class Vdp {
     bool line_irq_pending_ = false;
     VdpTimingConfig timing_{};
     VdpVideoMode video_mode_ = VdpVideoMode::SmsMode4;
+    bool game_gear_ = false;
     u64 current_cycle_ = 0;
     bool access_logging_enabled_ = false;
     std::vector<VdpAccess> logged_accesses_;
@@ -185,6 +208,7 @@ class Vdp {
 struct VdpState {
     std::array<u8, 16 * 1024> vram{};
     std::array<u8, 32> cram{};
+    std::array<u8, 64> game_gear_cram{};
     std::array<u8, 16> registers{};
     Vdp::Framebuffer framebuffer{};
     std::array<bool, Vdp::width> scanline_bg_priority{};
@@ -200,6 +224,7 @@ struct VdpState {
     bool line_irq_pending = false;
     VdpTimingConfig timing{};
     VdpVideoMode video_mode = VdpVideoMode::SmsMode4;
+    bool game_gear = false;
     u8 read_buffer = 0;
 };
 

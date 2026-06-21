@@ -21,11 +21,18 @@ struct PsgState {
     u16 noise_lfsr = 0;
     u8 latched_channel = 0;
     bool latched_volume = false;
+    u8 stereo = 0xFF;
 };
 
 class Psg {
   public:
     void write(u8 value);
+    void set_stereo(u8 value) {
+        stereo_ = value;
+    }
+    u8 stereo() const {
+        return stereo_;
+    }
     void tick(int cpu_cycles);
     std::array<float, 2> sample() const;
     void set_enhancements(const EnhancementConfig& config) {
@@ -52,6 +59,7 @@ class Psg {
     u16 noise_lfsr_ = 0x4000;
     u8 latched_channel_ = 0;
     bool latched_volume_ = false;
+    u8 stereo_ = 0xFF;
     EnhancementConfig enhancements_{};
     u64 current_cycle_ = 0;
     bool write_logging_enabled_ = false;
