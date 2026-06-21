@@ -46,6 +46,14 @@ bool parse_bool(const std::string& value) {
     throw std::runtime_error("invalid boolean value in profile: " + value);
 }
 
+int parse_viewport_height(const std::string& value) {
+    const int height = std::stoi(strip_quotes(value));
+    if (height != 0 && height != 192 && height != 224 && height != 240) {
+        throw std::runtime_error("viewport_height must be 0, 192, 224, or 240");
+    }
+    return height;
+}
+
 ConsoleModel parse_model(const std::string& value) {
     const std::string lowered = lower_ascii(strip_quotes(value));
     if (lowered == "sms") {
@@ -129,10 +137,11 @@ std::string game_profile_fingerprint(const GameProfile& profile) {
               << ";mapper=" << profile.has_mapper << ':' << static_cast<int>(profile.mapper)
               << ";enhancements=" << profile.has_enhancements << ':' << static_cast<int>(profile.enhancements.mode)
               << ':' << profile.enhancements.disable_sprite_limit << ':' << profile.enhancements.reduce_flicker << ':'
-              << profile.enhancements.enable_fm << ':' << profile.enhancements.enable_ym2612
-              << ";audio_latency=" << profile.has_audio_latency_ms << ':' << profile.audio_latency_ms
-              << ";audio_rate=" << profile.has_audio_sample_rate << ':' << profile.audio_sample_rate
-              << ";video_standard=" << profile.has_video_standard << ':' << static_cast<int>(profile.video_standard);
+              << profile.enhancements.viewport_height << ':' << profile.enhancements.enable_fm << ':'
+              << profile.enhancements.enable_ym2612 << ";audio_latency=" << profile.has_audio_latency_ms << ':'
+              << profile.audio_latency_ms << ";audio_rate=" << profile.has_audio_sample_rate << ':'
+              << profile.audio_sample_rate << ";video_standard=" << profile.has_video_standard << ':'
+              << static_cast<int>(profile.video_standard);
     const std::string text = canonical.str();
     return rom_hash_fnv1a64(std::span<const u8>(reinterpret_cast<const u8*>(text.data()), text.size()));
 }
@@ -195,6 +204,12 @@ GameProfileDatabase GameProfileDatabase::parse(std::string_view text) {
         } else if (key == "reduce_flicker") {
             current.enhancements.reduce_flicker = parse_bool(value);
             if (current.enhancements.reduce_flicker) {
+                current.enhancements.mode = RuntimeMode::Enhanced;
+            }
+            current.has_enhancements = true;
+        } else if (key == "viewport_height") {
+            current.enhancements.viewport_height = parse_viewport_height(value);
+            if (current.enhancements.viewport_height > 192) {
                 current.enhancements.mode = RuntimeMode::Enhanced;
             }
             current.has_enhancements = true;
@@ -270,6 +285,7 @@ std::string serialize_game_profiles(std::span<const GameProfile> profiles) {
             out << "mode = \"" << runtime_mode_name(profile.enhancements.mode) << "\"\n"
                 << "disable_sprite_limit = " << (profile.enhancements.disable_sprite_limit ? "true" : "false")
                 << "\nreduce_flicker = " << (profile.enhancements.reduce_flicker ? "true" : "false")
+                << "\nviewport_height = " << profile.enhancements.viewport_height
                 << "\nenable_fm = " << (profile.enhancements.enable_fm ? "true" : "false")
                 << "\nenable_ym2612 = " << (profile.enhancements.enable_ym2612 ? "true" : "false") << "\n";
         }

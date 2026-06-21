@@ -27,7 +27,8 @@ Escolher uma entrada abre o jogo na mesma janela. Para o jogo atual, é possíve
 remover um apelido; ele passa a ser o nome mostrado no menu sem renomear nem copiar a ROM.
 O menu **Melhorias** também alterna explicitamente entre o modo fiel e o enhanced.
 Antes da primeira ativação enhanced da sessão, a GUI explica que essas opções podem
-alterar a aparência original e pede confirmação. Voltar ao modo fiel desliga as duas melhorias visuais.
+alterar a aparência original e pede confirmação. Voltar ao modo fiel desliga melhorias visuais,
+viewport expandida e YM2612, selecionando imediatamente o framebuffer fiel.
 
 Em **Arquivo > Perfil do jogo**, a configuração pode ser persistida para a ROM atual pelo
 hash, sem guardar o caminho da ROM. O submenu permite escolher mapper e NTSC/PAL, salvar o
@@ -35,6 +36,11 @@ modelo, enhancements e parâmetros de áudio atualmente ativos, ou remover o per
 alteração salva a SRAM e recarrega a mesma ROM imediatamente. Por padrão, esses perfis ficam
 em `%LOCALAPPDATA%\SG3000Recomp\profiles.txt`; um arquivo indicado por `--profile` continua
 sendo respeitado quando a GUI é iniciada pelo terminal.
+
+Perfis SMS podem definir `viewport_height = 224` ou `240` junto de `mode = "enhanced"`.
+O VDP mantém dois framebuffers: o fiel 256x192 continua intacto e fornece status de hardware,
+enquanto a superfície enhanced reconstrói as linhas extras da VRAM. Sem esse campo, em Game Gear,
+SG-3000/TMS ou ao voltar ao modo fiel, o host usa obrigatoriamente o viewport histórico.
 
 **YM2612 experimental (portas F4-F7)** ativa o núcleo [Nuked-OPN2](https://github.com/nukeykt/Nuked-OPN2)
 em modo compatível com YM2612. Essa extensão não pertence ao hardware SMS/SG-3000 e não

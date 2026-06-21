@@ -27,6 +27,9 @@ Os menus permitem voltar ao modo fiel ou ativar melhorias visuais com um aviso d
 compatibilidade. SRAM, quick-save e preferências ficam somente em
 `%LOCALAPPDATA%\SG3000Recomp`; nenhum caminho de ROM ou BIOS é gravado no pacote.
 
+Um perfil SMS enhanced pode solicitar viewport vertical 224/240. Essa saída usa um framebuffer
+separado; voltar ao modo fiel restaura imediatamente 256x192 sem reutilizar pixels aprimorados.
+
 ROMs Game Gear com header válido são reconhecidas automaticamente e usam a janela LCD
 160x144, paleta de 12 bits e áudio PSG estéreo. Link cable e compatibilidade integral do
 catálogo ainda não são prometidos.

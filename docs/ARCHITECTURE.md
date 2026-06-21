@@ -17,6 +17,12 @@ hardware and catalog-wide compatibility remain outside the validated scope; see 
 The SG-3000 VDP path selects the four standard TMS9918 display modes from register bits M1/M2/M3. Graphics I and II use their distinct pattern/color table addressing, Text uses the 40-column six-pixel glyph layout and border, and Multicolor uses four-pixel color blocks. TMS sprites remain active in the graphics modes and disabled in Text mode.
 
 Sprite evaluation is ordered by SAT index in both SMS Mode 4 and TMS modes. Overlapping opaque pixels set the collision flag while retaining the lower-index sprite's color. Optional sprite-limit enhancements may render sprites beyond the original per-line limit, but those extra pixels do not create hardware collision status.
+
+The VDP always renders an authoritative faithful framebuffer first. Enhanced Mode 4 rendering uses
+a second surface and restores hardware status/priority after its pass, so visual experiments cannot
+mutate the faithful image or sprite flags. An explicit per-game `viewport_height` may reconstruct
+SMS lines through 224 or 240 from VRAM; accurate mode, TMS modes, and Game Gear fall back to their
+historical viewport.
 Mode 4 left-column blanking is an output mask: it hides background and sprite pixels in
 the first eight columns after sprite evaluation, so overlapping sprites there still set
 the hardware collision flag.

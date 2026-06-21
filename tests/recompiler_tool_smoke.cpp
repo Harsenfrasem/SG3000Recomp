@@ -192,6 +192,7 @@ int main() {
     const std::filesystem::path host_sram_path = output_dir / "host_save.sav";
     const std::filesystem::path host_profile_path = output_dir / "host_profiles.txt";
     const std::filesystem::path host_profile_sram_path = output_dir / "host_profile_save.sav";
+    const std::filesystem::path host_profile_frame_path = output_dir / "host_profile_frame.bmp";
     const std::filesystem::path state_path = output_dir / "fixture.sgstate";
     const std::filesystem::path state_reload_path = output_dir / "fixture_reload.sgstate";
     const std::filesystem::path state_mismatch_rom_path = output_dir / "state_mismatch.sms";
@@ -832,6 +833,7 @@ int main() {
                "mapper = \"plain\"\n"
                "mode = \"enhanced\"\n"
                "reduce_flicker = true\n"
+               "viewport_height = 224\n"
                "audio_latency_ms = 120\n");
 
     const std::string host_profile_command = quote_arg(SGRECOMP_HOST_PATH) + " " + quote(host_sram_rom_path) +
@@ -842,5 +844,16 @@ int main() {
     const auto host_profile_sram = read_binary(host_profile_sram_path);
     assert(host_profile_sram.size() == 0x8000);
     assert(host_profile_sram[0] == 0x00); // profile mapper overrides the CLI mapper
+
+    const std::string host_profile_frame_command = quote_arg(SGRECOMP_TOOL_PATH) + " " + quote(host_sram_rom_path) +
+                                                   " --run-host --frames 1 --profile " + quote(host_profile_path) +
+                                                   " --dump-frame-bmp " + quote(host_profile_frame_path);
+    assert(run_command(host_profile_frame_command) == 0);
+    const auto host_profile_frame = read_binary(host_profile_frame_path);
+    assert(host_profile_frame.size() > 54);
+    const unsigned enhanced_height =
+        static_cast<unsigned>(host_profile_frame[22]) | (static_cast<unsigned>(host_profile_frame[23]) << 8) |
+        (static_cast<unsigned>(host_profile_frame[24]) << 16) | (static_cast<unsigned>(host_profile_frame[25]) << 24);
+    assert(enhanced_height == 224);
 #endif
 }

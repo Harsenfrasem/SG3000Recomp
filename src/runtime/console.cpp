@@ -1,6 +1,19 @@
 #include "sgrecomp/console.h"
 
 namespace sgrecomp {
+namespace {
+
+EnhancementConfig normalize_enhancements(EnhancementConfig config) {
+    if (config.mode == RuntimeMode::Accurate) {
+        config.disable_sprite_limit = false;
+        config.reduce_flicker = false;
+        config.viewport_height = 0;
+        config.enable_ym2612 = false;
+    }
+    return config;
+}
+
+} // namespace
 
 Console::Console(ConsoleModel model) : bus_(model, vdp_, psg_, ym2413_, joypad_, &ym2612_), model_(model) {
     vdp_.set_game_gear(model_ == ConsoleModel::GameGear);
@@ -15,10 +28,7 @@ Console::Console(ConsoleModel model, const EnhancementConfig& enhancements)
     if (model_ == ConsoleModel::SG3000) {
         vdp_.set_video_mode(VdpVideoMode::TmsGraphics1);
     }
-    vdp_.set_enhancements(enhancements_);
-    psg_.set_enhancements(enhancements_);
-    bus_.set_fm_present(enhancements_.enable_fm);
-    ym2612_.set_enabled(enhancements_.enable_ym2612);
+    set_enhancements(enhancements);
 }
 
 void Console::load_rom(std::span<const u8> rom) {
@@ -34,7 +44,7 @@ void Console::reset() {
 }
 
 void Console::set_enhancements(const EnhancementConfig& enhancements) {
-    enhancements_ = enhancements;
+    enhancements_ = normalize_enhancements(enhancements);
     vdp_.set_enhancements(enhancements_);
     psg_.set_enhancements(enhancements_);
     bus_.set_fm_present(enhancements_.enable_fm);

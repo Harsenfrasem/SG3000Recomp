@@ -118,6 +118,10 @@ The runtime normalizes common SMS I/O mirrors: `0x40-0x7f` route counter reads a
 
 Sprite enhancements keep the original overflow and collision status behavior. Accurate mode renders the original 8 sprites per scanline, `--reduce-flicker` raises that render limit to 16, and `--disable-sprite-limit` renders all visible sprites on the scanline. Extra enhanced sprites remain visually ordered but do not create hardware collision flags. `--enable-fm` enables the optional YM2413/OPLL path backed by the MIT-licensed emu2413 core, including ROM instruments, envelopes, LFO and rhythm mode.
 
+Enhanced rendering uses a separate framebuffer. SMS profiles may opt into `viewport_height = 224`
+or `240`, and the CLI equivalent is `--viewport-height`; accurate mode always returns to the
+unchanged 256x192 faithful surface.
+
 Save states are local binary snapshots of mutable runtime state. They do not embed ROM or BIOS bytes, so load the same software first and keep `.sgstate` files under ignored local folders such as `local-saves/`. New save states include the ROM hash and console model; loading refuses mismatches unless `--force-state` is used for debugging.
 
 The current save-state format is version 14. It persists exact emu2413 and Nuked-OPN2 core state,

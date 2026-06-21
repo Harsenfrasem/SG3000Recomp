@@ -1,5 +1,7 @@
 #include "sgrecomp/vdp.h"
 
+#include <algorithm>
+
 namespace sgrecomp {
 namespace {
 
@@ -153,6 +155,24 @@ int Vdp::active_height() const {
     return (registers_[1] & 0x10) != 0 ? 240 : 224;
 }
 
+bool Vdp::enhanced_output_active() const {
+    if (enhancements_.mode == RuntimeMode::Accurate) {
+        return false;
+    }
+    const bool expanded_viewport = !game_gear_ && !is_tms_mode() && enhancements_.viewport_height > active_height();
+    return enhancements_.disable_sprite_limit || enhancements_.reduce_flicker || expanded_viewport;
+}
+
+int Vdp::viewport_height() const {
+    if (game_gear_) {
+        return 144;
+    }
+    if (enhanced_output_active()) {
+        return std::clamp(enhancements_.viewport_height, active_height(), max_height);
+    }
+    return active_height();
+}
+
 void Vdp::advance_scanline() {
     const int visible_height = active_height();
     if (scanline_ < visible_height) {
@@ -166,6 +186,8 @@ void Vdp::advance_scanline() {
         } else {
             --line_counter_;
         }
+    } else if (enhanced_output_active() && scanline_ < viewport_height()) {
+        render_enhanced_scanline(scanline_);
     }
 
     ++scanline_;
@@ -182,10 +204,47 @@ void Vdp::advance_scanline() {
 }
 
 void Vdp::render_scanline(int line) {
+    const EnhancementConfig configured = enhancements_;
+    const bool render_enhanced = enhanced_output_active();
+
+    EnhancementConfig faithful = configured;
+    faithful.mode = RuntimeMode::Accurate;
+    faithful.disable_sprite_limit = false;
+    faithful.reduce_flicker = false;
+    faithful.viewport_height = 0;
+    enhancements_ = faithful;
+    render_target_ = &framebuffer_;
+    render_scanline_pass(line);
+
+    if (render_enhanced) {
+        const u8 hardware_status = status_;
+        const auto faithful_priority = scanline_bg_priority_;
+        enhancements_ = configured;
+        render_target_ = &enhanced_framebuffer_;
+        render_scanline_pass(line);
+        status_ = hardware_status;
+        scanline_bg_priority_ = faithful_priority;
+    }
+
+    enhancements_ = configured;
+    render_target_ = nullptr;
+}
+
+void Vdp::render_enhanced_scanline(int line) {
+    const u8 hardware_status = status_;
+    const auto faithful_priority = scanline_bg_priority_;
+    render_target_ = &enhanced_framebuffer_;
+    render_scanline_pass(line);
+    render_target_ = nullptr;
+    status_ = hardware_status;
+    scanline_bg_priority_ = faithful_priority;
+}
+
+void Vdp::render_scanline_pass(int line) {
     scanline_bg_priority_.fill(false);
     if ((registers_[1] & 0x40) == 0) {
         for (int x = 0; x < width; ++x) {
-            framebuffer_[line * width + x] = is_tms_mode() ? tms_color(registers_[7] & 0x0F) : backdrop_color();
+            (*render_target_)[line * width + x] = is_tms_mode() ? tms_color(registers_[7] & 0x0F) : backdrop_color();
         }
         return;
     }
@@ -220,7 +279,7 @@ void Vdp::render_mode4_scanline(int line) {
 
     for (int x = 0; x < width; ++x) {
         if (blank_left_column && x < 8) {
-            framebuffer_[line * width + x] = backdrop_color();
+            (*render_target_)[line * width + x] = backdrop_color();
             continue;
         }
 
@@ -244,7 +303,7 @@ void Vdp::render_mode4_scanline(int line) {
         const u16 pattern = static_cast<u16>((pattern_base + tile * 32 + tile_row * 4) & 0x3FFF);
         const u8 color = background_color_index(pattern, tile_bit);
         const u8 palette_index = static_cast<u8>((palette1 ? 16 : 0) + color);
-        framebuffer_[line * width + x] = cram_color(palette_index);
+        (*render_target_)[line * width + x] = cram_color(palette_index);
         scanline_bg_priority_[static_cast<std::size_t>(x)] = priority && color != 0;
     }
 
@@ -268,7 +327,7 @@ void Vdp::render_tms_graphics1_scanline(int line) {
         const u8 foreground = static_cast<u8>(colors >> 4);
         const u8 background = static_cast<u8>(colors & 0x0F);
         const bool set = ((vram_[pattern] >> bit) & 0x01) != 0;
-        framebuffer_[line * width + x] = tms_display_color(set ? foreground : background);
+        (*render_target_)[line * width + x] = tms_display_color(set ? foreground : background);
     }
 
     render_tms_sprites(line);
@@ -284,7 +343,7 @@ void Vdp::render_tms_text_scanline(int line) {
 
     for (int x = 0; x < width; ++x) {
         if (x < 8 || x >= 248) {
-            framebuffer_[line * width + x] = tms_color(background);
+            (*render_target_)[line * width + x] = tms_color(background);
             continue;
         }
         const int text_x = x - 8;
@@ -294,7 +353,7 @@ void Vdp::render_tms_text_scanline(int line) {
         const u8 tile = vram_[name_address];
         const u16 pattern = static_cast<u16>((pattern_base + tile * 8 + row) & 0x3FFF);
         const bool set = ((vram_[pattern] >> bit) & 0x01) != 0;
-        framebuffer_[line * width + x] = tms_display_color(set ? foreground : background);
+        (*render_target_)[line * width + x] = tms_display_color(set ? foreground : background);
     }
 }
 
@@ -318,7 +377,7 @@ void Vdp::render_tms_graphics2_scanline(int line) {
         const u8 pattern = vram_[(pattern_base + pattern_offset) & 0x3FFF];
         const u8 colors = vram_[(color_base + color_offset) & 0x3FFF];
         const u8 color = static_cast<u8>(((pattern >> bit) & 1) != 0 ? colors >> 4 : colors & 0x0F);
-        framebuffer_[line * width + x] = tms_display_color(color);
+        (*render_target_)[line * width + x] = tms_display_color(color);
     }
 
     render_tms_sprites(line);
@@ -336,7 +395,7 @@ void Vdp::render_tms_multicolor_scanline(int line) {
         const u16 pattern = static_cast<u16>((pattern_base + tile * 8 + ((line / 4) & 0x07)) & 0x3FFF);
         const u8 colors = vram_[pattern];
         const u8 color = static_cast<u8>((x & 0x07) < 4 ? colors >> 4 : colors & 0x0F);
-        framebuffer_[line * width + x] = tms_display_color(color);
+        (*render_target_)[line * width + x] = tms_display_color(color);
     }
 
     render_tms_sprites(line);
@@ -417,7 +476,7 @@ void Vdp::render_sprites(int line) {
                 if (scanline_bg_priority_[static_cast<std::size_t>(x)]) {
                     continue;
                 }
-                framebuffer_[line * width + x] = cram_color(static_cast<u8>(16 + color));
+                (*render_target_)[line * width + x] = cram_color(static_cast<u8>(16 + color));
             }
         }
     }
@@ -496,7 +555,7 @@ void Vdp::render_tms_sprites(int line) {
                     continue;
                 }
                 sprite_pixels[static_cast<std::size_t>(x)] = true;
-                framebuffer_[line * width + x] = tms_color(color);
+                (*render_target_)[line * width + x] = tms_color(color);
             }
         }
     }
@@ -666,6 +725,8 @@ void Vdp::load_state(const VdpState& state) {
     game_gear_cram_ = state.game_gear_cram;
     registers_ = state.registers;
     framebuffer_ = state.framebuffer;
+    enhanced_framebuffer_ = framebuffer_;
+    render_target_ = nullptr;
     scanline_bg_priority_ = state.scanline_bg_priority;
     address_ = static_cast<u16>(state.address & 0x3FFF);
     latch_ = state.latch;

@@ -433,6 +433,14 @@ HostVideoStandard parse_video_standard(std::string text) {
     throw std::runtime_error("unknown video standard: " + text);
 }
 
+int parse_viewport_height(const std::string& text) {
+    const int height = std::stoi(text);
+    if (height != 0 && height != 192 && height != 224 && height != 240) {
+        throw std::runtime_error("viewport height must be 0, 192, 224, or 240");
+    }
+    return height;
+}
+
 void write_binary_file(const std::filesystem::path& path, std::span<const u8> bytes) {
     if (path.has_parent_path()) {
         std::filesystem::create_directories(path.parent_path());
@@ -579,7 +587,8 @@ void print_usage() {
         << "                    [--print-hash]\n"
         << "                    [--quit-after-frames n]\n"
         << "                    [--show-status]\n"
-        << "                    [--disable-sprite-limit] [--reduce-flicker] [--enable-fm] [--enable-ym2612]\n";
+        << "                    [--disable-sprite-limit] [--reduce-flicker] [--viewport-height 224|240]\n"
+        << "                    [--enable-fm] [--enable-ym2612]\n";
 }
 
 Options parse_args(int argc, char** argv) {
@@ -690,6 +699,13 @@ Options parse_args(int argc, char** argv) {
         if (arg == "--reduce-flicker") {
             opts.enhancements.mode = RuntimeMode::Enhanced;
             opts.enhancements.reduce_flicker = true;
+            continue;
+        }
+        if (arg == "--viewport-height" && i + 1 < argc) {
+            opts.enhancements.viewport_height = parse_viewport_height(argv[++i]);
+            if (opts.enhancements.viewport_height > 192) {
+                opts.enhancements.mode = RuntimeMode::Enhanced;
+            }
             continue;
         }
         if (arg == "--enable-fm") {
@@ -1480,15 +1496,15 @@ bool confirm_enhanced_mode(HWND hwnd, AppState& app) {
     if (app.compatibility_warning_acknowledged) {
         return true;
     }
-    const int result =
-        MessageBoxW(hwnd,
-                    L"O modo enhanced pode alterar a aparencia original do jogo.\n\n"
-                    L"Reducao de flicker, remocao do limite de sprites e o YM2612 experimental nao representam "
-                    L"exatamente o hardware historico do SMS/SG-3000. Voce pode voltar ao modo fiel a qualquer "
-                    L"momento.\n\n"
-                    L"Deseja continuar?",
-                    L"SG3000Recomp - Aviso de compatibilidade",
-                    MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2);
+    const int result = MessageBoxW(
+        hwnd,
+        L"O modo enhanced pode alterar a aparencia original do jogo.\n\n"
+        L"Reducao de flicker, remocao do limite de sprites, viewport expandida e o YM2612 experimental nao representam "
+        L"exatamente o hardware historico do SMS/SG-3000. Voce pode voltar ao modo fiel a qualquer "
+        L"momento.\n\n"
+        L"Deseja continuar?",
+        L"SG3000Recomp - Aviso de compatibilidade",
+        MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2);
     if (result == IDYES) {
         app.compatibility_warning_acknowledged = true;
         return true;
@@ -1496,18 +1512,20 @@ bool confirm_enhanced_mode(HWND hwnd, AppState& app) {
     return false;
 }
 
-void set_runtime_mode(AppState& app, RuntimeMode mode) {
+void set_runtime_mode(HWND hwnd, AppState& app, RuntimeMode mode) {
     auto config = app.host->console().enhancements();
     config.mode = mode;
     if (mode == RuntimeMode::Accurate) {
         config.reduce_flicker = false;
         config.disable_sprite_limit = false;
+        config.viewport_height = 0;
         config.enable_ym2612 = false;
         app.status_message = "modo fiel ativado";
     } else {
         app.status_message = "modo enhanced ativado";
     }
     app.host->console().set_enhancements(config);
+    resize_game_window(hwnd, app, app.window_scale);
 }
 
 void set_enhancement(AppState& app, MenuCommand command, bool enabled) {
@@ -1733,8 +1751,9 @@ std::string overlay_text(const AppState& app) {
         << " cycles " << cpu.cycles << (cpu.halted ? " halted" : "") << "\n"
         << "mode " << runtime_mode_name(config.mode) << "  sprite_limit "
         << (config.disable_sprite_limit ? "off" : "on") << "  reduce_flicker " << (config.reduce_flicker ? "on" : "off")
-        << "  ym2612 " << (config.enable_ym2612 ? "on" : "off") << "  " << (app.emulation_paused ? "paused" : "running")
-        << "\n"
+        << "  viewport " << app.host->console().vdp().viewport_width() << "x"
+        << app.host->console().vdp().viewport_height() << "  ym2612 " << (config.enable_ym2612 ? "on" : "off") << "  "
+        << (app.emulation_paused ? "paused" : "running") << "\n"
         << "execution " << host_execution_mode_name(app.host->config().execution_mode) << "  interpreted "
         << app.last_frame.interpreted_instructions << "  recompiled " << app.last_frame.recompiled_instructions
         << "  fallback " << app.last_frame.fallback_instructions << "\n";
@@ -2193,13 +2212,13 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
             reset_emulation(*app);
             break;
         case MenuModeAccurate:
-            set_runtime_mode(*app, RuntimeMode::Accurate);
+            set_runtime_mode(hwnd, *app, RuntimeMode::Accurate);
             break;
         case MenuModeEnhanced:
             if (!confirm_enhanced_mode(hwnd, *app)) {
                 return 0;
             }
-            set_runtime_mode(*app, RuntimeMode::Enhanced);
+            set_runtime_mode(hwnd, *app, RuntimeMode::Enhanced);
             break;
         case MenuEnhancementReduceFlicker:
             if (!app->host->console().enhancements().reduce_flicker && !confirm_enhanced_mode(hwnd, *app)) {

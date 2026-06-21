@@ -25,6 +25,11 @@ Teste primeiro no modo fiel:
 
 Ative enhancements individualmente e compare sempre a mesma cena/input.
 
+Para experimentar linhas adicionais em SMS Mode 4, use `mode = "enhanced"` e
+`viewport_height = 224` ou `240`. Comece em `0`/modo fiel e só mantenha a expansão quando os
+tiles, HUD, entidades e colisão da cena privada continuarem coerentes. O framebuffer fiel fica
+disponível separadamente para comparação.
+
 ## 3. Capturar uma reprodução determinística
 
 Crie um CSV de entrada conforme `docs/INPUT_SCRIPT.md` e rode o host headless:

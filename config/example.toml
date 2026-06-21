@@ -11,6 +11,8 @@ max_static_bytes = "0xC000"
 [runtime]
 region = "ntsc"
 audio_sample_rate = 48000
+# Set 224 or 240 only for an explicitly tested enhanced SMS profile.
+viewport_height = 0
 # Non-historical opt-in extension using Nuked-OPN2 on custom ports F4-F7.
 enable_ym2612 = false
 

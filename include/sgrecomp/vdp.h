@@ -117,9 +117,8 @@ class Vdp {
     int viewport_width() const {
         return game_gear_ ? 160 : width;
     }
-    int viewport_height() const {
-        return game_gear_ ? 144 : active_height();
-    }
+    int viewport_height() const;
+    bool enhanced_output_active() const;
     void set_cycle(u64 cycle) {
         current_cycle_ = cycle;
     }
@@ -136,6 +135,12 @@ class Vdp {
 
     const Framebuffer& framebuffer() const {
         return framebuffer_;
+    }
+    const Framebuffer& enhanced_framebuffer() const {
+        return enhanced_framebuffer_;
+    }
+    const Framebuffer& display_framebuffer() const {
+        return enhanced_output_active() ? enhanced_framebuffer_ : framebuffer_;
     }
     const std::array<u8, 16 * 1024>& debug_vram() const {
         return vram_;
@@ -161,6 +166,8 @@ class Vdp {
     std::array<u8, 64> game_gear_cram_{};
     std::array<u8, 16> registers_{};
     Framebuffer framebuffer_{};
+    Framebuffer enhanced_framebuffer_{};
+    Framebuffer* render_target_ = nullptr;
     std::array<bool, width> scanline_bg_priority_{};
     u16 address_ = 0;
     u8 latch_ = 0;
@@ -183,6 +190,8 @@ class Vdp {
 
     void advance_scanline();
     void render_scanline(int line);
+    void render_scanline_pass(int line);
+    void render_enhanced_scanline(int line);
     void render_mode4_scanline(int line);
     void render_tms_graphics1_scanline(int line);
     void render_tms_text_scanline(int line);

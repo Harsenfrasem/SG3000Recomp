@@ -125,10 +125,10 @@ Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
 - [x] Dump legivel de tilemap e sprite table.
 - [x] Replay headless deterministico combina input com logs de I/O/memoria/VDP e dumps finais de VRAM/CRAM/tilemap/sprites.
 - [ ] Relatorio local por hash com camera, scroll, HUD, entidades e bancos.
-- [ ] Renderer enhanced separado do renderer fiel.
-- [ ] Experimento de viewport expansion por perfil.
+- [x] Renderer enhanced separado do renderer fiel, com superficies distintas no VDP.
+- [x] Experimento de viewport vertical 224/240 por perfil e CLI.
 - [ ] Hooks por PC/banco para modo hybrid/recompiled.
-- [ ] Fallback obrigatorio para 256x192 fiel.
+- [x] Fallback obrigatorio para framebuffer fiel 256x192 quando enhanced esta inativo ou inseguro.
 
 ### 8. Suporte futuro a Game Gear
 
@@ -274,7 +274,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] VCounter usa sequencias NTSC/PAL especificas para modos 224/240 linhas.
 - [x] Pause/NMI do SMS conectado ao runtime.
 - [x] Dump de tilemap/sprite table para engenharia reversa local.
-- [ ] Renderer enhanced experimental sem alterar o framebuffer fiel.
+- [x] Renderer enhanced experimental sem alterar framebuffer, status ou prioridade do passe fiel.
 
 ## PSG / Audio
 

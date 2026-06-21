@@ -101,7 +101,7 @@ void HostRuntime::clear_audio() {
 }
 
 const Vdp::Framebuffer& HostRuntime::framebuffer() const {
-    return console_.vdp().framebuffer();
+    return console_.vdp().display_framebuffer();
 }
 
 void HostRuntime::apply_input(const HostInputState& input) {

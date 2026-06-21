@@ -158,6 +158,14 @@ HostVideoStandard parse_video_standard(std::string text) {
     throw std::runtime_error("unknown video standard: " + text);
 }
 
+int parse_viewport_height(std::string text) {
+    const int height = std::stoi(strip_quotes(std::move(text)));
+    if (height != 0 && height != 192 && height != 224 && height != 240) {
+        throw std::runtime_error("viewport height must be 0, 192, 224, or 240");
+    }
+    return height;
+}
+
 CartridgeHeaderRegion parse_header_region(std::string text) {
     text = lower_ascii(strip_quotes(std::move(text)));
     if (text == "sms-japan")
@@ -338,6 +346,11 @@ void apply_config_file(Options& opts, const std::filesystem::path& path) {
                 if (opts.enhancements.reduce_flicker) {
                     opts.enhancements.mode = RuntimeMode::Enhanced;
                 }
+            } else if (key == "viewport_height") {
+                opts.enhancements.viewport_height = parse_viewport_height(value);
+                if (opts.enhancements.viewport_height > 192) {
+                    opts.enhancements.mode = RuntimeMode::Enhanced;
+                }
             } else {
                 throw std::runtime_error("unknown runtime config key: " + key);
             }
@@ -463,7 +476,8 @@ void print_usage() {
         << "                [--dump-tilemap tilemap.csv] [--dump-sprites sprites.csv]\n"
         << "                [--load-sram save.sav] [--save-sram save.sav] [--dump-sram sram.bin]\n"
         << "                [--load-state state.sgstate] [--save-state state.sgstate] [--force-state]\n"
-        << "                [--dump-coverage pcs.csv] [--disable-sprite-limit] [--reduce-flicker] [--enable-fm]"
+        << "                [--dump-coverage pcs.csv] [--disable-sprite-limit] [--reduce-flicker]"
+           " [--viewport-height 224|240] [--enable-fm]"
            " [--enable-ym2612]\n"
         << "       sgrecomp <rom.sms|rom.sg|rom.gg> --run-host [--frames n] [--input-script input.csv] [--bios "
            "bios.sms] [--video-standard ntsc|pal] [--audio-sample-rate hz]\n"
@@ -675,6 +689,13 @@ Options parse_args(int argc, char** argv) {
             opts.enhancements.reduce_flicker = true;
             continue;
         }
+        if (arg == "--viewport-height" && i + 1 < argc) {
+            opts.enhancements.viewport_height = parse_viewport_height(argv[++i]);
+            if (opts.enhancements.viewport_height > 192) {
+                opts.enhancements.mode = RuntimeMode::Enhanced;
+            }
+            continue;
+        }
         if (arg == "--enable-fm") {
             opts.enhancements.enable_fm = true;
             continue;
@@ -725,6 +746,35 @@ void disassemble(const std::array<u8, 0x10000>& image, std::size_t limit) {
                   << static_cast<int>(insn.opcode) << "  " << insn.mnemonic << "\n";
         pc = static_cast<u16>(pc + insn.size);
     }
+}
+
+std::size_t count_lit_viewport(const Vdp& vdp, const Vdp::Framebuffer& framebuffer) {
+    std::size_t lit = 0;
+    for (int y = 0; y < vdp.viewport_height(); ++y) {
+        for (int x = 0; x < vdp.viewport_width(); ++x) {
+            const u32 pixel =
+                framebuffer[static_cast<std::size_t>(vdp.viewport_y() + y) * Vdp::width + vdp.viewport_x() + x];
+            lit += (pixel & 0x00FFFFFF) != 0 ? 1 : 0;
+        }
+    }
+    return lit;
+}
+
+u64 hash_viewport(const Vdp& vdp, const Vdp::Framebuffer& framebuffer) {
+    constexpr u64 offset_basis = 14695981039346656037ULL;
+    constexpr u64 prime = 1099511628211ULL;
+    u64 hash = offset_basis;
+    for (int y = 0; y < vdp.viewport_height(); ++y) {
+        for (int x = 0; x < vdp.viewport_width(); ++x) {
+            const u32 pixel =
+                framebuffer[static_cast<std::size_t>(vdp.viewport_y() + y) * Vdp::width + vdp.viewport_x() + x];
+            for (int shift = 0; shift < 32; shift += 8) {
+                hash ^= static_cast<u8>((pixel >> shift) & 0xFF);
+                hash *= prime;
+            }
+        }
+    }
+    return hash;
 }
 
 void write_frame_ppm(const std::filesystem::path& path,
@@ -1746,10 +1796,8 @@ void run_smoke(ConsoleModel model,
         }
     };
     const auto print_runtime_summary = [&]() {
-        const auto& framebuffer = vdp.framebuffer();
-        const auto visible_end = framebuffer.begin() + Vdp::width * vdp.active_height();
-        const auto lit_pixels =
-            std::count_if(framebuffer.begin(), visible_end, [](u32 pixel) { return (pixel & 0x00FFFFFF) != 0; });
+        const auto& framebuffer = vdp.display_framebuffer();
+        const auto lit_pixels = count_lit_viewport(vdp, framebuffer);
         const auto audio = psg.sample();
         const auto fm_audio = ym2413.sample();
         const auto ym2612_audio = ym2612.sample();
@@ -1978,18 +2026,7 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
         }
         bios_active_previous_frame = bios_active;
         if (frame_log) {
-            constexpr u64 offset_basis = 14695981039346656037ULL;
-            constexpr u64 prime = 1099511628211ULL;
-            u64 framebuffer_hash = offset_basis;
-            const std::size_t framebuffer_pixels =
-                static_cast<std::size_t>(Vdp::width * host.console().vdp().active_height());
-            for (std::size_t pixel_index = 0; pixel_index < framebuffer_pixels; ++pixel_index) {
-                const u32 pixel = host.framebuffer()[pixel_index];
-                for (int shift = 0; shift < 32; shift += 8) {
-                    framebuffer_hash ^= static_cast<u8>((pixel >> shift) & 0xFF);
-                    framebuffer_hash *= prime;
-                }
-            }
+            const u64 framebuffer_hash = hash_viewport(host.console().vdp(), host.framebuffer());
             const auto nonzero_audio = std::count_if(host.audio().begin() + static_cast<std::ptrdiff_t>(audio_start),
                                                      host.audio().end(),
                                                      [](s16 value) { return value != 0; });
@@ -2024,9 +2061,7 @@ void run_host(ConsoleModel model, const std::vector<u8>& rom, const std::vector<
     }
 
     const auto& framebuffer = host.framebuffer();
-    const auto visible_end = framebuffer.begin() + Vdp::width * host.console().vdp().active_height();
-    const auto lit_pixels =
-        std::count_if(framebuffer.begin(), visible_end, [](u32 pixel) { return (pixel & 0x00FFFFFF) != 0; });
+    const auto lit_pixels = count_lit_viewport(host.console().vdp(), framebuffer);
     const auto sample = host.console().psg().sample();
     const auto fm_sample = host.console().ym2413().sample();
 

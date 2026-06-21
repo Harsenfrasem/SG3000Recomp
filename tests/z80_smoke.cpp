@@ -2055,7 +2055,7 @@ void test_tms_enhanced_sprites_do_not_create_hardware_collision() {
     vdp.write_data(0xD0);
 
     vdp.tick(228);
-    assert(vdp.framebuffer()[0] == 0xFF21C842);
+    assert(vdp.display_framebuffer()[0] == 0xFF21C842);
     const u8 status = vdp.read_status();
     assert((status & 0x40) != 0);
     assert((status & 0x20) == 0);
@@ -2200,7 +2200,8 @@ void test_vdp_sprite_limit_enhancement() {
     setup_visible_sprites(enhanced, 9);
     enhanced.tick(228);
     assert(enhanced.framebuffer()[0] == 0xFF00FF00);
-    assert(enhanced.framebuffer()[0x40] == 0xFF00FF00);
+    assert(enhanced.framebuffer()[0x40] == 0xFF000000);
+    assert(enhanced.display_framebuffer()[0x40] == 0xFF00FF00);
     assert((enhanced.read_status() & 0x40) != 0);
 }
 
@@ -2217,7 +2218,7 @@ void test_vdp_enhanced_sprites_do_not_create_hardware_collision() {
     vdp.write_data(0x00);    // overlap sprite zero beyond the hardware limit
 
     vdp.tick(228);
-    assert(vdp.framebuffer()[0] == 0xFF00FF00);
+    assert(vdp.display_framebuffer()[0] == 0xFF00FF00);
     const u8 status = vdp.read_status();
     assert((status & 0x40) != 0);
     assert((status & 0x20) == 0);
@@ -2231,8 +2232,8 @@ void test_vdp_reduce_flicker_uses_conservative_sprite_limit() {
     reduced.set_enhancements(config);
     setup_visible_sprites(reduced, 17);
     reduced.tick(228);
-    assert(reduced.framebuffer()[0x78] == 0xFF00FF00);
-    assert(reduced.framebuffer()[0x80] == 0xFF000000);
+    assert(reduced.display_framebuffer()[0x78] == 0xFF00FF00);
+    assert(reduced.display_framebuffer()[0x80] == 0xFF000000);
     assert((reduced.read_status() & 0x40) != 0);
 
     Vdp unlimited;
@@ -2240,8 +2241,34 @@ void test_vdp_reduce_flicker_uses_conservative_sprite_limit() {
     unlimited.set_enhancements(config);
     setup_visible_sprites(unlimited, 17);
     unlimited.tick(228);
-    assert(unlimited.framebuffer()[0x80] == 0xFF00FF00);
+    assert(unlimited.display_framebuffer()[0x80] == 0xFF00FF00);
     assert((unlimited.read_status() & 0x40) != 0);
+}
+
+void test_vdp_enhanced_viewport_is_separate_and_accurate_falls_back() {
+    Vdp enhanced;
+    EnhancementConfig config;
+    config.mode = RuntimeMode::Enhanced;
+    config.viewport_height = 224;
+    enhanced.set_enhancements(config);
+    enhanced.tick(228 * 201);
+
+    const std::size_t extra_pixel = 200 * Vdp::width;
+    assert(enhanced.active_height() == 192);
+    assert(enhanced.viewport_height() == 224);
+    assert(enhanced.enhanced_output_active());
+    assert(enhanced.framebuffer()[extra_pixel] == 0x00000000);
+    assert(enhanced.enhanced_framebuffer()[extra_pixel] == 0xFF000000);
+    assert(enhanced.display_framebuffer()[extra_pixel] == 0xFF000000);
+
+    Vdp accurate;
+    config.mode = RuntimeMode::Accurate;
+    config.disable_sprite_limit = true;
+    config.viewport_height = 240;
+    accurate.set_enhancements(config);
+    assert(!accurate.enhanced_output_active());
+    assert(accurate.viewport_height() == 192);
+    assert(&accurate.display_framebuffer() == &accurate.framebuffer());
 }
 
 void test_vdp_debug_tilemap_and_sprite_snapshots() {
@@ -2498,6 +2525,19 @@ void test_console_enhancement_config_propagates_to_runtime_devices() {
     assert(console.psg().enhancements().disable_sprite_limit);
     assert(console.psg().enhancements().reduce_flicker);
     assert(console.ym2413().present());
+
+    EnhancementConfig rejected_in_accurate;
+    rejected_in_accurate.mode = RuntimeMode::Accurate;
+    rejected_in_accurate.disable_sprite_limit = true;
+    rejected_in_accurate.reduce_flicker = true;
+    rejected_in_accurate.viewport_height = 240;
+    rejected_in_accurate.enable_ym2612 = true;
+    console.set_enhancements(rejected_in_accurate);
+    assert(!console.enhancements().disable_sprite_limit);
+    assert(!console.enhancements().reduce_flicker);
+    assert(console.enhancements().viewport_height == 0);
+    assert(!console.enhancements().enable_ym2612);
+    assert(!console.vdp().enhanced_output_active());
 }
 
 void test_psg_tone_generates_sample() {
@@ -4014,6 +4054,7 @@ void test_game_profile_hash_and_parse() {
                                                      "mapper = \"k8k\"\n"
                                                      "mode = \"enhanced\"\n"
                                                      "disable_sprite_limit = true\n"
+                                                     "viewport_height = 224\n"
                                                      "enable_fm = true\n"
                                                      "enable_ym2612 = true\n"
                                                      "audio_latency_ms = 120\n"
@@ -4029,6 +4070,7 @@ void test_game_profile_hash_and_parse() {
     assert(profile->has_enhancements);
     assert(profile->enhancements.mode == RuntimeMode::Enhanced);
     assert(profile->enhancements.disable_sprite_limit);
+    assert(profile->enhancements.viewport_height == 224);
     assert(profile->enhancements.enable_fm);
     assert(profile->enhancements.enable_ym2612);
     assert(profile->has_audio_latency_ms);
@@ -4207,6 +4249,7 @@ int main() {
     test_vdp_sprite_limit_enhancement();
     test_vdp_enhanced_sprites_do_not_create_hardware_collision();
     test_vdp_reduce_flicker_uses_conservative_sprite_limit();
+    test_vdp_enhanced_viewport_is_separate_and_accurate_falls_back();
     test_vdp_debug_tilemap_and_sprite_snapshots();
     test_bus_io_logging_records_reads_and_writes();
     test_bus_mirrors_vdp_psg_and_counter_ports();

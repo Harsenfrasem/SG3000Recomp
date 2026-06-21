@@ -53,22 +53,22 @@ Melhorias profundas como viewport maior, cenario expandido, HUD reposicionado e 
 - [ ] Watchpoints de RAM, VRAM, CRAM e I/O por faixa.
 - [ ] Trace filtrado por PC, banco, porta e tipo de acesso.
 - [x] Dump de tilemap/sprite table em formato local legivel, inclusive no replay deterministico com input.
-- [ ] Overlay debug com registradores completos, banco ativo, fallback count e scanline.
+- [x] Overlay debug com registradores completos, banco ativo, fallback count e scanline.
 - [x] Marcadores de frame para correlacionar input, PC, mapper, audio e hash do framebuffer.
 
 ### 5. Enhanced renderer generico
 
-- [ ] Separar renderer fiel e renderer enhanced.
-- [ ] Reconstruir tilemap visivel a partir de VRAM sem alterar o estado original.
-- [ ] Permitir canvas maior que 256x192 como superficie do host.
-- [ ] Manter fallback para framebuffer fiel quando o jogo nao permitir extrapolacao segura.
+- [x] Separar renderer fiel e renderer enhanced.
+- [x] Reconstruir tilemap visivel a partir de VRAM sem alterar framebuffer/status do passe fiel.
+- [x] Permitir canvas 256x224/240 como superficie experimental do host.
+- [x] Manter fallback para framebuffer fiel quando o perfil nao habilitar extrapolacao.
 - [ ] Adicionar modos de escala, aspect ratio e bordas informativas.
 
 ### 6. Viewport expansion por jogo
 
 - [ ] Descobrir variaveis de camera/scroll por perfil.
 - [ ] Validar se o jogo mantem dados de cenario alem da tela original.
-- [ ] Criar `ViewportExpansion` por perfil com limites claros.
+- [x] Criar `viewport_height` por perfil com limites 0/192/224/240 e aplicacao apenas no modo enhanced.
 - [ ] Reposicionar HUD quando necessario.
 - [ ] Bloquear expansion quando causar tiles invalidos, entidades invisiveis, colisao errada ou leitura fora do mapa conhecido.
 
@@ -78,7 +78,7 @@ Melhorias profundas como viewport maior, cenario expandido, HUD reposicionado e 
 - [ ] Permitir patches pequenos e declarativos por perfil.
 - [ ] Registrar cada patch com motivo, risco e modo afetado.
 - [ ] Exigir toggle para patches que mudam gameplay, camera, timing ou colisao.
-- [ ] Garantir que o modo `accurate` ignore todos os patches enhanced.
+- [x] Garantir que o modo `accurate` ignore todos os patches enhanced.
 
 ### 8. Validacao
 
