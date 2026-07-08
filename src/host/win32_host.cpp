@@ -19,6 +19,7 @@
 #include <array>
 #include <chrono>
 #include <cctype>
+#include <cmath>
 #include <cstdlib>
 #include <cstdint>
 #include <cstring>
@@ -300,6 +301,12 @@ struct InputBindings {
         VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT, 'Z', 'X', VK_RETURN};
 };
 
+enum class DisplayScaleMode {
+    PixelPerfect,
+    FitViewport,
+    CorrectedAspect,
+};
+
 struct AppState {
     std::unique_ptr<HostRuntime> host;
     std::unique_ptr<Win32Audio> audio;
@@ -330,6 +337,7 @@ struct AppState {
     bool compatibility_warning_acknowledged = false;
     bool has_rom = false;
     int window_scale = 3;
+    DisplayScaleMode display_scale_mode = DisplayScaleMode::PixelPerfect;
     double fps = 0.0;
     u64 rendered_frames = 0;
     std::size_t quit_after_frames = 0;
@@ -349,6 +357,7 @@ struct GraphicalSettings {
     bool muted = false;
     int volume_percent = 100;
     int window_scale = 3;
+    DisplayScaleMode display_scale_mode = DisplayScaleMode::PixelPerfect;
     InputBindings bindings;
 };
 
@@ -373,6 +382,9 @@ enum MenuCommand : UINT {
     MenuEnhancementYm2612,
     MenuViewOverlay,
     MenuViewStatus,
+    MenuViewPixelPerfect,
+    MenuViewFitViewport,
+    MenuViewCorrectedAspect,
     MenuHelpControls,
     MenuRecentFirst = 1100,
     MenuRecentLast = MenuRecentFirst + 9,
@@ -472,6 +484,43 @@ bool parse_setting_bool(const std::string& value, bool fallback) {
     return fallback;
 }
 
+DisplayScaleMode parse_display_scale_mode(const std::string& value, DisplayScaleMode fallback) {
+    if (value == "pixel_perfect" || value == "integer") {
+        return DisplayScaleMode::PixelPerfect;
+    }
+    if (value == "fit" || value == "fit_viewport") {
+        return DisplayScaleMode::FitViewport;
+    }
+    if (value == "corrected_aspect" || value == "aspect_4_3") {
+        return DisplayScaleMode::CorrectedAspect;
+    }
+    return fallback;
+}
+
+const char* display_scale_mode_setting(DisplayScaleMode mode) {
+    switch (mode) {
+    case DisplayScaleMode::PixelPerfect:
+        return "pixel_perfect";
+    case DisplayScaleMode::FitViewport:
+        return "fit_viewport";
+    case DisplayScaleMode::CorrectedAspect:
+        return "corrected_aspect";
+    }
+    return "pixel_perfect";
+}
+
+const char* display_scale_mode_name(DisplayScaleMode mode) {
+    switch (mode) {
+    case DisplayScaleMode::PixelPerfect:
+        return "pixel perfect";
+    case DisplayScaleMode::FitViewport:
+        return "ajustar";
+    case DisplayScaleMode::CorrectedAspect:
+        return "aspecto 4:3";
+    }
+    return "pixel perfect";
+}
+
 constexpr std::array<const char*, static_cast<std::size_t>(ControlAction::Count)> control_setting_names{
     "key_up", "key_down", "key_left", "key_right", "key_button1", "key_button2", "key_pause"};
 
@@ -510,6 +559,8 @@ GraphicalSettings load_graphical_settings(const std::filesystem::path& path) {
             } catch (const std::exception&) {
                 // Keep the default when a local setting was edited incorrectly.
             }
+        } else if (key == "display_scale_mode") {
+            settings.display_scale_mode = parse_display_scale_mode(value, settings.display_scale_mode);
         } else {
             for (std::size_t index = 0; index < control_setting_names.size(); ++index) {
                 if (key == control_setting_names[index]) {
@@ -550,7 +601,7 @@ void save_graphical_settings(const std::filesystem::path& path,
     const auto& enhancements = app.host->console().enhancements();
     const bool muted = app.audio ? app.audio->muted() : previous.muted;
     const int volume = app.audio ? app.audio->volume_percent() : previous.volume_percent;
-    file << "version=4\n"
+    file << "version=5\n"
          << "overlay=" << (app.overlay_enabled ? 1 : 0) << "\n"
          << "enhanced_mode=" << (enhancements.mode == RuntimeMode::Enhanced ? 1 : 0) << "\n"
          << "reduce_flicker=" << (enhancements.reduce_flicker ? 1 : 0) << "\n"
@@ -558,7 +609,8 @@ void save_graphical_settings(const std::filesystem::path& path,
          << "enable_ym2612=" << (enhancements.enable_ym2612 ? 1 : 0) << "\n"
          << "muted=" << (muted ? 1 : 0) << "\n"
          << "volume_percent=" << volume << "\n"
-         << "window_scale=" << app.window_scale << "\n";
+         << "window_scale=" << app.window_scale << "\n"
+         << "display_scale_mode=" << display_scale_mode_setting(app.display_scale_mode) << "\n";
     for (std::size_t index = 0; index < control_setting_names.size(); ++index) {
         file << control_setting_names[index] << '=' << app.bindings.keys[index] << '\n';
     }
@@ -1600,6 +1652,14 @@ void update_menu_checks(HWND hwnd, const AppState& app) {
     check(MenuEnhancementYm2612, config.enable_ym2612);
     check(MenuViewOverlay, app.overlay_enabled);
     check(MenuViewStatus, app.status_window != nullptr && IsWindowVisible(app.status_window));
+    CheckMenuRadioItem(menu,
+                       MenuViewPixelPerfect,
+                       MenuViewCorrectedAspect,
+                       app.display_scale_mode == DisplayScaleMode::PixelPerfect
+                           ? MenuViewPixelPerfect
+                           : (app.display_scale_mode == DisplayScaleMode::FitViewport ? MenuViewFitViewport
+                                                                                       : MenuViewCorrectedAspect),
+                       MF_BYCOMMAND);
     const auto mapper = app.host->console().bus().mapper_snapshot().requested_mapper;
     const auto mapper_it = std::find(graphical_profile_mappers.begin(), graphical_profile_mappers.end(), mapper);
     if (mapper_it != graphical_profile_mappers.end()) {
@@ -1972,6 +2032,78 @@ std::wstring controls_help_text(const AppState& app) {
     return text;
 }
 
+struct RenderArea {
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height = 0;
+};
+
+RenderArea compute_render_area(const AppState& app, int client_width, int client_height, int source_width, int source_height) {
+    if (client_width <= 0 || client_height <= 0 || source_width <= 0 || source_height <= 0) {
+        return {};
+    }
+
+    double target_aspect = static_cast<double>(source_width) / static_cast<double>(source_height);
+    if (app.display_scale_mode == DisplayScaleMode::CorrectedAspect &&
+        app.state_metadata.model != ConsoleModel::GameGear) {
+        target_aspect = 4.0 / 3.0;
+    }
+
+    int output_width = source_width;
+    int output_height = source_height;
+    if (app.display_scale_mode == DisplayScaleMode::PixelPerfect) {
+        const int scale = std::max(1, std::min(client_width / source_width, client_height / source_height));
+        output_width = source_width * scale;
+        output_height = source_height * scale;
+    } else {
+        output_width = client_width;
+        output_height = static_cast<int>(std::lround(static_cast<double>(output_width) / target_aspect));
+        if (output_height > client_height) {
+            output_height = client_height;
+            output_width = static_cast<int>(std::lround(static_cast<double>(output_height) * target_aspect));
+        }
+        output_width = std::max(1, std::min(output_width, client_width));
+        output_height = std::max(1, std::min(output_height, client_height));
+    }
+
+    return {(client_width - output_width) / 2,
+            (client_height - output_height) / 2,
+            output_width,
+            output_height};
+}
+
+void draw_border_info(HDC dc, const AppState& app, const RenderArea& area, int client_width, int client_height) {
+    const int top_border = area.y;
+    const int bottom_border = client_height - (area.y + area.height);
+    const int left_border = area.x;
+    const int right_border = client_width - (area.x + area.width);
+    if (std::max({top_border, bottom_border, left_border, right_border}) < 18) {
+        return;
+    }
+
+    const auto& vdp = app.host->console().vdp();
+    std::ostringstream info;
+    info << vdp.viewport_width() << "x" << vdp.viewport_height() << "  "
+         << display_scale_mode_name(app.display_scale_mode);
+    if (app.display_scale_mode == DisplayScaleMode::PixelPerfect) {
+        info << " " << std::max(1, area.width / std::max(1, vdp.viewport_width())) << "x";
+    }
+    if (app.host->console().enhancements().mode == RuntimeMode::Enhanced) {
+        info << "  enhanced";
+    }
+
+    SetBkMode(dc, TRANSPARENT);
+    SetTextColor(dc, RGB(150, 165, 150));
+    RECT top{8, 3, client_width - 8, std::max(18, top_border - 2)};
+    RECT bottom{8, area.y + area.height + 2, client_width - 8, client_height - 3};
+    RECT* target = top_border >= 18 ? &top : (bottom_border >= 18 ? &bottom : nullptr);
+    if (target != nullptr) {
+        const std::string text = info.str();
+        DrawTextA(dc, text.c_str(), -1, target, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+    }
+}
+
 void draw_overlay(HDC dc, const AppState& app) {
     if (!app.overlay_enabled) {
         return;
@@ -2005,18 +2137,15 @@ void render_frame(HWND hwnd, AppState& app) {
     const auto& vdp = app.host->console().vdp();
     const int viewport_width = vdp.viewport_width();
     const int viewport_height = vdp.viewport_height();
-    const int scale = std::max(1, std::min(client_width / viewport_width, client_height / viewport_height));
-    const int output_width = viewport_width * scale;
-    const int output_height = viewport_height * scale;
-    const int output_x = (client_width - output_width) / 2;
-    const int output_y = (client_height - output_height) / 2;
+    const RenderArea output = compute_render_area(app, client_width, client_height, viewport_width, viewport_height);
+    draw_border_info(dc, app, output, client_width, client_height);
 
     app.bitmap_info.bmiHeader.biHeight = -vdp.active_height();
     StretchDIBits(dc,
-                  output_x,
-                  output_y,
-                  output_width,
-                  output_height,
+                  output.x,
+                  output.y,
+                  output.width,
+                  output.height,
                   vdp.viewport_x(),
                   vdp.viewport_y(),
                   viewport_width,
@@ -2249,6 +2378,18 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
                 MessageBoxA(hwnd, error.what(), "SG3000Recomp - Erro de status", MB_OK | MB_ICONERROR);
             }
             break;
+        case MenuViewPixelPerfect:
+            app->display_scale_mode = DisplayScaleMode::PixelPerfect;
+            app->status_message = "escala limpa/pixel perfect ativada";
+            break;
+        case MenuViewFitViewport:
+            app->display_scale_mode = DisplayScaleMode::FitViewport;
+            app->status_message = "ajuste proporcional a janela ativado";
+            break;
+        case MenuViewCorrectedAspect:
+            app->display_scale_mode = DisplayScaleMode::CorrectedAspect;
+            app->status_message = "aspect ratio 4:3 ativado";
+            break;
         case MenuControlReset:
             app->bindings = {};
             app->input = {};
@@ -2361,6 +2502,10 @@ HMENU create_application_menu(AppState& app) {
     AppendMenuW(enhancements, MF_STRING, MenuEnhancementYm2612, L"YM2612 experimental (portas F4-F7)");
     AppendMenuW(view, MF_STRING, MenuViewOverlay, L"Overlay de diagnostico\tF1");
     AppendMenuW(view, MF_STRING, MenuViewStatus, L"Status detalhado...");
+    AppendMenuW(view, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(view, MF_STRING, MenuViewPixelPerfect, L"Escala limpa / pixel perfect");
+    AppendMenuW(view, MF_STRING, MenuViewFitViewport, L"Ajustar a janela mantendo proporcao");
+    AppendMenuW(view, MF_STRING, MenuViewCorrectedAspect, L"Aspect ratio corrigido 4:3");
     for (UINT factor = 1; factor <= 6; ++factor) {
         const std::wstring label = std::to_wstring(factor) + L"x";
         AppendMenuW(scale, MF_STRING, MenuScaleFirst + factor - 1, label.c_str());
@@ -2522,6 +2667,7 @@ int run_empty_frontend(Options options,
     app.session_options = options;
     app.overlay_enabled = options.overlay;
     app.window_scale = options.scale;
+    app.display_scale_mode = graphical_settings.display_scale_mode;
     app.quit_after_frames = options.quit_after_frames;
     app.bindings = graphical_settings.bindings;
     app.recent_games = load_recent_games(graphical_user_data_root() / L"recent-games.txt");
@@ -2649,6 +2795,7 @@ int run(int argc, char** argv) {
     app.session_options = opts;
     app.bindings = graphical_settings.bindings;
     app.window_scale = opts.scale;
+    app.display_scale_mode = graphical_settings.display_scale_mode;
     app.has_rom = true;
     if (bios) {
         app.host->load_bios(*bios);

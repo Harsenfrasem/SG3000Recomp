@@ -62,7 +62,7 @@ Melhorias profundas como viewport maior, cenario expandido, HUD reposicionado e 
 - [x] Reconstruir tilemap visivel a partir de VRAM sem alterar framebuffer/status do passe fiel.
 - [x] Permitir canvas 256x224/240 como superficie experimental do host.
 - [x] Manter fallback para framebuffer fiel quando o perfil nao habilitar extrapolacao.
-- [ ] Adicionar modos de escala, aspect ratio e bordas informativas.
+- [x] Adicionar modos de escala, aspect ratio e bordas informativas.
 
 ### 6. Viewport expansion por jogo
 

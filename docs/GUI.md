@@ -47,8 +47,13 @@ em modo compatível com YM2612. Essa extensão não pertence ao hardware SMS/SG-
 substitui automaticamente o PSG ou o YM2413: software preparado deve escrever endereço/dados
 nos pares `F4/F5` (banco 0) e `F6/F7` (banco 1). Voltar ao modo fiel desativa a extensão.
 
-Em **Exibição > Tamanho da tela**, a janela pode usar escala inteira de `1x` a `6x` sem
-alterar a resolução interna do console. Em **Controles**, cada ação do jogador pode ser
+Em **Exibição**, a janela oferece três modos de saída: **Escala limpa / pixel perfect**
+mantém pixels inteiros e usa o tamanho `1x` a `6x`; **Ajustar a janela mantendo proporção**
+preenche a maior área possível sem distorcer a proporção nativa do viewport; e
+**Aspect ratio corrigido 4:3** estica SMS/SG-3000 para o quadro 4:3 esperado em tela
+analógica, mantendo Game Gear em proporção nativa. Quando sobram barras pretas, a GUI mostra
+nelas uma legenda discreta com resolução, modo de escala e estado enhanced. A resolução
+interna do console não muda. Em **Controles**, cada ação do jogador pode ser
 remapeada: escolha a ação e pressione a nova tecla. Se a tecla já estiver em uso, os dois
 vínculos são trocados para evitar conflitos. Há também uma opção para restaurar o padrão.
 

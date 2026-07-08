@@ -30,6 +30,10 @@ compatibilidade. SRAM, quick-save e preferências ficam somente em
 Um perfil SMS enhanced pode solicitar viewport vertical 224/240. Essa saída usa um framebuffer
 separado; voltar ao modo fiel restaura imediatamente 256x192 sem reutilizar pixels aprimorados.
 
+Em **Exibição**, escolha escala limpa/pixel perfect, ajuste proporcional à janela ou aspect
+ratio corrigido 4:3 para SMS/SG-3000. Quando a imagem não ocupa todo o cliente, as barras
+pretas exibem uma legenda discreta com resolução, escala e estado enhanced.
+
 ROMs Game Gear com header válido são reconhecidas automaticamente e usam a janela LCD
 160x144, paleta de 12 bits e áudio PSG estéreo. Link cable e compatibilidade integral do
 catálogo ainda não são prometidos.
