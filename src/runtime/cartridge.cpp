@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <iomanip>
 #include <stdexcept>
 #include <sstream>
@@ -95,6 +96,33 @@ CartridgeHeaderRegion decode_region(u8 region_size) {
     }
 }
 
+std::string normalized_extension(std::string_view filename_or_extension) {
+    std::string text(filename_or_extension);
+    const std::size_t slash = text.find_last_of("/\\");
+    if (slash != std::string::npos) {
+        text.erase(0, slash + 1);
+    }
+    const std::size_t dot = text.find_last_of('.');
+    text = dot == std::string::npos ? text : text.substr(dot);
+    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return text;
+}
+
+bool looks_like_small_boot_image(std::span<const u8> rom) {
+    if (rom.empty() || rom.size() > 48 * 1024) {
+        return false;
+    }
+    const bool standard_size =
+        rom.size() == 8 * 1024 || rom.size() == 16 * 1024 || rom.size() == 32 * 1024 || rom.size() == 48 * 1024;
+    if (!standard_size) {
+        return false;
+    }
+    const u8 reset = rom[0];
+    return reset == 0x00 || reset == 0x31 || reset == 0xC3 || reset == 0xF3;
+}
+
 } // namespace
 
 CartridgeHeaderInfo analyze_cartridge_header(std::span<const u8> rom) {
@@ -129,6 +157,49 @@ CartridgeHeaderInfo analyze_cartridge_header(std::span<const u8> rom) {
     }
 
     return {};
+}
+
+CartridgeImageHeuristics analyze_cartridge_image(std::span<const u8> rom, std::string_view filename_or_extension) {
+    CartridgeImageHeuristics heuristics;
+    const CartridgeHeaderInfo header = analyze_cartridge_header(rom);
+    if (header.found) {
+        heuristics.header_based = true;
+        heuristics.region = header.region;
+        heuristics.reason = "tmr-sega-header";
+        switch (cartridge_header_platform(header)) {
+        case CartridgePlatform::MasterSystem:
+            heuristics.model = CartridgeImageModelHint::MasterSystem;
+            break;
+        case CartridgePlatform::GameGear:
+            heuristics.model = CartridgeImageModelHint::GameGear;
+            break;
+        case CartridgePlatform::Unknown:
+            heuristics.model = CartridgeImageModelHint::Unknown;
+            break;
+        }
+        return heuristics;
+    }
+
+    heuristics.bios_like = looks_like_small_boot_image(rom);
+    const std::string extension = normalized_extension(filename_or_extension);
+    if (extension == ".gg") {
+        heuristics.model = CartridgeImageModelHint::GameGear;
+        heuristics.region = CartridgeHeaderRegion::GameGearInternational;
+        heuristics.reason = "filename-extension";
+    } else if (extension == ".sg" || extension == ".sc") {
+        heuristics.model = CartridgeImageModelHint::SG3000;
+        heuristics.region = CartridgeHeaderRegion::Unknown;
+        heuristics.reason = "filename-extension";
+    } else if (extension == ".sms") {
+        heuristics.model = CartridgeImageModelHint::MasterSystem;
+        heuristics.region = CartridgeHeaderRegion::SmsExport;
+        heuristics.reason = "filename-extension";
+    } else if (heuristics.bios_like) {
+        heuristics.reason = "small-headerless-boot-image";
+    } else {
+        heuristics.reason = "unknown";
+    }
+    return heuristics;
 }
 
 const char* cartridge_region_name(CartridgeHeaderRegion region) {
@@ -171,6 +242,20 @@ const char* cartridge_platform_name(CartridgePlatform platform) {
     case CartridgePlatform::GameGear:
         return "Game Gear";
     case CartridgePlatform::Unknown:
+        return "unknown";
+    }
+    return "unknown";
+}
+
+const char* cartridge_model_hint_name(CartridgeImageModelHint model) {
+    switch (model) {
+    case CartridgeImageModelHint::MasterSystem:
+        return "Master System";
+    case CartridgeImageModelHint::SG3000:
+        return "SG-3000";
+    case CartridgeImageModelHint::GameGear:
+        return "Game Gear";
+    case CartridgeImageModelHint::Unknown:
         return "unknown";
     }
     return "unknown";

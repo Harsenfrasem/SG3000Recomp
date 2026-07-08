@@ -1,7 +1,8 @@
 # Game Gear
 
 O Game Gear é um modelo explícito do runtime, separado de Master System e SG-3000. ROMs com
-header `TMR SEGA` marcado para Game Gear selecionam esse modelo automaticamente; um perfil local
+header `TMR SEGA` marcado para Game Gear selecionam esse modelo automaticamente; imagens sem
+header mas com extensão `.gg` também usam o modelo portátil como heurística conservadora. Um perfil local
 por hash também pode usar `model = "gamegear"`. Na linha de comando, `--model gamegear` força o
 modelo e uma seleção explícita sempre prevalece sobre a detecção por header.
 

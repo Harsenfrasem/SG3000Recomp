@@ -54,8 +54,11 @@ preenche a maior área possível sem distorcer a proporção nativa do viewport;
 analógica, mantendo Game Gear em proporção nativa. Quando sobram barras pretas, a GUI mostra
 nelas uma legenda discreta com resolução, modo de escala e estado enhanced. A resolução
 interna do console não muda. Em **Controles**, cada ação do jogador pode ser
-remapeada: escolha a ação e pressione a nova tecla. Se a tecla já estiver em uso, os dois
-vínculos são trocados para evitar conflitos. Há também uma opção para restaurar o padrão.
+remapeada para teclado ou controle USB: escolha a ação e pressione a nova tecla, botão,
+eixo analógico ou POV/direcional no popup. **Configurar teclado/controles USB...** mostra
+os dispositivos detectados pela API joystick do Windows e os vínculos atuais. Se uma tecla
+já estiver em uso, os dois vínculos de teclado são trocados para evitar conflitos; vínculos
+USB são salvos separadamente. Há também uma opção para restaurar o padrão.
 
 **Exibição > Status detalhado...** abre uma janela auxiliar não modal que permanece
 atualizada durante o jogo. Ela mostra modelo e padrão de vídeo, backends Win32/waveOut,
@@ -72,7 +75,7 @@ Nenhuma ROM ou BIOS é copiada para o projeto. Cancelar um seletor mantém a jan
 
 ## Controles
 
-- Setas: direcional padrão do jogador 1.
+- Setas: direcional padrão do jogador 1; também pode ser remapeado para controle USB.
 - `Z` / `X`: botões 1 e 2 por padrão.
 - `Enter`: Pause/NMI do Master System por padrão.
 - `Space`: pausa a emulação.
@@ -91,7 +94,7 @@ No fluxo gráfico, a SRAM é carregada automaticamente ao abrir a ROM e salva ao
 %LOCALAPPDATA%\SG3000Recomp\saves\
 ```
 
-O modo de execução, escala da janela, controles, overlay, melhorias de vídeo/áudio, mute e volume ficam em `settings.ini`, diretamente
+O modo de execução, escala da janela, controles de teclado/USB, overlay, melhorias de vídeo/áudio, mute e volume ficam em `settings.ini`, diretamente
 na pasta `SG3000Recomp`. `recent-games.txt` guarda localmente até dez caminhos de ROM para alimentar
 o menu de recentes; `game-library.txt` mantém a biblioteca e os apelidos; `profiles.txt`
 guarda configurações por hash. Caminhos de BIOS não são salvos. Esses arquivos permanecem

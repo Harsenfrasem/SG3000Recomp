@@ -195,6 +195,20 @@ ConsoleModel parse_console_model(std::string text) {
     throw std::runtime_error("unknown model: " + text);
 }
 
+std::optional<ConsoleModel> console_model_from_image_hint(CartridgeImageModelHint hint) {
+    switch (hint) {
+    case CartridgeImageModelHint::MasterSystem:
+        return ConsoleModel::SMS;
+    case CartridgeImageModelHint::SG3000:
+        return ConsoleModel::SG3000;
+    case CartridgeImageModelHint::GameGear:
+        return ConsoleModel::GameGear;
+    case CartridgeImageModelHint::Unknown:
+        return std::nullopt;
+    }
+    return std::nullopt;
+}
+
 bool parse_config_bool(std::string text) {
     text = lower_ascii(strip_quotes(std::move(text)));
     if (text == "true" || text == "yes" || text == "on" || text == "1") {
@@ -1561,6 +1575,7 @@ std::vector<StaticHardwareAccess> discover_static_hardware_accesses(const std::a
 void write_analysis_report(const std::filesystem::path& path,
                            const std::array<u8, 0x10000>& image,
                            std::span<const u8> rom,
+                           const std::filesystem::path& input_path,
                            std::size_t limit,
                            std::span<const u16> entry_points,
                            const std::vector<BasicBlock>& blocks) {
@@ -1598,6 +1613,7 @@ void write_analysis_report(const std::filesystem::path& path,
 
     const std::size_t fallback_count = instruction_count - direct_count;
     const CartridgeHeaderInfo header = analyze_cartridge_header(rom);
+    const CartridgeImageHeuristics image_heuristics = analyze_cartridge_image(rom, input_path.filename().string());
     const std::vector<PointerTable> pointer_tables = discover_pointer_tables(image, limit, blocks);
     const std::vector<StaticHardwareAccess> hardware_accesses = discover_static_hardware_accesses(image, blocks);
     out << "SG3000Recomp static analysis\n";
@@ -1633,6 +1649,11 @@ void write_analysis_report(const std::filesystem::path& path,
             out << "header_checksum_matches_declared_size: unknown\n";
         }
     }
+    out << "image_model_hint: " << cartridge_model_hint_name(image_heuristics.model) << "\n";
+    out << "image_region_hint: " << cartridge_region_name(image_heuristics.region) << "\n";
+    out << "image_header_based: " << (image_heuristics.header_based ? "yes" : "no") << "\n";
+    out << "image_bios_like: " << (image_heuristics.bios_like ? "yes" : "no") << "\n";
+    out << "image_heuristic_reason: " << image_heuristics.reason << "\n";
     out << "basic_blocks: " << blocks.size() << "\n";
     out << "instructions: " << instruction_count << "\n";
     out << "direct_emit_instructions: " << direct_count << "\n";
@@ -2914,8 +2935,11 @@ int main(int argc, char** argv) {
         }
         apply_game_profile(opts, rom);
         const CartridgeHeaderInfo detected_header = analyze_cartridge_header(rom);
-        if (!opts.model_explicit && cartridge_header_is_game_gear(detected_header)) {
-            opts.model = ConsoleModel::GameGear;
+        const CartridgeImageHeuristics image_heuristics = analyze_cartridge_image(rom, opts.input.filename().string());
+        if (!opts.model_explicit) {
+            if (const auto inferred = console_model_from_image_hint(image_heuristics.model)) {
+                opts.model = *inferred;
+            }
         }
         const std::optional<std::vector<u8>> bios =
             opts.bios.empty() ? std::optional<std::vector<u8>>{} : std::optional<std::vector<u8>>{read_file(opts.bios)};
@@ -2926,10 +2950,12 @@ int main(int argc, char** argv) {
         if (!opts.dump_analysis.empty()) {
             const auto entry_points = default_entry_points(limit);
             const auto blocks = discover_basic_blocks(image, limit, entry_points);
-            write_analysis_report(opts.dump_analysis, image, rom, limit, entry_points, blocks);
-            const CartridgeHeaderInfo header = analyze_cartridge_header(rom);
+            write_analysis_report(opts.dump_analysis, image, rom, opts.input, limit, entry_points, blocks);
+            const CartridgeHeaderInfo header = detected_header;
             std::cout << "analysis dumped: " << opts.dump_analysis.string() << "\n";
             std::cout << "rom header: " << (header.found ? "found" : "not found") << "\n";
+            std::cout << "image heuristic: model " << cartridge_model_hint_name(image_heuristics.model) << ", reason "
+                      << image_heuristics.reason << "\n";
         }
 
         if (opts.disassemble_only) {

@@ -303,6 +303,9 @@ int main() {
     assert(contains(analysis, "entry_points: 0x0000"));
     assert(contains(analysis, "basic_blocks:"));
     assert(contains(analysis, "header_found: no"));
+    assert(contains(analysis, "image_model_hint: Master System"));
+    assert(contains(analysis, "image_bios_like: no"));
+    assert(contains(analysis, "image_heuristic_reason: filename-extension"));
     assert(contains(analysis, "direct_emit_instructions:"));
     assert(contains(analysis, "fallback_instructions:"));
     assert(contains(analysis, "static_hardware_accesses:"));
@@ -416,6 +419,8 @@ int main() {
     assert(contains(header_analysis, "header_offset: 0x7ff0"));
     assert(contains(header_analysis, "header_platform: Master System"));
     assert(contains(header_analysis, "header_region: SMS export"));
+    assert(contains(header_analysis, "image_model_hint: Master System"));
+    assert(contains(header_analysis, "image_heuristic_reason: tmr-sega-header"));
     assert(contains(header_analysis, "header_size_code: 32 KiB"));
     assert(contains(header_analysis, "header_checksum_stored: 0x1234"));
     assert(contains(header_analysis, "header_declared_size_bytes: 32768"));

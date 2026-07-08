@@ -179,6 +179,35 @@ void test_cartridge_header_analysis() {
     assert(std::string(cartridge_platform_name(cartridge_header_platform(header))) == "Game Gear");
     assert(std::string(cartridge_region_name(header.region)) == "Game Gear international");
     assert(std::string(cartridge_size_code_name(header.region_size)) == "32 KiB");
+
+    const CartridgeImageHeuristics header_heuristics = analyze_cartridge_image(rom, "anything.bin");
+    assert(header_heuristics.header_based);
+    assert(header_heuristics.model == CartridgeImageModelHint::GameGear);
+    assert(header_heuristics.region == CartridgeHeaderRegion::GameGearInternational);
+    assert(header_heuristics.reason == "tmr-sega-header");
+}
+
+void test_cartridge_image_heuristics_for_headerless_images() {
+    std::vector<u8> gg_rom(0x8000, 0x00);
+    CartridgeImageHeuristics gg = analyze_cartridge_image(gg_rom, "LOCAL.GG");
+    assert(!gg.header_based);
+    assert(gg.model == CartridgeImageModelHint::GameGear);
+    assert(gg.region == CartridgeHeaderRegion::GameGearInternational);
+    assert(gg.reason == "filename-extension");
+
+    std::vector<u8> sg_rom(0x8000, 0x00);
+    CartridgeImageHeuristics sg = analyze_cartridge_image(sg_rom, "demo.sg");
+    assert(sg.model == CartridgeImageModelHint::SG3000);
+    assert(sg.region == CartridgeHeaderRegion::Unknown);
+
+    std::vector<u8> sms_bios(0x2000, 0xFF);
+    sms_bios[0] = 0xF3; // di: common boot ROM prologue, but still only a hint
+    CartridgeImageHeuristics bios = analyze_cartridge_image(sms_bios, "bios.bin");
+    assert(bios.model == CartridgeImageModelHint::Unknown);
+    assert(bios.region == CartridgeHeaderRegion::Unknown);
+    assert(bios.bios_like);
+    assert(bios.reason == "small-headerless-boot-image");
+    assert(std::string(cartridge_model_hint_name(CartridgeImageModelHint::SG3000)) == "SG-3000");
 }
 
 void test_cartridge_header_generation_and_checksum_rebuild() {
@@ -4187,6 +4216,7 @@ int main() {
     test_media_writers_create_standard_bmp_and_wav();
     test_recent_games_are_local_deduplicated_and_pruned();
     test_cartridge_header_analysis();
+    test_cartridge_image_heuristics_for_headerless_images();
     test_cartridge_header_generation_and_checksum_rebuild();
     test_cartridge_header_rejects_truncated_declared_size();
     test_basic_program();

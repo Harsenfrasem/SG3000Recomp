@@ -296,9 +296,27 @@ enum class ControlAction : std::size_t {
     Count,
 };
 
+enum class GamepadBindingKind {
+    None,
+    Button,
+    AxisNegative,
+    AxisPositive,
+    PovUp,
+    PovDown,
+    PovLeft,
+    PovRight,
+};
+
+struct GamepadBinding {
+    UINT device = 0;
+    GamepadBindingKind kind = GamepadBindingKind::None;
+    DWORD index = 0;
+};
+
 struct InputBindings {
     std::array<UINT, static_cast<std::size_t>(ControlAction::Count)> keys{
         VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT, 'Z', 'X', VK_RETURN};
+    std::array<GamepadBinding, static_cast<std::size_t>(ControlAction::Count)> gamepads{};
 };
 
 enum class DisplayScaleMode {
@@ -311,6 +329,8 @@ struct AppState {
     std::unique_ptr<HostRuntime> host;
     std::unique_ptr<Win32Audio> audio;
     HostInputState input;
+    HostInputState keyboard_input;
+    HostInputState gamepad_input;
     HostFrameResult last_frame;
     std::string rom_hash;
     std::string profile_name;
@@ -322,6 +342,7 @@ struct AppState {
     Options session_options;
     InputBindings bindings;
     std::optional<ControlAction> pending_binding;
+    bool pending_binding_accepts_gamepad = false;
     HMENU controls_menu = nullptr;
     HMENU scale_menu = nullptr;
     HMENU recent_menu = nullptr;
@@ -392,6 +413,7 @@ enum MenuCommand : UINT {
     MenuScaleLast = MenuScaleFirst + 5,
     MenuControlFirst = 1300,
     MenuControlLast = MenuControlFirst + static_cast<UINT>(ControlAction::Count) - 1,
+    MenuControlConfigure,
     MenuControlReset,
     MenuProfileMapperFirst = 1400,
     MenuProfileMapperLast = MenuProfileMapperFirst + 5,
@@ -451,6 +473,20 @@ int parse_viewport_height(const std::string& text) {
         throw std::runtime_error("viewport height must be 0, 192, 224, or 240");
     }
     return height;
+}
+
+std::optional<ConsoleModel> console_model_from_image_hint(CartridgeImageModelHint hint) {
+    switch (hint) {
+    case CartridgeImageModelHint::MasterSystem:
+        return ConsoleModel::SMS;
+    case CartridgeImageModelHint::SG3000:
+        return ConsoleModel::SG3000;
+    case CartridgeImageModelHint::GameGear:
+        return ConsoleModel::GameGear;
+    case CartridgeImageModelHint::Unknown:
+        return std::nullopt;
+    }
+    return std::nullopt;
 }
 
 void write_binary_file(const std::filesystem::path& path, std::span<const u8> bytes) {
@@ -521,8 +557,85 @@ const char* display_scale_mode_name(DisplayScaleMode mode) {
     return "pixel perfect";
 }
 
+std::string gamepad_binding_kind_setting(GamepadBindingKind kind) {
+    switch (kind) {
+    case GamepadBindingKind::Button:
+        return "button";
+    case GamepadBindingKind::AxisNegative:
+        return "axis-";
+    case GamepadBindingKind::AxisPositive:
+        return "axis+";
+    case GamepadBindingKind::PovUp:
+        return "pov-up";
+    case GamepadBindingKind::PovDown:
+        return "pov-down";
+    case GamepadBindingKind::PovLeft:
+        return "pov-left";
+    case GamepadBindingKind::PovRight:
+        return "pov-right";
+    case GamepadBindingKind::None:
+        return "none";
+    }
+    return "none";
+}
+
+GamepadBindingKind parse_gamepad_binding_kind(const std::string& value) {
+    if (value == "button") {
+        return GamepadBindingKind::Button;
+    }
+    if (value == "axis-") {
+        return GamepadBindingKind::AxisNegative;
+    }
+    if (value == "axis+") {
+        return GamepadBindingKind::AxisPositive;
+    }
+    if (value == "pov-up") {
+        return GamepadBindingKind::PovUp;
+    }
+    if (value == "pov-down") {
+        return GamepadBindingKind::PovDown;
+    }
+    if (value == "pov-left") {
+        return GamepadBindingKind::PovLeft;
+    }
+    if (value == "pov-right") {
+        return GamepadBindingKind::PovRight;
+    }
+    return GamepadBindingKind::None;
+}
+
+std::optional<GamepadBinding> parse_gamepad_binding(const std::string& value) {
+    if (value == "none" || value.empty()) {
+        return GamepadBinding{};
+    }
+    const std::size_t first = value.find(':');
+    const std::size_t second = first == std::string::npos ? std::string::npos : value.find(':', first + 1);
+    if (first == std::string::npos || second == std::string::npos) {
+        return std::nullopt;
+    }
+    try {
+        GamepadBinding binding;
+        binding.device = static_cast<UINT>(std::stoul(value.substr(0, first)));
+        binding.kind = parse_gamepad_binding_kind(value.substr(first + 1, second - first - 1));
+        binding.index = static_cast<DWORD>(std::stoul(value.substr(second + 1)));
+        return binding;
+    } catch (const std::exception&) {
+        return std::nullopt;
+    }
+}
+
+std::string gamepad_binding_setting(const GamepadBinding& binding) {
+    if (binding.kind == GamepadBindingKind::None) {
+        return "none";
+    }
+    return std::to_string(binding.device) + ":" + gamepad_binding_kind_setting(binding.kind) + ":" +
+           std::to_string(binding.index);
+}
+
 constexpr std::array<const char*, static_cast<std::size_t>(ControlAction::Count)> control_setting_names{
     "key_up", "key_down", "key_left", "key_right", "key_button1", "key_button2", "key_pause"};
+constexpr std::array<const char*, static_cast<std::size_t>(ControlAction::Count)> gamepad_setting_names{
+    "pad_up", "pad_down", "pad_left", "pad_right", "pad_button1", "pad_button2", "pad_pause"};
 
 GraphicalSettings load_graphical_settings(const std::filesystem::path& path) {
     GraphicalSettings settings;
@@ -571,6 +684,12 @@ GraphicalSettings load_graphical_settings(const std::filesystem::path& path) {
                     }
                     break;
                 }
+                if (key == gamepad_setting_names[index]) {
+                    if (const auto binding = parse_gamepad_binding(value)) {
+                        settings.bindings.gamepads[index] = *binding;
+                    }
+                    break;
+                }
             }
         }
     }
@@ -601,7 +720,7 @@ void save_graphical_settings(const std::filesystem::path& path,
     const auto& enhancements = app.host->console().enhancements();
     const bool muted = app.audio ? app.audio->muted() : previous.muted;
     const int volume = app.audio ? app.audio->volume_percent() : previous.volume_percent;
-    file << "version=5\n"
+    file << "version=6\n"
          << "overlay=" << (app.overlay_enabled ? 1 : 0) << "\n"
          << "enhanced_mode=" << (enhancements.mode == RuntimeMode::Enhanced ? 1 : 0) << "\n"
          << "reduce_flicker=" << (enhancements.reduce_flicker ? 1 : 0) << "\n"
@@ -613,6 +732,7 @@ void save_graphical_settings(const std::filesystem::path& path,
          << "display_scale_mode=" << display_scale_mode_setting(app.display_scale_mode) << "\n";
     for (std::size_t index = 0; index < control_setting_names.size(); ++index) {
         file << control_setting_names[index] << '=' << app.bindings.keys[index] << '\n';
+        file << gamepad_setting_names[index] << '=' << gamepad_binding_setting(app.bindings.gamepads[index]) << '\n';
     }
 }
 
@@ -888,6 +1008,216 @@ std::wstring key_display_name(UINT key) {
     return L"VK " + std::to_wstring(key);
 }
 
+std::wstring joystick_name(UINT device) {
+    JOYCAPSW caps{};
+    if (joyGetDevCapsW(device, &caps, sizeof(caps)) == JOYERR_NOERROR) {
+        return caps.szPname;
+    }
+    return L"Controle " + std::to_wstring(device);
+}
+
+bool read_joystick(UINT device, JOYINFOEX& info) {
+    info = {};
+    info.dwSize = sizeof(info);
+    info.dwFlags = JOY_RETURNALL;
+    return joyGetPosEx(device, &info) == JOYERR_NOERROR;
+}
+
+bool read_joystick_caps(UINT device, JOYCAPSW& caps) {
+    caps = {};
+    return joyGetDevCapsW(device, &caps, sizeof(caps)) == JOYERR_NOERROR;
+}
+
+std::wstring gamepad_binding_display_name(const GamepadBinding& binding) {
+    if (binding.kind == GamepadBindingKind::None) {
+        return L"sem controle USB";
+    }
+    std::wstring out = joystick_name(binding.device) + L" ";
+    switch (binding.kind) {
+    case GamepadBindingKind::Button:
+        return out + L"botao " + std::to_wstring(binding.index + 1);
+    case GamepadBindingKind::AxisNegative:
+        return out + L"eixo " + std::to_wstring(binding.index + 1) + L"-";
+    case GamepadBindingKind::AxisPositive:
+        return out + L"eixo " + std::to_wstring(binding.index + 1) + L"+";
+    case GamepadBindingKind::PovUp:
+        return out + L"POV cima";
+    case GamepadBindingKind::PovDown:
+        return out + L"POV baixo";
+    case GamepadBindingKind::PovLeft:
+        return out + L"POV esquerda";
+    case GamepadBindingKind::PovRight:
+        return out + L"POV direita";
+    case GamepadBindingKind::None:
+        break;
+    }
+    return L"sem controle USB";
+}
+
+DWORD joystick_axis_value(const JOYINFOEX& info, DWORD axis) {
+    switch (axis) {
+    case 0:
+        return info.dwXpos;
+    case 1:
+        return info.dwYpos;
+    case 2:
+        return info.dwZpos;
+    case 3:
+        return info.dwRpos;
+    case 4:
+        return info.dwUpos;
+    case 5:
+        return info.dwVpos;
+    default:
+        return 0;
+    }
+}
+
+DWORD joystick_axis_min(const JOYCAPSW& caps, DWORD axis) {
+    switch (axis) {
+    case 0:
+        return caps.wXmin;
+    case 1:
+        return caps.wYmin;
+    case 2:
+        return caps.wZmin;
+    case 3:
+        return caps.wRmin;
+    case 4:
+        return caps.wUmin;
+    case 5:
+        return caps.wVmin;
+    default:
+        return 0;
+    }
+}
+
+DWORD joystick_axis_max(const JOYCAPSW& caps, DWORD axis) {
+    switch (axis) {
+    case 0:
+        return caps.wXmax;
+    case 1:
+        return caps.wYmax;
+    case 2:
+        return caps.wZmax;
+    case 3:
+        return caps.wRmax;
+    case 4:
+        return caps.wUmax;
+    case 5:
+        return caps.wVmax;
+    default:
+        return 0;
+    }
+}
+
+bool joystick_axis_active(const JOYINFOEX& info, const JOYCAPSW& caps, DWORD axis, bool positive) {
+    const DWORD minimum = joystick_axis_min(caps, axis);
+    const DWORD maximum = joystick_axis_max(caps, axis);
+    if (maximum <= minimum) {
+        return false;
+    }
+    const DWORD value = joystick_axis_value(info, axis);
+    const DWORD center = minimum + ((maximum - minimum) / 2);
+    const DWORD deadzone = std::max<DWORD>(1, (maximum - minimum) / 4);
+    return positive ? value > center + deadzone : value + deadzone < center;
+}
+
+bool joystick_pov_active(DWORD pov, GamepadBindingKind kind) {
+    if (pov == JOY_POVCENTERED) {
+        return false;
+    }
+    const bool up = pov >= 31500 || pov <= 4500;
+    const bool right = pov >= 4500 && pov <= 13500;
+    const bool down = pov >= 13500 && pov <= 22500;
+    const bool left = pov >= 22500 && pov <= 31500;
+    switch (kind) {
+    case GamepadBindingKind::PovUp:
+        return up;
+    case GamepadBindingKind::PovRight:
+        return right;
+    case GamepadBindingKind::PovDown:
+        return down;
+    case GamepadBindingKind::PovLeft:
+        return left;
+    default:
+        return false;
+    }
+}
+
+bool gamepad_binding_active(const GamepadBinding& binding) {
+    if (binding.kind == GamepadBindingKind::None) {
+        return false;
+    }
+    JOYINFOEX info{};
+    JOYCAPSW caps{};
+    if (!read_joystick(binding.device, info) || !read_joystick_caps(binding.device, caps)) {
+        return false;
+    }
+    switch (binding.kind) {
+    case GamepadBindingKind::Button:
+        return binding.index < 32 && (info.dwButtons & (1u << binding.index)) != 0;
+    case GamepadBindingKind::AxisNegative:
+        return joystick_axis_active(info, caps, binding.index, false);
+    case GamepadBindingKind::AxisPositive:
+        return joystick_axis_active(info, caps, binding.index, true);
+    case GamepadBindingKind::PovUp:
+    case GamepadBindingKind::PovDown:
+    case GamepadBindingKind::PovLeft:
+    case GamepadBindingKind::PovRight:
+        return joystick_pov_active(info.dwPOV, binding.kind);
+    case GamepadBindingKind::None:
+        return false;
+    }
+    return false;
+}
+
+std::optional<GamepadBinding> detect_pressed_gamepad_binding() {
+    const UINT device_count = joyGetNumDevs();
+    for (UINT device = 0; device < device_count; ++device) {
+        JOYINFOEX info{};
+        JOYCAPSW caps{};
+        if (!read_joystick(device, info) || !read_joystick_caps(device, caps)) {
+            continue;
+        }
+        for (DWORD button = 0; button < std::min<DWORD>(caps.wNumButtons, 32); ++button) {
+            if ((info.dwButtons & (1u << button)) != 0) {
+                return GamepadBinding{device, GamepadBindingKind::Button, button};
+            }
+        }
+        for (DWORD axis = 0; axis < std::min<DWORD>(caps.wNumAxes, 6); ++axis) {
+            if (joystick_axis_active(info, caps, axis, false)) {
+                return GamepadBinding{device, GamepadBindingKind::AxisNegative, axis};
+            }
+            if (joystick_axis_active(info, caps, axis, true)) {
+                return GamepadBinding{device, GamepadBindingKind::AxisPositive, axis};
+            }
+        }
+        if (joystick_pov_active(info.dwPOV, GamepadBindingKind::PovUp)) {
+            return GamepadBinding{device, GamepadBindingKind::PovUp, 0};
+        }
+        if (joystick_pov_active(info.dwPOV, GamepadBindingKind::PovRight)) {
+            return GamepadBinding{device, GamepadBindingKind::PovRight, 0};
+        }
+        if (joystick_pov_active(info.dwPOV, GamepadBindingKind::PovDown)) {
+            return GamepadBinding{device, GamepadBindingKind::PovDown, 0};
+        }
+        if (joystick_pov_active(info.dwPOV, GamepadBindingKind::PovLeft)) {
+            return GamepadBinding{device, GamepadBindingKind::PovLeft, 0};
+        }
+    }
+    return std::nullopt;
+}
+
+void bind_gamepad_action(AppState& app, ControlAction action, const GamepadBinding& binding) {
+    app.bindings.gamepads[static_cast<std::size_t>(action)] = binding;
+    app.pending_binding.reset();
+    app.pending_binding_accepts_gamepad = false;
+    app.gamepad_input = {};
+    app.input = app.keyboard_input;
+    app.status_message = std::string{control_action_name(action)} + " remapeado para controle USB";
+}
+
 u8 joypad_button_for_action(ControlAction action) {
     switch (action) {
     case ControlAction::Up:
@@ -1100,14 +1430,17 @@ void load_game_session(HWND hwnd, AppState& app, const std::filesystem::path& ro
     auto rom = normalize_rom_payload(read_file(rom_path));
     const std::string rom_hash = rom_hash_fnv1a64(rom);
     const CartridgeHeaderInfo header = analyze_cartridge_header(rom);
+    const CartridgeImageHeuristics image_heuristics = analyze_cartridge_image(rom, rom_path.filename().string());
     Options options = app.session_options;
     options.rom = rom_path;
     options.enhancements = app.host->console().enhancements();
     std::string profile_name;
     std::string profile_fingerprint;
     apply_profile_to_options(options, rom_hash, profile_name, profile_fingerprint);
-    if (!options.model_explicit && cartridge_header_is_game_gear(header)) {
-        options.model = ConsoleModel::GameGear;
+    if (!options.model_explicit) {
+        if (const auto inferred = console_model_from_image_hint(image_heuristics.model)) {
+            options.model = *inferred;
+        }
     }
     const std::optional<std::vector<u8>> bios = options.bios.empty()
                                                     ? std::optional<std::vector<u8>>{}
@@ -1149,6 +1482,8 @@ void load_game_session(HWND hwnd, AppState& app, const std::filesystem::path& ro
     app.state_metadata.bios_hash = bios ? rom_hash_fnv1a64(*bios) : std::string{};
     app.state_metadata.profile_fingerprint = profile_fingerprint;
     app.input = {};
+    app.keyboard_input = {};
+    app.gamepad_input = {};
     app.last_frame = {};
     app.rendered_frames = 0;
     app.fps_window_frames = 0;
@@ -1161,8 +1496,10 @@ void load_game_session(HWND hwnd, AppState& app, const std::filesystem::path& ro
     GameLibraryEntry library_entry;
     library_entry.path = app.current_rom_path;
     library_entry.hash = rom_hash;
-    library_entry.platform = cartridge_platform_name(cartridge_header_platform(header));
-    library_entry.region = cartridge_region_name(header.region);
+    library_entry.platform =
+        header.found ? cartridge_platform_name(cartridge_header_platform(header))
+                     : cartridge_model_hint_name(image_heuristics.model);
+    library_entry.region = cartridge_region_name(image_heuristics.region);
     library_entry.product_code = header.product_code;
     app.game_library = touch_game_library(app.game_library, std::move(library_entry));
     save_game_library(graphical_user_data_root() / L"game-library.txt", app.game_library);
@@ -1535,13 +1872,51 @@ void clear_current_game_alias(AppState& app) {
 
 void request_control_binding(HWND hwnd, AppState& app, ControlAction action) {
     app.pending_binding = action;
+    app.pending_binding_accepts_gamepad = true;
     app.input = {};
+    app.keyboard_input = {};
+    app.gamepad_input = {};
     const std::wstring message = L"Apos fechar esta mensagem, pressione a nova tecla para " +
                                  std::wstring(control_action_name(action),
                                               control_action_name(action) + std::strlen(control_action_name(action))) +
-                                 L".\n\nPressione Esc para cancelar.";
+                                 L" ou aperte/mova o controle USB desejado.\n\n"
+                                 L"Pressione Esc para cancelar. Eixos analogicos usam uma zona morta central.";
     MessageBoxW(hwnd, message.c_str(), L"SG3000Recomp - Remapear controle", MB_OK | MB_ICONINFORMATION);
-    app.status_message = std::string{"aguardando tecla para "} + control_action_name(action);
+    app.status_message = std::string{"aguardando tecla ou controle USB para "} + control_action_name(action);
+}
+
+std::wstring controls_configuration_text(const AppState& app) {
+    std::wstring text = L"Configuração de teclado e controles USB\n\n";
+    text += L"Dispositivos USB detectados:\n";
+    bool any_device = false;
+    for (UINT device = 0; device < joyGetNumDevs(); ++device) {
+        JOYCAPSW caps{};
+        JOYINFOEX info{};
+        if (!read_joystick_caps(device, caps) || !read_joystick(device, info)) {
+            continue;
+        }
+        any_device = true;
+        text += L"- " + std::to_wstring(device) + L": " + std::wstring(caps.szPname) + L" (" +
+                std::to_wstring(caps.wNumButtons) + L" botoes, " + std::to_wstring(caps.wNumAxes) + L" eixos";
+        if ((caps.wCaps & JOYCAPS_HASPOV) != 0) {
+            text += L", POV";
+        }
+        text += L")\n";
+    }
+    if (!any_device) {
+        text += L"- Nenhum controle USB disponivel pela API joystick do Windows.\n";
+    }
+
+    text += L"\nBindings atuais:\n";
+    for (std::size_t index = 0; index < app.bindings.keys.size(); ++index) {
+        const auto action = static_cast<ControlAction>(index);
+        text += std::wstring(control_action_name(action),
+                             control_action_name(action) + std::strlen(control_action_name(action))) +
+                L": teclado " + key_display_name(app.bindings.keys[index]) + L" | USB " +
+                gamepad_binding_display_name(app.bindings.gamepads[index]) + L"\n";
+    }
+    text += L"\nPara remapear, abra o menu Controles e escolha a ação. O próximo popup aceita teclado, botão, eixo ou POV.";
+    return text;
 }
 
 bool confirm_enhanced_mode(HWND hwnd, AppState& app) {
@@ -1685,7 +2060,8 @@ void update_menu_checks(HWND hwnd, const AppState& app) {
             const std::wstring label =
                 std::wstring(control_action_name(action),
                              control_action_name(action) + std::strlen(control_action_name(action))) +
-                L"\t" + key_display_name(app.bindings.keys[index]);
+                L"\t" + key_display_name(app.bindings.keys[index]) + L" / " +
+                gamepad_binding_display_name(app.bindings.gamepads[index]);
             ModifyMenuW(app.controls_menu,
                         MenuControlFirst + static_cast<UINT>(index),
                         MF_BYCOMMAND | MF_STRING,
@@ -1710,7 +2086,9 @@ void update_key(AppState& app, WPARAM key, bool pressed) {
             app.status_message = std::string{control_action_name(*app.pending_binding)} + " remapeado";
         }
         app.pending_binding.reset();
+        app.pending_binding_accepts_gamepad = false;
         app.input = {};
+        app.keyboard_input = {};
         return;
     }
 
@@ -1722,14 +2100,18 @@ void update_key(AppState& app, WPARAM key, bool pressed) {
         matched_game_control = true;
         const auto action = static_cast<ControlAction>(index);
         if (action == ControlAction::Pause) {
-            app.input.pause = pressed;
+            app.keyboard_input.pause = pressed;
         } else if (const u8 button = joypad_button_for_action(action); button != 0) {
             if (pressed) {
-                app.input.player1 = static_cast<u8>(app.input.player1 | button);
+                app.keyboard_input.player1 = static_cast<u8>(app.keyboard_input.player1 | button);
             } else {
-                app.input.player1 = static_cast<u8>(app.input.player1 & ~button);
+                app.keyboard_input.player1 = static_cast<u8>(app.keyboard_input.player1 & ~button);
             }
         }
+        app.input = app.keyboard_input;
+        app.input.player1 = static_cast<u8>(app.input.player1 | app.gamepad_input.player1);
+        app.input.player2 = static_cast<u8>(app.input.player2 | app.gamepad_input.player2);
+        app.input.pause = app.input.pause || app.gamepad_input.pause;
     }
     if (matched_game_control) {
         return;
@@ -1779,6 +2161,40 @@ void update_key(AppState& app, WPARAM key, bool pressed) {
     if ((key == VK_OEM_MINUS || key == VK_SUBTRACT) && pressed && app.audio) {
         app.audio->set_volume_percent(app.audio->volume_percent() - 5);
     }
+}
+
+HostInputState combined_input(const AppState& app) {
+    HostInputState input = app.keyboard_input;
+    input.player1 = static_cast<u8>(input.player1 | app.gamepad_input.player1);
+    input.player2 = static_cast<u8>(input.player2 | app.gamepad_input.player2);
+    input.pause = input.pause || app.gamepad_input.pause;
+    return input;
+}
+
+void poll_gamepads(HWND hwnd, AppState& app) {
+    if (app.pending_binding && app.pending_binding_accepts_gamepad) {
+        if (const auto binding = detect_pressed_gamepad_binding()) {
+            bind_gamepad_action(app, *app.pending_binding, *binding);
+            update_menu_checks(hwnd, app);
+            InvalidateRect(hwnd, nullptr, FALSE);
+        }
+        return;
+    }
+
+    HostInputState gamepad{};
+    for (std::size_t index = 0; index < app.bindings.gamepads.size(); ++index) {
+        if (!gamepad_binding_active(app.bindings.gamepads[index])) {
+            continue;
+        }
+        const auto action = static_cast<ControlAction>(index);
+        if (action == ControlAction::Pause) {
+            gamepad.pause = true;
+        } else if (const u8 button = joypad_button_for_action(action); button != 0) {
+            gamepad.player1 = static_cast<u8>(gamepad.player1 | button);
+        }
+    }
+    app.gamepad_input = gamepad;
+    app.input = combined_input(app);
 }
 
 const char* runtime_mode_name(RuntimeMode mode) {
@@ -2024,11 +2440,14 @@ std::wstring controls_help_text(const AppState& app) {
         const auto action = static_cast<ControlAction>(index);
         text += std::wstring(control_action_name(action),
                              control_action_name(action) + std::strlen(control_action_name(action))) +
-                L": " + key_display_name(app.bindings.keys[index]) + L"\n";
+                L": teclado " + key_display_name(app.bindings.keys[index]) + L" | USB " +
+                gamepad_binding_display_name(app.bindings.gamepads[index]) + L"\n";
     }
     text += L"\nAtalhos livres:\nSpace: pausar emulacao\nR: reset\nM: mute\n+ / -: volume\n"
             L"F1: overlay\nF5: salvar rapido\nF9: carregar rapido\n\n"
-            L"Um atalho deixa de agir no host quando for atribuido a um controle do jogo.";
+            L"Um atalho deixa de agir no host quando for atribuido a um controle do jogo.\n"
+            L"O menu Controles > Configurar teclado/controles USB mostra dispositivos detectados; "
+            L"cada acao pode ser remapeada pressionando uma tecla, botao, eixo ou POV.";
     return text;
 }
 
@@ -2393,8 +2812,16 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
         case MenuControlReset:
             app->bindings = {};
             app->input = {};
+            app->keyboard_input = {};
+            app->gamepad_input = {};
             app->status_message = "controles restaurados";
             break;
+        case MenuControlConfigure:
+            MessageBoxW(hwnd,
+                        controls_configuration_text(*app).c_str(),
+                        L"SG3000Recomp - Configurar controles",
+                        MB_OK | MB_ICONINFORMATION);
+            return 0;
         case MenuHelpControls:
             MessageBoxW(
                 hwnd, controls_help_text(*app).c_str(), L"SG3000Recomp - Controles", MB_OK | MB_ICONINFORMATION);
@@ -2516,10 +2943,12 @@ HMENU create_application_menu(AppState& app) {
         const std::wstring label =
             std::wstring(control_action_name(action),
                          control_action_name(action) + std::strlen(control_action_name(action))) +
-            L"\t" + key_display_name(app.bindings.keys[index]);
+            L"\t" + key_display_name(app.bindings.keys[index]) + L" / " +
+            gamepad_binding_display_name(app.bindings.gamepads[index]);
         AppendMenuW(controls, MF_STRING, MenuControlFirst + index, label.c_str());
     }
     AppendMenuW(controls, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(controls, MF_STRING, MenuControlConfigure, L"Configurar teclado/controles USB...");
     AppendMenuW(controls, MF_STRING, MenuControlReset, L"Restaurar padrao");
     AppendMenuW(help, MF_STRING, MenuHelpControls, L"Controles");
 
@@ -2585,6 +3014,8 @@ void run_message_loop(HWND hwnd, AppState& app) {
         if (!app.running) {
             break;
         }
+
+        poll_gamepads(hwnd, app);
 
         if (!app.has_rom) {
             if (app.quit_after_frames != 0 && ++app.rendered_frames >= app.quit_after_frames) {
@@ -2725,6 +3156,7 @@ int run(int argc, char** argv) {
     auto rom = normalize_rom_payload(read_file(opts.rom));
     const std::string rom_hash = rom_hash_fnv1a64(rom);
     const CartridgeHeaderInfo header = analyze_cartridge_header(rom);
+    const CartridgeImageHeuristics image_heuristics = analyze_cartridge_image(rom, opts.rom.filename().string());
     if (opts.print_hash) {
         std::cout << rom_hash << "\n";
         if (header.found) {
@@ -2738,6 +3170,9 @@ int run(int argc, char** argv) {
         } else {
             std::cout << "header: not found\n";
         }
+        std::cout << "image heuristic: model " << cartridge_model_hint_name(image_heuristics.model) << ", region "
+                  << cartridge_region_name(image_heuristics.region) << ", bios-like "
+                  << (image_heuristics.bios_like ? "yes" : "no") << ", reason " << image_heuristics.reason << "\n";
         return 0;
     }
     std::string profile_name;
@@ -2771,8 +3206,10 @@ int run(int argc, char** argv) {
             std::cout << "profile matched: none (" << rom_hash << ")\n";
         }
     }
-    if (!opts.model_explicit && cartridge_header_is_game_gear(header)) {
-        opts.model = ConsoleModel::GameGear;
+    if (!opts.model_explicit) {
+        if (const auto inferred = console_model_from_image_hint(image_heuristics.model)) {
+            opts.model = *inferred;
+        }
     }
     if (cartridge_header_is_game_gear(header) && opts.model_explicit && opts.model == ConsoleModel::SMS) {
         std::cout << "warning: cartridge header identifies a Game Gear image, but the explicit SMS model was kept\n";

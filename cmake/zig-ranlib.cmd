@@ -1,2 +1,7 @@
 @echo off
-python-zig ranlib %*
+where python-zig >nul 2>nul
+if %errorlevel% equ 0 (
+    python-zig ranlib %*
+) else (
+    python -m ziglang ranlib %*
+)
