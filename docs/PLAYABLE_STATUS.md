@@ -16,6 +16,7 @@ This document records the current minimum-playability gate so work can resume af
 - Accurate and `reduce_flicker` runs from the same gameplay state and input were compared for 1,200 frames. Both remained stable, and the enhanced path produced a distinct framebuffer in every compared frame.
 - Mapper-family locking fixed another private image whose valid Sega paging sequence was previously overridden by a later incidental write; `auto` now matches explicit SMapper output frame-for-frame and reaches a correct title screen with audio.
 - Three images initially classified as static after a 300-frame splash baseline reached active gameplay under a longer 1,200-frame deterministic input probe. All three produced non-zero audio and remained exception-free, bringing the current private gameplay reachability count to four images.
+- A private SRAM audit covered all ten locally available cartridge images: the five-minute gameplay route, three additional gameplay probes, and generic input probes for the remaining images all completed without runtime errors. None enabled cartridge RAM in the observed frame logs, and every resulting SRAM dump remained unchanged. This is not evidence of SRAM persistence during gameplay; the checklist gate remains open until a compatible title is available.
 
 ## Minimum Playability Gate
 
