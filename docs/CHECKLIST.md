@@ -108,6 +108,7 @@ Status detalhado e ordem de retomada: `docs/PLAYABLE_STATUS.md`.
 - [x] GUI: SRAM automatica e quick-save/load por hash em `%LOCALAPPDATA%`, com validacao de estado.
 - [x] GUI: escala inteira de janela entre 1x e 6x, configuravel e persistente.
 - [x] GUI: remapeamento persistente de direcional, botoes e Pause/NMI, com troca de conflitos.
+- [x] GUI: pop-up de controles lista vínculos e dispositivos USB, captura por dispositivo selecionado, limpeza individual e restauração dos padrões.
 - [x] GUI: gerenciamento visual de save states, screenshots BMP e gravacoes WAV, com seletores nativos.
 - [x] Perfis por hash editaveis pela GUI: mapper, NTSC/PAL, configuracao atual, aplicacao imediata e remocao.
 - [x] Tela nao modal de status com FPS, backends, modelo, CPU/VDP, mapper, fallback/recompiler e avisos de compatibilidade.

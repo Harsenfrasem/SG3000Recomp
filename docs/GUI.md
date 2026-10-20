@@ -60,6 +60,13 @@ os dispositivos detectados pela API joystick do Windows e os vínculos atuais. S
 já estiver em uso, os dois vínculos de teclado são trocados para evitar conflitos; vínculos
 USB são salvos separadamente. Há também uma opção para restaurar o padrão.
 
+O pop-up **Configurar teclado/controles USB...** reúne as ações em uma lista com os vínculos
+atuais. Selecione a ação, escolha o dispositivo USB detectado e use **Remapear USB...** para
+capturar botão, eixo analógico ou POV; a captura considera somente o dispositivo selecionado.
+**Remapear teclado...** captura uma tecla, **Limpar USB** remove apenas o vínculo USB daquela ação,
+e **Padrões** restaura todos os controles. `Esc` cancela uma captura em andamento. As alterações
+ficam nas preferências locais da GUI e são gravadas ao encerrar o aplicativo.
+
 **Exibição > Status detalhado...** abre uma janela auxiliar não modal que permanece
 atualizada durante o jogo. Ela mostra modelo e padrão de vídeo, backends Win32/waveOut,
 registradores da CPU, estado do VDP e mapper, FPS, áudio, execução interpretada/recompilada,

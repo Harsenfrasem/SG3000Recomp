@@ -1172,9 +1172,11 @@ bool gamepad_binding_active(const GamepadBinding& binding) {
     return false;
 }
 
-std::optional<GamepadBinding> detect_pressed_gamepad_binding() {
+std::optional<GamepadBinding> detect_pressed_gamepad_binding(std::optional<UINT> selected_device = std::nullopt) {
     const UINT device_count = joyGetNumDevs();
-    for (UINT device = 0; device < device_count; ++device) {
+    const UINT first_device = selected_device.value_or(0);
+    const UINT last_device = selected_device ? first_device + 1 : device_count;
+    for (UINT device = first_device; device < last_device; ++device) {
         JOYINFOEX info{};
         JOYCAPSW caps{};
         if (!read_joystick(device, info) || !read_joystick_caps(device, caps)) {
@@ -1885,38 +1887,260 @@ void request_control_binding(HWND hwnd, AppState& app, ControlAction action) {
     app.status_message = std::string{"aguardando tecla ou controle USB para "} + control_action_name(action);
 }
 
-std::wstring controls_configuration_text(const AppState& app) {
-    std::wstring text = L"Configuração de teclado e controles USB\n\n";
-    text += L"Dispositivos USB detectados:\n";
-    bool any_device = false;
-    for (UINT device = 0; device < joyGetNumDevs(); ++device) {
-        JOYCAPSW caps{};
-        JOYINFOEX info{};
-        if (!read_joystick_caps(device, caps) || !read_joystick(device, info)) {
-            continue;
-        }
-        any_device = true;
-        text += L"- " + std::to_wstring(device) + L": " + std::wstring(caps.szPname) + L" (" +
-                std::to_wstring(caps.wNumButtons) + L" botoes, " + std::to_wstring(caps.wNumAxes) + L" eixos";
-        if ((caps.wCaps & JOYCAPS_HASPOV) != 0) {
-            text += L", POV";
-        }
-        text += L")\n";
-    }
-    if (!any_device) {
-        text += L"- Nenhum controle USB disponivel pela API joystick do Windows.\n";
-    }
+enum ControlDialogCommand : int {
+    ControlDialogActionList = 4101,
+    ControlDialogDeviceList,
+    ControlDialogCaptureKey,
+    ControlDialogCaptureUsb,
+    ControlDialogClearUsb,
+    ControlDialogDefaults,
+    ControlDialogClose,
+};
 
-    text += L"\nBindings atuais:\n";
-    for (std::size_t index = 0; index < app.bindings.keys.size(); ++index) {
+struct ControlDialogState {
+    AppState* app = nullptr;
+    HWND action_list = nullptr;
+    HWND device_list = nullptr;
+    HWND instructions = nullptr;
+    std::vector<UINT> devices;
+    std::optional<ControlAction> capturing;
+    bool capture_usb = false;
+};
+
+std::wstring control_action_wide_name(ControlAction action) {
+    const char* name = control_action_name(action);
+    return std::wstring(name, name + std::strlen(name));
+}
+
+void refresh_control_dialog(ControlDialogState& state) {
+    const LRESULT previous_selection = SendMessageW(state.action_list, LB_GETCURSEL, 0, 0);
+    SendMessageW(state.action_list, LB_RESETCONTENT, 0, 0);
+    for (std::size_t index = 0; index < state.app->bindings.keys.size(); ++index) {
         const auto action = static_cast<ControlAction>(index);
-        text += std::wstring(control_action_name(action),
-                             control_action_name(action) + std::strlen(control_action_name(action))) +
-                L": teclado " + key_display_name(app.bindings.keys[index]) + L" | USB " +
-                gamepad_binding_display_name(app.bindings.gamepads[index]) + L"\n";
+        const std::wstring label = control_action_wide_name(action) + L"    Teclado: " +
+                                   key_display_name(state.app->bindings.keys[index]) + L"    USB: " +
+                                   gamepad_binding_display_name(state.app->bindings.gamepads[index]);
+        SendMessageW(state.action_list, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(label.c_str()));
     }
-    text += L"\nPara remapear, abra o menu Controles e escolha a ação. O próximo popup aceita teclado, botão, eixo ou POV.";
-    return text;
+    const LRESULT selection = previous_selection == LB_ERR ? 0 : previous_selection;
+    SendMessageW(state.action_list, LB_SETCURSEL, selection, 0);
+    if (state.app->controls_menu != nullptr) {
+        for (std::size_t index = 0; index < state.app->bindings.keys.size(); ++index) {
+            const auto action = static_cast<ControlAction>(index);
+            const std::wstring label = control_action_wide_name(action) + L"\t" +
+                                       key_display_name(state.app->bindings.keys[index]) + L" / " +
+                                       gamepad_binding_display_name(state.app->bindings.gamepads[index]);
+            ModifyMenuW(state.app->controls_menu,
+                        MenuControlFirst + static_cast<UINT>(index),
+                        MF_BYCOMMAND | MF_STRING,
+                        MenuControlFirst + static_cast<UINT>(index),
+                        label.c_str());
+        }
+    }
+}
+
+void set_control_capture_status(ControlDialogState& state, const wchar_t* message) {
+    SetWindowTextW(state.instructions, message);
+}
+
+void update_menu_checks(HWND hwnd, const AppState& app);
+
+INT_PTR CALLBACK control_dialog_proc(HWND dialog, UINT message, WPARAM wparam, LPARAM lparam) {
+    auto* state = reinterpret_cast<ControlDialogState*>(GetWindowLongPtrW(dialog, DWLP_USER));
+    if (message == WM_INITDIALOG) {
+        state = reinterpret_cast<ControlDialogState*>(lparam);
+        SetWindowLongPtrW(dialog, DWLP_USER, reinterpret_cast<LONG_PTR>(state));
+        SetWindowTextW(dialog, L"SG3000Recomp - Controles");
+        state->action_list = CreateWindowExW(WS_EX_CLIENTEDGE,
+                                             L"LISTBOX",
+                                             nullptr,
+                                             WS_CHILD | WS_VISIBLE | WS_VSCROLL | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT,
+                                             12,
+                                             12,
+                                             640,
+                                             165,
+                                             dialog,
+                                             reinterpret_cast<HMENU>(ControlDialogActionList),
+                                             GetModuleHandleW(nullptr),
+                                             nullptr);
+        CreateWindowExW(0, L"STATIC", L"Dispositivo USB para captura:", WS_CHILD | WS_VISIBLE,
+                        12, 188, 190, 22, dialog, nullptr, GetModuleHandleW(nullptr), nullptr);
+        state->device_list = CreateWindowExW(0, L"COMBOBOX", nullptr,
+                                             WS_CHILD | WS_VISIBLE | WS_VSCROLL | CBS_DROPDOWNLIST,
+                                             204, 184, 448, 180, dialog,
+                                             reinterpret_cast<HMENU>(ControlDialogDeviceList),
+                                             GetModuleHandleW(nullptr), nullptr);
+        state->instructions = CreateWindowExW(0, L"STATIC",
+                                               L"Selecione uma ação e escolha teclado ou controle USB para remapear.",
+                                               WS_CHILD | WS_VISIBLE,
+                                               12, 218, 640, 38, dialog, nullptr,
+                                               GetModuleHandleW(nullptr), nullptr);
+        CreateWindowExW(0, L"BUTTON", L"Remapear teclado...", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                        12, 265, 150, 30, dialog, reinterpret_cast<HMENU>(ControlDialogCaptureKey),
+                        GetModuleHandleW(nullptr), nullptr);
+        CreateWindowExW(0, L"BUTTON", L"Remapear USB...", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                        170, 265, 140, 30, dialog, reinterpret_cast<HMENU>(ControlDialogCaptureUsb),
+                        GetModuleHandleW(nullptr), nullptr);
+        CreateWindowExW(0, L"BUTTON", L"Limpar USB", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                        318, 265, 105, 30, dialog, reinterpret_cast<HMENU>(ControlDialogClearUsb),
+                        GetModuleHandleW(nullptr), nullptr);
+        CreateWindowExW(0, L"BUTTON", L"Padrões", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                        431, 265, 95, 30, dialog, reinterpret_cast<HMENU>(ControlDialogDefaults),
+                        GetModuleHandleW(nullptr), nullptr);
+        CreateWindowExW(0, L"BUTTON", L"Fechar", WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON,
+                        534, 265, 118, 30, dialog, reinterpret_cast<HMENU>(ControlDialogClose),
+                        GetModuleHandleW(nullptr), nullptr);
+
+        for (UINT device = 0; device < joyGetNumDevs(); ++device) {
+            JOYCAPSW caps{};
+            JOYINFOEX info{};
+            if (!read_joystick_caps(device, caps) || !read_joystick(device, info)) {
+                continue;
+            }
+            state->devices.push_back(device);
+            const std::wstring label = std::wstring(caps.szPname) + L" [" + std::to_wstring(device) + L"] (" +
+                                       std::to_wstring(caps.wNumButtons) +
+                                       L" botoes, " + std::to_wstring(caps.wNumAxes) + L" eixos" +
+                                       ((caps.wCaps & JOYCAPS_HASPOV) != 0 ? L", POV)" : L")");
+            SendMessageW(state->device_list, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(label.c_str()));
+        }
+        if (state->devices.empty()) {
+            SendMessageW(state->device_list, CB_ADDSTRING, 0,
+                         reinterpret_cast<LPARAM>(L"Nenhum controle USB detectado"));
+            EnableWindow(state->device_list, FALSE);
+        }
+        SendMessageW(state->device_list, CB_SETCURSEL, 0, 0);
+        refresh_control_dialog(*state);
+        SetTimer(dialog, 1, 35, nullptr);
+        return TRUE;
+    }
+    if (state == nullptr) {
+        return FALSE;
+    }
+    switch (message) {
+    case WM_TIMER:
+        if (state->capturing && state->capture_usb && !state->devices.empty()) {
+            const LRESULT selected = SendMessageW(state->device_list, CB_GETCURSEL, 0, 0);
+            if (selected != CB_ERR && static_cast<std::size_t>(selected) < state->devices.size()) {
+                if (const auto binding = detect_pressed_gamepad_binding(
+                        state->devices[static_cast<std::size_t>(selected)])) {
+                    const auto action = *state->capturing;
+                    state->app->bindings.gamepads[static_cast<std::size_t>(action)] = *binding;
+                    state->app->status_message = std::string{control_action_name(action)} +
+                                                 " remapeado para controle USB";
+                    state->capturing.reset();
+                    set_control_capture_status(*state, L"Vínculo USB salvo. Selecione outra ação ou feche a janela.");
+                    refresh_control_dialog(*state);
+                }
+            }
+        }
+        return TRUE;
+    case WM_KEYDOWN:
+        if (state->capturing && wparam == VK_ESCAPE) {
+            state->capturing.reset();
+            set_control_capture_status(*state, L"Captura cancelada. Selecione uma ação para continuar.");
+            return TRUE;
+        }
+        if (state->capturing && !state->capture_usb) {
+            const auto action = *state->capturing;
+            const UINT previous = state->app->bindings.keys[static_cast<std::size_t>(action)];
+            const auto conflict = std::find(state->app->bindings.keys.begin(),
+                                            state->app->bindings.keys.end(), static_cast<UINT>(wparam));
+            if (conflict != state->app->bindings.keys.end()) {
+                *conflict = previous;
+            }
+            state->app->bindings.keys[static_cast<std::size_t>(action)] = static_cast<UINT>(wparam);
+            state->app->status_message = std::string{control_action_name(action)} + " remapeado";
+            state->capturing.reset();
+            set_control_capture_status(*state, L"Tecla salva. Selecione outra ação ou feche a janela.");
+            refresh_control_dialog(*state);
+            return TRUE;
+        }
+        return FALSE;
+    case WM_COMMAND:
+        switch (LOWORD(wparam)) {
+        case ControlDialogCaptureKey:
+        case ControlDialogCaptureUsb: {
+            const LRESULT selected = SendMessageW(state->action_list, LB_GETCURSEL, 0, 0);
+            if (selected == LB_ERR) {
+                return TRUE;
+            }
+            if (LOWORD(wparam) == ControlDialogCaptureUsb && state->devices.empty()) {
+                set_control_capture_status(*state, L"Conecte um controle USB reconhecido pelo Windows e abra esta janela novamente.");
+                return TRUE;
+            }
+            state->capturing = static_cast<ControlAction>(selected);
+            state->capture_usb = LOWORD(wparam) == ControlDialogCaptureUsb;
+            set_control_capture_status(*state, state->capture_usb
+                                                   ? L"Aguardando botão, eixo ou direcional no dispositivo USB selecionado. Esc cancela."
+                                                   : L"Aguardando tecla. Pressione Esc para cancelar.");
+            SetFocus(dialog);
+            return TRUE;
+        }
+        case ControlDialogClearUsb: {
+            const LRESULT selected = SendMessageW(state->action_list, LB_GETCURSEL, 0, 0);
+            if (selected != LB_ERR) {
+                state->app->bindings.gamepads[static_cast<std::size_t>(selected)] = {};
+                state->app->status_message = "vinculo USB removido";
+                refresh_control_dialog(*state);
+            }
+            return TRUE;
+        }
+        case ControlDialogDefaults:
+            state->app->bindings = {};
+            state->app->status_message = "controles restaurados";
+            refresh_control_dialog(*state);
+            set_control_capture_status(*state, L"Controles padrão restaurados.");
+            return TRUE;
+        case ControlDialogClose:
+            EndDialog(dialog, IDOK);
+            return TRUE;
+        case ControlDialogActionList:
+            if (HIWORD(wparam) == LBN_SELCHANGE) {
+                state->capturing.reset();
+                set_control_capture_status(*state, L"Ação selecionada. Escolha remapeamento por teclado ou USB.");
+            }
+            return TRUE;
+        default:
+            break;
+        }
+        break;
+    case WM_CLOSE:
+        EndDialog(dialog, IDCANCEL);
+        return TRUE;
+    case WM_DESTROY:
+        KillTimer(dialog, 1);
+        break;
+    default:
+        break;
+    }
+    return FALSE;
+}
+
+void show_controls_configuration(HWND owner, AppState& app) {
+    alignas(DWORD) std::array<BYTE, 24> template_storage{};
+    auto* dialog_template = reinterpret_cast<DLGTEMPLATE*>(template_storage.data());
+    dialog_template->style = WS_POPUP | WS_CAPTION | WS_SYSMENU | DS_MODALFRAME;
+    dialog_template->dwExtendedStyle = 0;
+    dialog_template->cdit = 0;
+    dialog_template->x = 0;
+    dialog_template->y = 0;
+    dialog_template->cx = 380;
+    dialog_template->cy = 165;
+    // A menu, class and title are each represented by a zero WORD after DLGTEMPLATE.
+    auto* optional_fields = reinterpret_cast<WORD*>(template_storage.data() + 18);
+    optional_fields[0] = 0;
+    optional_fields[1] = 0;
+    optional_fields[2] = 0;
+    ControlDialogState state;
+    state.app = &app;
+    DialogBoxIndirectParamW(GetModuleHandleW(nullptr), dialog_template, owner, control_dialog_proc,
+                            reinterpret_cast<LPARAM>(&state));
+    app.input = {};
+    app.keyboard_input = {};
+    app.gamepad_input = {};
+    update_menu_checks(owner, app);
+    InvalidateRect(owner, nullptr, FALSE);
 }
 
 bool confirm_enhanced_mode(HWND hwnd, AppState& app) {
@@ -2817,10 +3041,7 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
             app->status_message = "controles restaurados";
             break;
         case MenuControlConfigure:
-            MessageBoxW(hwnd,
-                        controls_configuration_text(*app).c_str(),
-                        L"SG3000Recomp - Configurar controles",
-                        MB_OK | MB_ICONINFORMATION);
+            show_controls_configuration(hwnd, *app);
             return 0;
         case MenuHelpControls:
             MessageBoxW(
@@ -2999,6 +3220,7 @@ HWND create_main_window(HINSTANCE instance, AppState& app, int scale) {
 
 void run_message_loop(HWND hwnd, AppState& app) {
     using clock = std::chrono::steady_clock;
+    const bool high_resolution_timer = timeBeginPeriod(1) == TIMERR_NOERROR;
     auto next_frame = clock::now();
 
     while (app.running) {
@@ -3081,6 +3303,9 @@ void run_message_loop(HWND hwnd, AppState& app) {
         } else {
             Sleep(1);
         }
+    }
+    if (high_resolution_timer) {
+        timeEndPeriod(1);
     }
 }
 

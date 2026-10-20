@@ -27,10 +27,12 @@ Os menus permitem voltar ao modo fiel ou ativar melhorias visuais com um aviso d
 compatibilidade. SRAM, quick-save e preferências ficam somente em
 `%LOCALAPPDATA%\SG3000Recomp`; nenhum caminho de ROM ou BIOS é gravado no pacote.
 
-Em **Controles > Configurar teclado/controles USB...**, o host lista controles detectados
-pela API joystick do Windows. Para remapear, escolha uma ação no menu **Controles** e pressione
-uma tecla, botão, eixo analógico ou POV/direcional no popup; os vínculos USB ficam salvos junto
-das preferências locais.
+Em **Controles > Configurar teclado/controles USB...**, o pop-up lista as ações e os vínculos
+atuais, além dos controles detectados pela API joystick do Windows. Selecione a ação, escolha o
+dispositivo USB e use **Remapear USB...** para capturar botão, eixo ou POV somente desse controle.
+**Remapear teclado...** captura uma tecla; **Limpar USB** remove o vínculo USB selecionado e
+**Padrões** restaura os controles. `Esc` cancela a captura. As alterações ficam nas preferências
+locais e são gravadas ao sair do aplicativo.
 
 Um perfil SMS enhanced pode solicitar viewport vertical 224/240. Essa saída usa um framebuffer
 separado; voltar ao modo fiel restaura imediatamente 256x192 sem reutilizar pixels aprimorados.
