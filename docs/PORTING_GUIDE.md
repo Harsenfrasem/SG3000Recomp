@@ -11,6 +11,11 @@ Mantenha a imagem em `local-roms/` e gere metadados locais:
 .\build\zig-debug\sgrecomp.exe .\local-roms\game.sms --dump-analysis .\out\game-analysis.txt
 ```
 
+Para gerar de uma vez a captura BMP/WAV/VGM, cobertura do smoke runner e replay por frames do
+host para todas as imagens locais, use `tools/capture_local_baseline.ps1`. Os artefatos ficam
+em `out/baseline/`, separados por hash local; o script também gera um resumo lado a lado das
+métricas principais sem registrar nomes de arquivo.
+
 Registre apenas conclusões técnicas genéricas. Não publique nome de arquivo local, hash privado ou conteúdo da imagem.
 
 ## 2. Criar um perfil local

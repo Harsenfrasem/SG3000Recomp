@@ -12,6 +12,22 @@ mkdir local-fm-roms
 
 `local-roms/`, `local-fm-roms/`, and `local-bios/` are ignored by git. Put only your own legally obtained test images there.
 
+To capture a local baseline for every supported ROM image in `local-roms/`, run the PowerShell
+helper below. It stores artifacts under ignored `out/baseline/<local-image-hash>/`, writes a
+hash-only summary CSV, and runs both the instruction smoke runner and frame-based host. The
+per-image comparison note reports their main metrics; instruction counts and frame counts use
+different clocks, so use the paired logs and media to locate differences rather than expecting
+the counts to match. A BIOS or deterministic input script can be supplied explicitly:
+
+```powershell
+.\tools\capture_local_baseline.ps1
+.\tools\capture_local_baseline.ps1 -BiosPath .\local-bios\your-bios.sms -InputScript .\local-saves\title.csv
+```
+
+The helper never records source filenames in its summary and never writes ROM/BIOS data into the
+repository. It overwrites artifacts with the same local image hash under the selected output
+directory.
+
 Useful commands:
 
 ```powershell

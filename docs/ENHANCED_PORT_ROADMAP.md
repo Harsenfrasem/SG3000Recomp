@@ -36,9 +36,9 @@ Melhorias profundas como viewport maior, cenario expandido, HUD reposicionado e 
 ### 2. Baseline fiel
 
 - [x] Rodar cada ROM atual no host headless em modo `accurate` por 300 frames.
-- [ ] Capturar frame BMP, audio WAV/VGM e cobertura de PC em `out/`.
+- [x] Capturar frame BMP, audio WAV/VGM e cobertura de PC em `out/`.
 - [x] Registrar localmente atividade visual, audio nao-zero, mapper, PC e uso de BIOS.
-- [ ] Comparar o comportamento com o smoke runner para separar bugs do host e bugs do runtime.
+- [x] Comparar o comportamento com o smoke runner para separar bugs do host e bugs do runtime.
 
 ### 3. Mapas tecnicos por jogo
 
