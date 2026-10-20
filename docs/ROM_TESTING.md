@@ -14,19 +14,21 @@ mkdir local-fm-roms
 
 To capture a local baseline for every supported ROM image in `local-roms/`, run the PowerShell
 helper below. It stores artifacts under ignored `out/baseline/<local-image-hash>/`, writes a
-hash-only summary CSV, and runs both the instruction smoke runner and frame-based host. The
-per-image comparison note reports their main metrics; instruction counts and frame counts use
-different clocks, so use the paired logs and media to locate differences rather than expecting
-the counts to match. A BIOS or deterministic input script can be supplied explicitly:
+hash-only summary CSV, and runs both the instruction smoke runner and frame-based host. By
+default, it sums the host frame log's instruction counts and gives that exact budget to the
+smoke runner, then compares BMP/WAV/VGM SHA-256 hashes and reports pixel/audio metrics. A BIOS
+or deterministic input script can be supplied explicitly:
 
 ```powershell
 .\tools\capture_local_baseline.ps1
 .\tools\capture_local_baseline.ps1 -BiosPath .\local-bios\your-bios.sms -InputScript .\local-saves\title.csv
 ```
 
-The helper never records source filenames in its summary and never writes ROM/BIOS data into the
-repository. It overwrites artifacts with the same local image hash under the selected output
-directory.
+When an input script is supplied, it applies only to the frame-based host because the standalone
+smoke runner has no frame input interface; the report marks that comparison as unaligned. An
+explicit `-SmokeSteps` override also disables strict instruction alignment. The helper never
+records source filenames in its summary and never writes ROM/BIOS data into the repository. It
+overwrites artifacts with the same local image hash under the selected output directory.
 
 Useful commands:
 

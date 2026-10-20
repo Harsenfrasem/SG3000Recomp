@@ -7,8 +7,8 @@ param(
     [string]$HashToolPath = "build/zig-debug/sgrecomp_host.exe",
     [ValidateRange(1, 1000000)]
     [int]$HostFrames = 300,
-    [ValidateRange(1, 100000000)]
-    [int]$SmokeSteps = 300000
+    [ValidateRange(0, 100000000)]
+    [int]$SmokeSteps = 0
 )
 
 $ErrorActionPreference = "Stop"
@@ -83,9 +83,46 @@ foreach ($rom in $roms) {
     $imageOutput = Join-Path $outputRoot $imageId
     New-Item -ItemType Directory -Path $imageOutput -Force | Out-Null
 
+    $hostLog = Join-Path $imageOutput "host.log"
+    $hostFrameLog = Join-Path $imageOutput "host-frames.csv"
+    $hostArgs = @(
+        $rom.FullName, "--run-host", "--frames", "$HostFrames",
+        "--dump-frame-bmp", (Join-Path $imageOutput "host-frame.bmp"),
+        "--dump-audio", (Join-Path $imageOutput "host-audio.wav"),
+        "--dump-vgm", (Join-Path $imageOutput "host-audio.vgm"),
+        "--dump-frame-log", $hostFrameLog
+    )
+    if ($bios) {
+        $hostArgs += @("--bios", $bios)
+    }
+    if ($inputScriptPath) {
+        $hostArgs += @("--input-script", $inputScriptPath)
+    }
+    & $cli @hostArgs *> $hostLog
+    $hostExit = $LASTEXITCODE
+    if ($hostExit -ne 0) {
+        $results.Add([pscustomobject]@{
+            image_id = $imageId
+            smoke_exit = -1
+            host_exit = $hostExit
+            status = "host-failed"
+        })
+        Write-Output "$imageId : host-failed (exit=$hostExit)"
+        continue
+    }
+
+    $hostRows = if (Test-Path -LiteralPath $hostFrameLog) { @(Import-Csv $hostFrameLog) } else { @() }
+    $alignedSmokeSteps = $SmokeSteps
+    if ($alignedSmokeSteps -eq 0) {
+        $alignedSmokeSteps = [int](($hostRows | Measure-Object -Property instructions -Sum).Sum)
+    }
+    if ($hostExit -eq 0 -and $alignedSmokeSteps -le 0) {
+        throw "Host frame log did not contain a positive instruction count."
+    }
+
     $smokeLog = Join-Path $imageOutput "smoke.log"
     $smokeArgs = @(
-        $rom.FullName, "--run-smoke", "--steps", "$SmokeSteps",
+        $rom.FullName, "--run-smoke", "--steps", "$alignedSmokeSteps",
         "--dump-frame-bmp", (Join-Path $imageOutput "smoke-frame.bmp"),
         "--dump-audio", (Join-Path $imageOutput "smoke-audio.wav"),
         "--dump-vgm", (Join-Path $imageOutput "smoke-audio.vgm"),
@@ -96,39 +133,51 @@ foreach ($rom in $roms) {
     }
     & $cli @smokeArgs *> $smokeLog
     $smokeExit = $LASTEXITCODE
-
-    $hostLog = Join-Path $imageOutput "host.log"
-    $hostArgs = @(
-        $rom.FullName, "--run-host", "--frames", "$HostFrames",
-        "--dump-frame-bmp", (Join-Path $imageOutput "host-frame.bmp"),
-        "--dump-audio", (Join-Path $imageOutput "host-audio.wav"),
-        "--dump-vgm", (Join-Path $imageOutput "host-audio.vgm"),
-        "--dump-frame-log", (Join-Path $imageOutput "host-frames.csv")
-    )
-    if ($bios) {
-        $hostArgs += @("--bios", $bios)
+    $smokeStoppedEarly = Select-String -LiteralPath $smokeLog -Pattern "execution stopped at step|unsupported opcode" -Quiet
+    $requiredSmokeOutputs = @("smoke-frame.bmp", "smoke-audio.wav", "smoke-audio.vgm", "smoke-coverage.csv")
+    $missingSmokeOutput = @($requiredSmokeOutputs | Where-Object {
+        -not (Test-Path -LiteralPath (Join-Path $imageOutput $_) -PathType Leaf)
+    }).Count -gt 0
+    if ($smokeExit -ne 0 -or $smokeStoppedEarly -or $missingSmokeOutput) {
+        $failureStatus = if ($smokeStoppedEarly) { "smoke-stopped-early" } else { "smoke-failed" }
+        $results.Add([pscustomobject]@{
+            image_id = $imageId
+            smoke_exit = $smokeExit
+            host_exit = $hostExit
+            host_instructions = ($hostRows | Measure-Object -Property instructions -Sum).Sum
+            status = $failureStatus
+        })
+        Write-Output "$imageId : $failureStatus (smoke=$smokeExit, host=$hostExit)"
+        continue
     }
-    if ($inputScriptPath) {
-        $hostArgs += @("--input-script", $inputScriptPath)
-    }
-    & $cli @hostArgs *> $hostLog
-    $hostExit = $LASTEXITCODE
 
     $smokeVisited = Read-LogValue $smokeLog "visited pcs"
     $smokeLitPixels = Read-LogValue $smokeLog "framebuffer lit pixels"
     $hostFrameCount = Read-LogValue $hostLog "host frames"
     $hostExecutionMode = Read-LogValue $hostLog "execution mode"
-    $hostInstructions = Read-LogValue $hostLog "instructions"
+    $hostInstructions = ($hostRows | Measure-Object -Property instructions -Sum).Sum
     $hostLitPixels = Read-LogValue $hostLog "framebuffer lit pixels"
     $hostAudioSamples = Read-LogValue $hostLog "audio samples"
+    $instructionsAligned = [string]::IsNullOrWhiteSpace($inputScriptPath) -and $SmokeSteps -eq 0
+    $smokeFrameHash = (Get-FileHash -LiteralPath (Join-Path $imageOutput "smoke-frame.bmp") -Algorithm SHA256).Hash
+    $hostFrameHash = (Get-FileHash -LiteralPath (Join-Path $imageOutput "host-frame.bmp") -Algorithm SHA256).Hash
+    $smokeAudioHash = (Get-FileHash -LiteralPath (Join-Path $imageOutput "smoke-audio.wav") -Algorithm SHA256).Hash
+    $hostAudioHash = (Get-FileHash -LiteralPath (Join-Path $imageOutput "host-audio.wav") -Algorithm SHA256).Hash
+    $smokeVgmHash = (Get-FileHash -LiteralPath (Join-Path $imageOutput "smoke-audio.vgm") -Algorithm SHA256).Hash
+    $hostVgmHash = (Get-FileHash -LiteralPath (Join-Path $imageOutput "host-audio.vgm") -Algorithm SHA256).Hash
+    $frameMatch = $smokeFrameHash -eq $hostFrameHash
+    $audioMatch = $smokeAudioHash -eq $hostAudioHash
+    $vgmMatch = $smokeVgmHash -eq $hostVgmHash
     @(
         "Image ID: $imageId",
-        "Smoke: exit=$smokeExit, steps=$SmokeSteps, visited PCs=$smokeVisited, lit pixels=$smokeLitPixels",
         "Host: exit=$hostExit, frames=$hostFrameCount, mode=$hostExecutionMode, instructions=$hostInstructions, lit pixels=$hostLitPixels, audio samples=$hostAudioSamples",
-        "Interpretation: smoke counts CPU instructions; host advances complete video frames. These values are diagnostic indicators and are not expected to match one-to-one. Inspect each run log and frame/audio artifact when the two paths differ."
+        "Smoke: exit=$smokeExit, steps=$alignedSmokeSteps, visited PCs=$smokeVisited, lit pixels=$smokeLitPixels",
+        "Instruction alignment: $instructionsAligned (host instruction counts summed across captured frames; input scripts or explicit SmokeSteps disable strict alignment)",
+        "BMP SHA-256 match: $frameMatch",
+        "WAV SHA-256 match: $audioMatch",
+        "VGM SHA-256 match: $vgmMatch"
     ) | Set-Content -LiteralPath (Join-Path $imageOutput "comparison.txt") -Encoding UTF8
 
-    $smokeStoppedEarly = Select-String -LiteralPath $smokeLog -Pattern "execution stopped at step|unsupported opcode" -Quiet
     $status = if ($smokeExit -eq 0 -and $hostExit -eq 0 -and -not $smokeStoppedEarly) {
         "captured"
     } elseif ($smokeStoppedEarly) {
@@ -139,14 +188,20 @@ foreach ($rom in $roms) {
     $results.Add([pscustomobject]@{
         image_id = $imageId
         smoke_exit = $smokeExit
+        smoke_steps = $alignedSmokeSteps
         smoke_visited_pcs = $smokeVisited
         smoke_lit_pixels = $smokeLitPixels
+        smoke_frame_sha256 = $smokeFrameHash
         host_exit = $hostExit
         host_frames = $hostFrameCount
         host_execution_mode = $hostExecutionMode
         host_instructions = $hostInstructions
         host_lit_pixels = $hostLitPixels
         host_audio_samples = $hostAudioSamples
+        instructions_aligned = $instructionsAligned
+        framebuffer_match = $frameMatch
+        audio_match = $audioMatch
+        vgm_match = $vgmMatch
         status = $status
     })
     Write-Output "$imageId : $status (smoke=$smokeExit, host=$hostExit)"

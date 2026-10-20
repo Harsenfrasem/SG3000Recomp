@@ -1750,6 +1750,11 @@ void run_smoke(ConsoleModel model,
     Z80State cpu;
     bus.set_mapper(opts.mapper);
     vdp.set_game_gear(model == ConsoleModel::GameGear);
+    if (model == ConsoleModel::SG3000) {
+        vdp.set_video_mode(VdpVideoMode::TmsGraphics1);
+    }
+    const HostRuntimeConfig host_config = host_runtime_config_for_video_standard(opts.video_standard);
+    vdp.set_timing({host_config.cpu_cycles_per_scanline, host_config.scanlines_per_frame});
     vdp.set_enhancements(opts.enhancements);
     psg.set_enhancements(opts.enhancements);
     psg.set_write_logging_enabled(!opts.dump_vgm.empty());
@@ -1792,18 +1797,17 @@ void run_smoke(ConsoleModel model,
     std::bitset<0x10000> visited_pc;
     std::array<u32, 0x10000> pc_counts{};
     std::vector<s16> audio_samples;
-    constexpr u32 audio_sample_rate = 44100;
-    constexpr int cpu_cycles_per_audio_sample = 81;
-    int audio_cycle_accumulator = 0;
+    const u32 audio_sample_rate = opts.audio_sample_rate;
+    u64 audio_cycle_accumulator = 0;
     const auto tick_devices = [&](int elapsed) {
         vdp.tick(elapsed);
         psg.tick(elapsed);
         ym2413.tick(elapsed);
         ym2612.tick(elapsed);
         if (!opts.dump_audio.empty()) {
-            audio_cycle_accumulator += elapsed;
-            while (audio_cycle_accumulator >= cpu_cycles_per_audio_sample) {
-                audio_cycle_accumulator -= cpu_cycles_per_audio_sample;
+            audio_cycle_accumulator += static_cast<u64>(elapsed) * audio_sample_rate;
+            while (audio_cycle_accumulator >= host_config.cpu_clock_hz) {
+                audio_cycle_accumulator -= host_config.cpu_clock_hz;
                 const auto psg_sample = ym2413.psg_enabled() ? psg.sample() : std::array<float, 2>{0.0F, 0.0F};
                 const auto fm_sample = ym2413.sample();
                 const auto ym2612_sample = ym2612.sample();

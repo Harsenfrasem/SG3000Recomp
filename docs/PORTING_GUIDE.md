@@ -14,7 +14,9 @@ Mantenha a imagem em `local-roms/` e gere metadados locais:
 Para gerar de uma vez a captura BMP/WAV/VGM, cobertura do smoke runner e replay por frames do
 host para todas as imagens locais, use `tools/capture_local_baseline.ps1`. Os artefatos ficam
 em `out/baseline/`, separados por hash local; o script também gera um resumo lado a lado das
-métricas principais sem registrar nomes de arquivo.
+métricas principais sem registrar nomes de arquivo. Por padrão, o smoke recebe o total de
+instruções reportado pelo host e os hashes BMP/WAV/VGM são comparados; input script ou override
+manual de passos aparece no relatório como execução não alinhada.
 
 Registre apenas conclusões técnicas genéricas. Não publique nome de arquivo local, hash privado ou conteúdo da imagem.
 
