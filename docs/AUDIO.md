@@ -8,12 +8,15 @@ não silencia o PSG. O software emulado precisa escrever o controle de áudio `$
 O YM2413 usa o núcleo emu2413 na revisão fixada `813cff6`, com instrumentos ROM do YM2413,
 envelopes, AM/PM LFO, rhythm mode, ruído e tabelas OPLL. O runtime avança o núcleo na taxa interna
 do chip (clock/72), preserva seu estado exato no save-state v14 e mantém logs/controle `$F0-$F2`
-separados da síntese. Ainda falta uma matriz de regressão com jogos permitidos para declarar
-compatibilidade de catálogo; isso não reduz a fidelidade do núcleo integrado.
+separados da síntese. Em quatro imagens FM privadas, pares de execuções de 1.200 frames
+registraram 57.288 escritas FM no total; habilitar o YM2413 alterou o WAV em todas as quatro.
+Isso confirma que o caminho de áudio FM é exercitado, mas não mede fidelidade contra gravações
+de referência nem declara compatibilidade ampla de catálogo.
 
-Save states v1-v13 continuam carregáveis. Como eles pertencem ao sintetizador aproximado antigo,
-seus registradores são reaplicados ao emu2413 e o envelope FM recomeça; estados v14 preservam a
-continuidade exata do núcleo.
+O formato atual de save state é v15; desde v14 ele preserva a continuidade exata do núcleo
+emu2413. Save states v1-v13 continuam carregáveis, mas pertencem ao sintetizador aproximado
+antigo: seus registradores são reaplicados ao emu2413 e o envelope FM recomeça. A v15 acrescenta
+latches de scroll do VDP sem alterar o estado de áudio.
 
 O YM2612/Nuked-OPN2 continua sendo uma extensão não histórica do SMS/SG-3000 e exige software
 preparado para as portas `$F4-$F7`.
