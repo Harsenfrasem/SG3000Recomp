@@ -58,10 +58,12 @@ remapeada para teclado ou controle USB: escolha a ação e pressione a nova tecl
 eixo analógico ou POV/direcional no popup. **Configurar teclado/controles USB...** mostra
 os dispositivos detectados pela API joystick do Windows e os vínculos atuais. Se uma tecla
 já estiver em uso, os dois vínculos de teclado são trocados para evitar conflitos; vínculos
-USB são salvos separadamente. Há também uma opção para restaurar o padrão.
+USB são salvos separadamente. Os dois jogadores têm vínculos independentes; por padrão, o
+jogador 2 usa `W`/`S`/`A`/`D` e `C`/`V`, enquanto `Enter` continua associado a Pause/NMI/Start.
+Há também uma opção para restaurar o padrão.
 
-O pop-up **Configurar teclado/controles USB...** reúne as ações em uma lista com os vínculos
-atuais. Selecione a ação, escolha o dispositivo USB detectado e use **Remapear USB...** para
+O pop-up **Configurar teclado/controles USB...** reúne as ações dos dois jogadores em uma lista
+com os vínculos atuais. Selecione a ação, escolha o dispositivo USB detectado e use **Remapear USB...** para
 capturar botão, eixo analógico ou POV; a captura considera somente o dispositivo selecionado.
 **Remapear teclado...** captura uma tecla, **Limpar USB** remove apenas o vínculo USB daquela ação,
 e **Padrões** restaura todos os controles. `Esc` cancela uma captura em andamento. As alterações
@@ -82,8 +84,8 @@ Nenhuma ROM ou BIOS é copiada para o projeto. Cancelar um seletor mantém a jan
 
 ## Controles
 
-- Setas: direcional padrão do jogador 1; também pode ser remapeado para controle USB.
-- `Z` / `X`: botões 1 e 2 por padrão.
+- Setas e `Z` / `X`: direcional e botões 1/2 do jogador 1 por padrão.
+- `W` / `S` / `A` / `D` e `C` / `V`: direcional e botões 1/2 do jogador 2 por padrão.
 - `Enter`: Pause/NMI do Master System por padrão.
 - `Space`: pausa a emulação.
 - `R`: soft reset da CPU, sem reabrir a ROM e sem forçar novo boot da BIOS.

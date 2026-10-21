@@ -13,8 +13,9 @@ Cancelar um seletor mantém a janela e a sessão atual sem copiar o arquivo sele
 
 ## Controles
 
-- Setas: direcional.
-- `Z` / `X`: botões 1 e 2.
+- Setas: direcional do jogador 1.
+- `Z` / `X`: botões 1 e 2 do jogador 1.
+- `W` / `S` / `A` / `D` e `C` / `V`: direcional e botões 1/2 do jogador 2.
 - `Enter`: Pause/NMI do Master System ou Start no Game Gear.
 - `Space`: pausa a emulação.
 - `R`: soft reset.
@@ -27,9 +28,9 @@ Os menus permitem voltar ao modo fiel ou ativar melhorias visuais com um aviso d
 compatibilidade. SRAM, quick-save e preferências ficam somente em
 `%LOCALAPPDATA%\SG3000Recomp`; nenhum caminho de ROM ou BIOS é gravado no pacote.
 
-Em **Controles > Configurar teclado/controles USB...**, o pop-up lista as ações e os vínculos
-atuais, além dos controles detectados pela API joystick do Windows. Selecione a ação, escolha o
-dispositivo USB e use **Remapear USB...** para capturar botão, eixo ou POV somente desse controle.
+Em **Controles > Configurar teclado/controles USB...**, o pop-up lista as ações dos dois jogadores
+e os vínculos atuais, além dos controles detectados pela API joystick do Windows. Selecione a
+ação, escolha o dispositivo USB e use **Remapear USB...** para capturar botão, eixo ou POV somente desse controle.
 **Remapear teclado...** captura uma tecla; **Limpar USB** remove o vínculo USB selecionado e
 **Padrões** restaura os controles. `Esc` cancela a captura. As alterações ficam nas preferências
 locais e são gravadas ao sair do aplicativo.

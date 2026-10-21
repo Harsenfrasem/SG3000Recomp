@@ -293,6 +293,12 @@ enum class ControlAction : std::size_t {
     Button1,
     Button2,
     Pause,
+    Player2Up,
+    Player2Down,
+    Player2Left,
+    Player2Right,
+    Player2Button1,
+    Player2Button2,
     Count,
 };
 
@@ -315,7 +321,7 @@ struct GamepadBinding {
 
 struct InputBindings {
     std::array<UINT, static_cast<std::size_t>(ControlAction::Count)> keys{
-        VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT, 'Z', 'X', VK_RETURN};
+        VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT, 'Z', 'X', VK_RETURN, 'W', 'S', 'A', 'D', 'C', 'V'};
     std::array<GamepadBinding, static_cast<std::size_t>(ControlAction::Count)> gamepads{};
 };
 
@@ -633,9 +639,13 @@ std::string gamepad_binding_setting(const GamepadBinding& binding) {
 }
 
 constexpr std::array<const char*, static_cast<std::size_t>(ControlAction::Count)> control_setting_names{
-    "key_up", "key_down", "key_left", "key_right", "key_button1", "key_button2", "key_pause"};
+    "key_up", "key_down", "key_left", "key_right", "key_button1", "key_button2", "key_pause",
+    "key_player2_up", "key_player2_down", "key_player2_left", "key_player2_right", "key_player2_button1",
+    "key_player2_button2"};
 constexpr std::array<const char*, static_cast<std::size_t>(ControlAction::Count)> gamepad_setting_names{
-    "pad_up", "pad_down", "pad_left", "pad_right", "pad_button1", "pad_button2", "pad_pause"};
+    "pad_up", "pad_down", "pad_left", "pad_right", "pad_button1", "pad_button2", "pad_pause",
+    "pad_player2_up", "pad_player2_down", "pad_player2_left", "pad_player2_right", "pad_player2_button1",
+    "pad_player2_button2"};
 
 GraphicalSettings load_graphical_settings(const std::filesystem::path& path) {
     GraphicalSettings settings;
@@ -989,6 +999,18 @@ const char* control_action_name(ControlAction action) {
         return "Botao 2";
     case ControlAction::Pause:
         return "Pause/NMI ou Start";
+    case ControlAction::Player2Up:
+        return "P2 Cima";
+    case ControlAction::Player2Down:
+        return "P2 Baixo";
+    case ControlAction::Player2Left:
+        return "P2 Esquerda";
+    case ControlAction::Player2Right:
+        return "P2 Direita";
+    case ControlAction::Player2Button1:
+        return "P2 Botao 1";
+    case ControlAction::Player2Button2:
+        return "P2 Botao 2";
     case ControlAction::Count:
         break;
     }
@@ -1234,11 +1256,37 @@ u8 joypad_button_for_action(ControlAction action) {
         return Joypad::Button1;
     case ControlAction::Button2:
         return Joypad::Button2;
+    case ControlAction::Player2Up:
+        return Joypad::Up;
+    case ControlAction::Player2Down:
+        return Joypad::Down;
+    case ControlAction::Player2Left:
+        return Joypad::Left;
+    case ControlAction::Player2Right:
+        return Joypad::Right;
+    case ControlAction::Player2Button1:
+        return Joypad::Button1;
+    case ControlAction::Player2Button2:
+        return Joypad::Button2;
     case ControlAction::Pause:
     case ControlAction::Count:
         return 0;
     }
     return 0;
+}
+
+u8 joypad_player_for_action(ControlAction action) {
+    switch (action) {
+    case ControlAction::Player2Up:
+    case ControlAction::Player2Down:
+    case ControlAction::Player2Left:
+    case ControlAction::Player2Right:
+    case ControlAction::Player2Button1:
+    case ControlAction::Player2Button2:
+        return 2;
+    default:
+        return 1;
+    }
 }
 
 void set_emulation_paused(AppState& app, bool paused) {
@@ -2326,10 +2374,12 @@ void update_key(AppState& app, WPARAM key, bool pressed) {
         if (action == ControlAction::Pause) {
             app.keyboard_input.pause = pressed;
         } else if (const u8 button = joypad_button_for_action(action); button != 0) {
+            u8& player_input = joypad_player_for_action(action) == 2 ? app.keyboard_input.player2
+                                                                    : app.keyboard_input.player1;
             if (pressed) {
-                app.keyboard_input.player1 = static_cast<u8>(app.keyboard_input.player1 | button);
+                player_input = static_cast<u8>(player_input | button);
             } else {
-                app.keyboard_input.player1 = static_cast<u8>(app.keyboard_input.player1 & ~button);
+                player_input = static_cast<u8>(player_input & ~button);
             }
         }
         app.input = app.keyboard_input;
@@ -2414,7 +2464,8 @@ void poll_gamepads(HWND hwnd, AppState& app) {
         if (action == ControlAction::Pause) {
             gamepad.pause = true;
         } else if (const u8 button = joypad_button_for_action(action); button != 0) {
-            gamepad.player1 = static_cast<u8>(gamepad.player1 | button);
+            u8& player_input = joypad_player_for_action(action) == 2 ? gamepad.player2 : gamepad.player1;
+            player_input = static_cast<u8>(player_input | button);
         }
     }
     app.gamepad_input = gamepad;
