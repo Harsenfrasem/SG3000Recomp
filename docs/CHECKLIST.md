@@ -352,6 +352,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 
 ## Testes
 
+- [x] Assertions permanecem ativas nos executaveis de teste tambem no preset Release.
 - [x] Smoke test de programa Z80 minimo.
 - [x] Varredura automatica de todas as entradas base, ED, DD e FD sem caminhos nao implementados.
 - [x] Teste de conformidade com todas as 1.604 sequencias de SingleStepTests/z80 em revisao fixada e licenciada, incluindo I/O deterministico.

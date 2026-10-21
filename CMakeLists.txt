@@ -159,11 +159,20 @@ endif()
 if(SGRECOMP_BUILD_TESTS)
     enable_testing()
 
+    function(sgrecomp_enable_test_assertions target)
+        if(MSVC)
+            target_compile_options(${target} PRIVATE /UNDEBUG)
+        else()
+            target_compile_options(${target} PRIVATE -UNDEBUG)
+        endif()
+    endfunction()
+
     add_executable(sgrecomp_tests
         tests/z80_smoke.cpp
     )
 
     target_link_libraries(sgrecomp_tests PRIVATE sgrecomp_runtime)
+    sgrecomp_enable_test_assertions(sgrecomp_tests)
 
     if(MSVC)
         target_compile_options(sgrecomp_tests PRIVATE /W4 /permissive-)
@@ -186,6 +195,7 @@ if(SGRECOMP_BUILD_TESTS)
         tests/z80_external_vectors.inc
     )
     target_link_libraries(z80_external_conformance PRIVATE sgrecomp_runtime)
+    sgrecomp_enable_test_assertions(z80_external_conformance)
     if(MSVC)
         target_compile_options(z80_external_conformance PRIVATE /W4 /permissive-)
     else()
@@ -215,6 +225,7 @@ if(SGRECOMP_BUILD_TESTS)
             SGRECOMP_RUNTIME_PATH="$<TARGET_FILE:sgrecomp_runtime>"
             SGRECOMP_OPN2_LINK_PATH="$<TARGET_LINKER_FILE:nuked_opn2>"
         )
+        sgrecomp_enable_test_assertions(recompiler_tool_smoke)
 
         if(TARGET sgrecomp_host)
             target_compile_definitions(recompiler_tool_smoke PRIVATE

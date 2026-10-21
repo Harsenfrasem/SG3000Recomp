@@ -57,6 +57,9 @@ ctest --preset lint
 Use o alvo `format` para aplicar a formatação automaticamente. O preset `lint` também
 compila com warnings tratados como erros.
 
+Os alvos de teste mantêm `assert` ativo mesmo em builds Release, para que otimização não
+desative verificações nem chamadas usadas como parte dos testes.
+
 ## Build Outputs
 
 - `sgrecomp_runtime`: static runtime library.
