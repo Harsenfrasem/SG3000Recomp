@@ -104,6 +104,9 @@ void Vdp::write_control(u8 value) {
     if (code == 2) {
         const u8 reg = static_cast<u8>(value & 0x0F);
         registers_[reg] = latch_;
+        if (reg == 9 && first_line_ && scanline_ == 0 && scanline_cycles_ == 0) {
+            vertical_scroll_latch_ = latch_;
+        }
         log_access(VdpAccessKind::Register, reg, latch_);
         if (reg == 10) {
             line_counter_ = latch_;
@@ -116,10 +119,26 @@ void Vdp::write_control(u8 value) {
 }
 
 void Vdp::tick(int cpu_cycles) {
-    scanline_cycles_ += cpu_cycles;
-    while (scanline_cycles_ >= timing_.cpu_cycles_per_scanline) {
-        scanline_cycles_ -= timing_.cpu_cycles_per_scanline;
-        advance_scanline();
+    if (cpu_cycles <= 0) {
+        return;
+    }
+
+    constexpr int horizontal_scroll_latch_counter = 0xF4;
+    const int latch_cycle = (horizontal_scroll_latch_counter * timing_.cpu_cycles_per_scanline + 341) / 342;
+    while (cpu_cycles > 0) {
+        const int remaining_in_scanline = timing_.cpu_cycles_per_scanline - scanline_cycles_;
+        const int cycles_this_scanline = std::min(cpu_cycles, remaining_in_scanline);
+        const int new_scanline_cycles = scanline_cycles_ + cycles_this_scanline;
+        if (scanline_cycles_ < latch_cycle && new_scanline_cycles >= latch_cycle) {
+            horizontal_scroll_latch_ = registers_[8];
+        }
+        scanline_cycles_ = new_scanline_cycles;
+        cpu_cycles -= cycles_this_scanline;
+
+        if (scanline_cycles_ == timing_.cpu_cycles_per_scanline) {
+            scanline_cycles_ = 0;
+            advance_scanline();
+        }
     }
 }
 
@@ -142,6 +161,7 @@ void Vdp::set_timing(const VdpTimingConfig& timing) {
     if (scanline_ >= timing_.scanlines_per_frame) {
         scanline_ = 0;
         first_line_ = true;
+        vertical_scroll_latch_ = registers_[9];
     }
     if (scanline_cycles_ >= timing_.cpu_cycles_per_scanline) {
         scanline_cycles_ %= timing_.cpu_cycles_per_scanline;
@@ -195,11 +215,13 @@ void Vdp::advance_scanline() {
     if (scanline_ == visible_height) {
         status_ |= 0x80;
         line_counter_ = registers_[10];
+        vertical_scroll_latch_ = registers_[9];
     }
 
     if (scanline_ >= timing_.scanlines_per_frame) {
         scanline_ = 0;
         first_line_ = true;
+        vertical_scroll_latch_ = registers_[9];
     }
 }
 
@@ -275,7 +297,7 @@ void Vdp::render_mode4_scanline(int line) {
     const bool lock_top_horizontal_scroll = (registers_[0] & 0x40) != 0 && line < 16;
     const bool lock_right_vertical_scroll = (registers_[0] & 0x80) != 0;
     const bool blank_left_column = left_column_blank_enabled();
-    const int horizontal_scroll = lock_top_horizontal_scroll ? 0 : registers_[8];
+    const int horizontal_scroll = lock_top_horizontal_scroll ? 0 : horizontal_scroll_latch_;
 
     for (int x = 0; x < width; ++x) {
         if (blank_left_column && x < 8) {
@@ -285,7 +307,7 @@ void Vdp::render_mode4_scanline(int line) {
 
         const int scrolled_x = (x - horizontal_scroll) & 0xFF;
         const int tile_x = scrolled_x / 8;
-        const int vertical_scroll = (lock_right_vertical_scroll && x >= 24 * 8) ? 0 : registers_[9];
+        const int vertical_scroll = (lock_right_vertical_scroll && x >= 24 * 8) ? 0 : vertical_scroll_latch_;
         const int vertical_period = active_height() == height ? 28 * 8 : 32 * 8;
         const int y = (line + vertical_scroll) % vertical_period;
         const int tile_y = (y / 8) & 0x1F;
@@ -715,7 +737,7 @@ VdpState Vdp::save_state() const {
         vram_,      cram_,         game_gear_cram_, registers_,        framebuffer_, scanline_bg_priority_,
         address_,   latch_,        code_,           pending_control_,  status_,      scanline_cycles_,
         scanline_,  line_counter_, first_line_,     line_irq_pending_, timing_,      video_mode_,
-        game_gear_, read_buffer_,
+        game_gear_, read_buffer_, horizontal_scroll_latch_, vertical_scroll_latch_,
     };
 }
 
@@ -742,6 +764,8 @@ void Vdp::load_state(const VdpState& state) {
     video_mode_ = state.video_mode;
     game_gear_ = state.game_gear;
     read_buffer_ = state.read_buffer;
+    horizontal_scroll_latch_ = state.horizontal_scroll_latch;
+    vertical_scroll_latch_ = state.vertical_scroll_latch;
 }
 
 void Vdp::log_access(VdpAccessKind kind, u16 address, u8 value) {

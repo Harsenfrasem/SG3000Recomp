@@ -52,6 +52,18 @@
       }
     },
     {
+      "name": "zig-release",
+      "displayName": "Zig Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/zig-release",
+      "toolchainFile": "${sourceDir}/cmake/zig-cxx-toolchain.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "SGRECOMP_BUILD_TOOLS": "ON",
+        "SGRECOMP_BUILD_TESTS": "ON"
+      }
+    },
+    {
       "name": "lint",
       "displayName": "Lint and warnings-as-errors",
       "inherits": "zig-debug",
@@ -81,6 +93,10 @@
       "configurePreset": "zig-debug"
     },
     {
+      "name": "zig-release",
+      "configurePreset": "zig-release"
+    },
+    {
       "name": "lint",
       "configurePreset": "lint"
     }
@@ -104,6 +120,13 @@
     {
       "name": "zig-debug",
       "configurePreset": "zig-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "zig-release",
+      "configurePreset": "zig-release",
       "output": {
         "outputOnFailure": true
       }

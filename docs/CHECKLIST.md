@@ -320,7 +320,7 @@ Game Gear e proximo o bastante do Master System para aproveitar o nucleo Z80, ca
 - [x] Save RAM em arquivo local pelo host Win32.
 - [x] Estado serializavel inicial para save states.
 - [x] Save states com versao inicial e validacao de ROM hash/modelo.
-- [x] Save states v14 com migracao de v1-v13, estados emu2413/Nuked-OPN2, Game Gear, MEMPTR/Q, framebuffer 240 e identidade.
+- [x] Save states v15 com migracao de v1-v14, estados emu2413/Nuked-OPN2, Game Gear, scroll VDP, MEMPTR/Q, framebuffer 240 e identidade.
 - [x] Save state v7 preserva o read buffer do VDP e continua lendo formatos v1-v6.
 - [x] Save state v8 preserva o lock da familia de mapper e continua lendo formatos v1-v7.
 - [x] Debug overlay de PC, FPS, frame, modo runtime e audio.

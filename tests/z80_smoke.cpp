@@ -3956,7 +3956,7 @@ void test_console_save_state_round_trip_restores_runtime_state() {
     metadata.bios_hash = "fnv1a64:bios";
     metadata.profile_fingerprint = "fnv1a64:profile";
     const auto bytes = save_console_state(console, metadata);
-    assert(bytes[4] == 14 && bytes[5] == 0);
+    assert(bytes[4] == 15 && bytes[5] == 0);
     console.bus().write(0xC000, 0x99);
     console.cpu().a = 0x11;
     assert(console.bus().read(0xC000) == 0x99);
@@ -3975,6 +3975,13 @@ void test_console_save_state_round_trip_restores_runtime_state() {
     assert(restored.vdp.timing.cpu_cycles_per_scanline == 200);
     assert(restored.vdp.timing.scanlines_per_frame == 313);
     assert(restored.vdp.video_mode == VdpVideoMode::SmsMode4);
+    ConsoleState scroll_latch_state = console.save_state();
+    scroll_latch_state.vdp.horizontal_scroll_latch = 0xA5;
+    scroll_latch_state.vdp.vertical_scroll_latch = 0x5A;
+    const auto scroll_latch_bytes = serialize_console_state(scroll_latch_state, metadata);
+    const auto restored_scroll_latches = deserialize_console_state(scroll_latch_bytes);
+    assert(restored_scroll_latches.vdp.horizontal_scroll_latch == 0xA5);
+    assert(restored_scroll_latches.vdp.vertical_scroll_latch == 0x5A);
     const auto image = deserialize_console_state_image(bytes);
     assert(image.metadata.present);
     assert(image.metadata.environment_identity_present);
@@ -4005,8 +4012,18 @@ void test_console_save_state_round_trip_restores_runtime_state() {
         1 + 2 + metadata.rom_hash.size() + 2 + metadata.bios_hash.size() + 2 + metadata.profile_fingerprint.size();
     constexpr std::size_t legacy_cpu_state_size = 41;
     const std::size_t ym2413_v14_extension_size = 8 + 2 + 4 + console.save_state().ym2413.core_state.size();
+    constexpr std::size_t v15_vdp_scroll_latches_size = 2;
+    std::vector<u8> legacy_v14 = bytes;
+    legacy_v14.resize(legacy_v14.size() - v15_vdp_scroll_latches_size);
+    legacy_v14[4] = 14;
+    legacy_v14[5] = 0;
+    const auto legacy_v14_image = deserialize_console_state_image(legacy_v14);
+    assert(legacy_v14_image.state.ym2413.core_state == restored.ym2413.core_state);
+    assert(legacy_v14_image.state.vdp.horizontal_scroll_latch == legacy_v14_image.state.vdp.registers[8]);
+    assert(legacy_v14_image.state.vdp.vertical_scroll_latch == legacy_v14_image.state.vdp.registers[9]);
+
     std::vector<u8> legacy_v13 = bytes;
-    legacy_v13.resize(legacy_v13.size() - ym2413_v14_extension_size);
+    legacy_v13.resize(legacy_v13.size() - ym2413_v14_extension_size - v15_vdp_scroll_latches_size);
     legacy_v13[4] = 13;
     legacy_v13[5] = 0;
     const auto legacy_v13_image = deserialize_console_state_image(legacy_v13);

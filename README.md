@@ -35,12 +35,12 @@ Portable local build, already validated for this workspace:
 
 ```powershell
 $env:PATH="$env:APPDATA\Python\Python314\Scripts;$env:PATH"
-cmake --preset zig-debug
-cmake --build --preset zig-debug
-ctest --preset zig-debug
+cmake --preset zig-release
+cmake --build --preset zig-release
+ctest --preset zig-release
 ```
 
-For the simplest Windows test, double-click `build\zig-debug\SG3000Recomp.exe`. The idle black frontend lets you configure controls and scaling, optionally select a BIOS, and then open or switch ROMs without restarting the process. The graphical flow automatically persists cartridge SRAM, provides hash-validated save-state management, BMP screenshots, WAV audio recording, editable per-game profiles, a hash/header game library with aliases, a live detailed-status window, and keeps a local ten-game recent list under `%LOCALAPPDATA%\SG3000Recomp`. `sgrecomp_host.exe` remains the equivalent technical/CLI name. See `docs/GUI.md` for controls and current limits.
+The release preset enables compiler optimizations for real-time play. Use `zig-debug` when developing or debugging. For the simplest Windows play test, double-click `build\zig-release\SG3000Recomp.exe`. The idle black frontend lets you configure controls and scaling, optionally select a BIOS, and then open or switch ROMs without restarting the process. The graphical flow automatically persists cartridge SRAM, provides hash-validated save-state management, BMP screenshots, WAV audio recording, editable per-game profiles, a hash/header game library with aliases, a live detailed-status window, and keeps a local ten-game recent list under `%LOCALAPPDATA%\SG3000Recomp`. `sgrecomp_host.exe` remains the equivalent technical/CLI name. See `docs/GUI.md` for controls and current limits.
 
 The optional non-historical YM2612 extension uses [Nuked-OPN2](https://github.com/nukeykt/Nuked-OPN2)
 by Alexey Khokholov (Nuke.YKT), distributed under LGPL-2.1-or-later. See
@@ -124,10 +124,10 @@ unchanged 256x192 faithful surface.
 
 Save states are local binary snapshots of mutable runtime state. They do not embed ROM or BIOS bytes, so load the same software first and keep `.sgstate` files under ignored local folders such as `local-saves/`. New save states include the ROM hash and console model; loading refuses mismatches unless `--force-state` is used for debugging.
 
-The current save-state format is version 14. It persists exact emu2413 and Nuked-OPN2 core state,
+The current save-state format is version 15. It persists exact emu2413 and Nuked-OPN2 core state,
 Game Gear palette/stereo state, the Z80 MEMPTR/WZ and Q latch, the 240-line framebuffer,
 environment identity, mapper-family lock, and VDP read buffer while remaining able to read
-versions 1 through 13.
+versions 1 through 14.
 
 `--run-host` uses the headless host runtime path. It advances full frames, samples audio at the configured host rate, applies joypad state through the runtime API, and exposes the latest framebuffer. `HostRuntimeConfig` drives the VDP scanline/frame timing used by the host loop; pass `--video-standard ntsc|pal` or set `video_standard = "pal"` in a local profile to switch frame timing without storing ROM paths. Use `--audio-sample-rate hz` or `audio_sample_rate = 48000` in a local profile to change host audio output rate. The Windows backend adapts its queue after underruns while preserving queued audio across pause/resume; see [`docs/AUDIO.md`](docs/AUDIO.md) for mixer and fidelity limits.
 

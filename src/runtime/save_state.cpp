@@ -8,7 +8,7 @@ namespace sgrecomp {
 namespace {
 
 constexpr u32 kMagic = 0x53534753; // SGSS
-constexpr u16 kVersion = 14;
+constexpr u16 kVersion = 15;
 
 class Writer {
   public:
@@ -331,6 +331,8 @@ void write_state(Writer& out, const ConsoleState& state, const SaveStateMetadata
     for (const u8 byte : state.ym2413.core_state) {
         out.u8v(byte);
     }
+    out.u8v(state.vdp.horizontal_scroll_latch);
+    out.u8v(state.vdp.vertical_scroll_latch);
 }
 
 SaveStateImage read_image(Reader& in) {
@@ -454,6 +456,13 @@ SaveStateImage read_image(Reader& in) {
         for (u8& byte : state.ym2413.core_state) {
             byte = in.u8v();
         }
+    }
+    if (version >= 15) {
+        state.vdp.horizontal_scroll_latch = in.u8v();
+        state.vdp.vertical_scroll_latch = in.u8v();
+    } else {
+        state.vdp.horizontal_scroll_latch = state.vdp.registers[8];
+        state.vdp.vertical_scroll_latch = state.vdp.registers[9];
     }
     in.finish();
     image.state = state;

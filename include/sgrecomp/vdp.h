@@ -173,6 +173,8 @@ class Vdp {
     u8 latch_ = 0;
     u8 code_ = 0;
     u8 read_buffer_ = 0;
+    u8 horizontal_scroll_latch_ = 0;
+    u8 vertical_scroll_latch_ = 0;
     bool pending_control_ = false;
     u8 status_ = 0;
     int scanline_cycles_ = 0;
@@ -235,6 +237,8 @@ struct VdpState {
     VdpVideoMode video_mode = VdpVideoMode::SmsMode4;
     bool game_gear = false;
     u8 read_buffer = 0;
+    u8 horizontal_scroll_latch = 0;
+    u8 vertical_scroll_latch = 0;
 };
 
 } // namespace sgrecomp
